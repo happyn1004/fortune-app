@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block content %}
+{% if attendance_status %}
+<section class="card reward-top-strip {% if attendance_status.checked_today %}is-checked{% endif %}">
+  <div class="reward-top-main">
+    <div class="reward-top-badge">출석 & 리워드</div>
+    <div class="reward-top-line">
+      <strong>연속 출석 {{ attendance_status.streak }}일</strong>
+      {% if attendance_status.checked_today %}
+      <span class="reward-inline-pill done">오늘 출석 완료</span>
+      {% else %}
+      <span class="reward-inline-pill ready">오늘 체크 시 즉시 리워드 지급</span>
+      {% endif %}
+    </div>
+    <p class="reward-top-copy">7일마다 프리미엄 강화 리워드, 30일마다 VIP 1일 체험 리워드가 열립니다.</p>
+  </div>
+  <div class="reward-top-meta">
+    <div class="reward-meta-inline"><span class="label">최근 보상</span><strong>{{ attendance_status.latest_reward_value or '추천번호 +1세트' }}</strong></div>
+    <div class="reward-meta-inline"><span class="label">현재 등급</span><strong>{{ user.plan }}</strong></div>
+  </div>
+  <div class="reward-top-actions">
+    {% if attendance_status.checked_today %}
+    <div class="reward-done-pill">오늘 출석 완료</div>
+    {% else %}
+    <form method="post" action="/attendance/check"><button class="btn primary reward-check-btn" type="submit">오늘 출석 체크</button></form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+<section class="fortune-hero card premium-fortune-shell">
+  <div class="fortune-hero-copy">
+    <div class="badge">{{ fortune.plan_meta.label }} · {{ fortune.plan_meta.report_name }}</div>
+    <h1>{{ user.name }}님의 오늘 운세</h1>
+    <p class="fortune-summary">{{ fortune['티저요약'] if active_plan == "Free" else fortune['요약'] }}</p>
+    <div class="fortune-tags">
+      <span>띠 {{ fortune['띠'] }}</span>
+      <span>행운의 수 {{ fortune['행운의수'][0] }}, {{ fortune['행운의수'][1] }}</span>
+      <span>좋은 방향 {{ fortune['오늘의좋은방향'] }}</span>
+      {% if active_plan != "Free" %}
+      <span>행운색 {{ fortune['행운색'] }}</span>
+      <span>행운시간 {{ fortune['행운시간'] }}</span>
+      <span>에너지 {{ fortune['에너지테마'] }}</span>
+      {% else %}
+      <span>추가 포인트는 Basic에서 더 열립니다</span>
+      {% endif %}
+    </div>
+    {% if user.role == 'admin' %}
+    <div class="preview-switch left-margin">
+      <span class="preview-label">관리자 전용 단계별 테스트</span>
+      {% for level in plan_levels %}
+        <a class="preview-pill {% if active_plan == level %}active{% endif %}" href="/fortune?preview={{ level }}">{{ level }}</a>
+      {% endfor %}
+    </div>
+    {% if preview_mode %}
+      <div class="preview-banner">현재는 <strong>{{ active_plan }}</strong> 화면을 테스트 중입니다. 실제 회원 등급은 <strong>{{ user.plan }}</strong> 입니다.</div>
+    {% endif %}
+    {% endif %}
+  </div>
+  <div class="fortune-score-panel tier-{{ active_plan|lower }}">
+    <div class="fortune-score-ring">
+      <div class="score-mini-label">TODAY SCORE</div>
+      <div class="fortune-score-number">{{ fortune['점수'] }}</div>
+      <div class="fortune-score-text">{{ fortune.plan_meta.headline }}</div>
+    </div>
+    <p class="fortune-one-line">{{ fortune['오늘의한줄'] }}</p>
+  </div>
+</section>
+
+<section class="info-grid two fortune-top-flow comment-focus-grid">
+  <div class="card side-premium-card top-comment-card">
+    <div class="premium-header">
+      <h3>오늘의 코멘트</h3>
+      <p>{{ fortune.plan_meta.accent }}</p>
+    </div>
+    <div class="quote-box">{{ fortune['오늘의코멘트'] }}</div>
+  </div>
+  <div class="card focus-card">
+    <div class="premium-header focus-header">
+      <h3>맞춤 초점</h3>
+      <p>오늘 가장 선명하게 잡아야 할 한 가지</p>
+    </div>
+    <div class="tip-box focus-tip-box">
+      <div class="tip-label">FOCUS POINT</div>
+      <p>{{ fortune['맞춤초점'] }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="info-grid three fortune-kpis reordered-kpis">
+  {% if active_plan == "Free" %}
+  <div class="card metric-card teaser-metric"><div class="metric-title">총운 티저</div><div class="metric-icon">🌙</div><p>{{ fortune['티저카드'][0] }}</p></div>
+  <div class="card metric-card teaser-metric"><div class="metric-title">금전운 티저</div><div class="metric-icon">💰</div><p>{{ fortune['티저카드'][1] }}</p></div>
+  <div class="card metric-card teaser-metric"><div class="metric-title">관계운 티저</div><div class="metric-icon">🤝</div><p>{{ fortune['티저카드'][2] }}</p></div>
+  {% else %}
+  <div class="card metric-card"><div class="metric-title">총운</div><div class="metric-icon">🌙</div><p>{{ fortune['총운'] }}</p></div>
+  <div class="card metric-card"><div class="metric-title">금전운</div><div class="metric-icon">💰</div><p>{{ fortune['금전운'] }}</p></div>
+  <div class="card metric-card"><div class="metric-title">인간관계운</div><div class="metric-icon">🤝</div><p>{{ fortune['인간관계운'] }}</p></div>
+  {% endif %}
+</section>
+
+<section class="card lotto-card">
+  <div class="panel-head"><h3>이번주 행운 로또 번호</h3><span class="panel-chip">{{ fortune['이번주로또']['week_key'] }}</span></div>
+  <p class="muted lotto-caption">관계운 티저 아래, 오늘의 핵심 리딩 위에 배치했습니다. {{ fortune["이번주로또"]["summary"] }}</p>
+  <div class="lotto-grid">
+    {% for row in fortune['이번주로또']['sets'][:2 if active_plan == 'Free' else 5 if active_plan == 'VIP' else 3] %}
+    <div class="lotto-set-card">
+      <div class="lotto-set-head">추천 {{ row['set_no'] }}세트 <span class="lotto-strategy-chip">{{ row['strategy'] }}</span></div>
+      <div class="lotto-balls">{% for n in row['numbers'] %}<span class="lotto-ball">{{ n }}</span>{% endfor %}</div>
+      {% if active_plan != 'Free' %}
+      <div class="lotto-reason">{{ row['reason'] }}</div>
+      <div class="lotto-analysis">{{ row['analysis'] }}</div>
+      <div class="lotto-analysis">전략점수 {{ row['score'] }} · 회피권장 {{ row['avoid'] }}</div>
+      {% else %}
+      <div class="lotto-analysis">Basic부터 조합 이유와 분석이 열립니다.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="info-grid two fortune-detail-grid reordered-details">
+  <div class="card detail-panel primary-reading-card">
+    <div class="panel-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip">{{ active_plan }} View</span></div>
+    <div class="fortune-highlight">{{ fortune['오늘의한줄'] if active_plan == "Free" else fortune['총운'] }}</div>
+    <div class="report-stage-list">
+      {% if active_plan == "Free" %}
+      <div class="report-stage-item">오늘은 핵심 하나만 보이고, 남은 리듬 분석은 Basic부터 열립니다.</div>
+      <div class="report-stage-item">행운의 수는 <strong>{{ fortune['행운의수'][0] }}</strong>, <strong>{{ fortune['행운의수'][1] }}</strong> 입니다.</div>
+      <div class="report-stage-item">오늘의 좋은 방향은 <strong>{{ fortune['오늘의좋은방향'] }}</strong>, 오늘의 길한 성씨는 <strong>{{ fortune['오늘의길인성씨'] }}</strong> 입니다.</div>
+      <div class="report-stage-item">행운시간과 행동 타이밍 등 추가 포인트는 Basic부터 더 열립니다.</div>
+      {% else %}
+      {% for item in fortune['리듬체크'] %}<div class="report-stage-item">{{ item }}</div>{% endfor %}
+      {% endif %}
+    </div>
+    {% if fortune.access.basic %}
+    <dl class="fortune-list upgraded">
+      <dt>행운의 수</dt><dd>{{ fortune['행운의수'][0] }}, {{ fortune['행운의수'][1] }}</dd>
+      <dt>행운색</dt><dd>{{ fortune['행운색'] }}</dd>
+      <dt>행운시간</dt><dd>{{ fortune['행운시간'] }}</dd>
+      <dt>행운아이템</dt><dd>{{ fortune['행운아이템'] }}</dd>
+      <dt>오늘의 좋은 방향</dt><dd>{{ fortune['오늘의좋은방향'] }}</dd>
+      <dt>오늘의 길인 성씨</dt><dd>{{ fortune['오늘의길인성씨'] }}</dd>
+    </dl>
+    {% else %}
+    <div class="lock-card"><div class="lock-title">Basic에서 열리는 섹션</div><p>행운색, 행운시간, 행운아이템, 오늘의 좋은 방향, 오늘의 길인 성씨, 하루 리듬 체크가 정식으로 제공됩니다.</p><a class="btn primary" href="/plans">Basic 살펴보기</a></div>
+    {% endif %}
+  </div>
+
+  <div class="card side-premium-card plan-cta-card">
+    <div class="premium-header"><h3>플랜별 확장 포인트</h3><p>무료 → 유료 전환 구조를 보이도록 정리했습니다.</p></div>
+    <div class="report-stage-list">
+      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 로또 2세트 공개</div>
+      <div class="report-stage-item"><strong>Basic</strong> : 행운시간, 이유 있는 로또 분석, 오늘의 코멘트 강화</div>
+      <div class="report-stage-item"><strong>Premium</strong> : 사업운, 행동전략, 주의포인트, 실전형 해석</div>
+      <div class="report-stage-item"><strong>VIP</strong> : 투자/계약/월간 인사이트 + 로또 5세트 + 전략 브리핑</div>
+    </div>
+    <div class="actions" style="margin-top:22px;"><a class="btn primary" href="/plans">플랜 보기</a><a class="btn" href="/contact">문의하기</a></div>
+  </div>
+</section>
+
+<section class="info-grid two advanced-grid">
+  {% if fortune.access.premium %}
+  <div class="card detail-panel premium-panel">
+    <div class="panel-head"><h3>Premium 실전 해석</h3><span class="panel-chip">Business Layer</span></div>
+    <dl class="fortune-list upgraded">
+      <dt>사업운</dt><dd>{{ fortune['사업운'] }}</dd>
+      <dt>행동전략</dt><dd>{{ fortune['행동전략'] }}</dd>
+      <dt>주의포인트</dt><dd>{{ fortune['주의포인트'] }}</dd>
+      <dt>재물집중 코멘트</dt><dd>{{ fortune['재물집중코멘트'] }}</dd>
+    </dl>
+    <div class="premium-comment-box">{{ fortune['프리미엄코멘트'] }}</div>
+  </div>
+  {% else %}
+  <div class="card lock-card premium-lock"><div class="lock-title">Premium에서 열리는 실전 분석</div><p>사업운, 행동전략, 주의포인트, 프리미엄 코멘트가 추가되어 Basic보다 확실히 깊은 해석을 보여줍니다.</p><a class="btn primary" href="/plans">Premium 보기</a></div>
+  {% endif %}
+
+  {% if fortune.access.vip %}
+  <div class="card vip-briefing-card vip-colored-card">
+    <div class="panel-head"><h3>VIP 전략 브리핑</h3><span class="panel-chip vip-chip">Executive Layer</span></div>
+    <div class="vip-meters"><div class="vip-meter"><span>기회지수</span><strong>{{ fortune['기회지수'] }}</strong></div><div class="vip-meter"><span>위험지수</span><strong>{{ fortune['위험지수'] }}</strong></div></div>
+    <dl class="fortune-list upgraded vip-list">
+      <dt>투자운</dt><dd>{{ fortune['투자운'] }}</dd>
+      <dt>계약운</dt><dd>{{ fortune['계약운'] }}</dd>
+      <dt>타이밍 코칭</dt><dd>{{ fortune['타이밍코칭'] }}</dd>
+      <dt>월간 인사이트</dt><dd>{{ fortune['월간인사이트'] }}</dd>
+    </dl>
+    <div class="vip-brief-text">{{ fortune['VIP브리핑'] }}</div>
+  </div>
+  {% else %}
+  <div class="card lock-card vip-lock vip-colored-card"><div class="lock-title">VIP에서만 보이는 최상위 해석</div><p>투자운, 계약운, 타이밍 코칭, 월간 인사이트, VIP 브리핑은 VIP 전용 구성입니다. Premium과도 확실히 차이 나도록 설계했습니다.</p><a class="btn primary" href="/plans">VIP 보기</a></div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ff7a00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mystic Day">
+  <meta name="description" content="오늘의 운세, 재물운, 관계운, 행운 로또 번호를 확인하는 프리미엄 리포트 서비스">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <title>{% block title %}{{ site_settings.brand_name if site_settings else "오늘의 운세" }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="logo" href="/">{{ site_settings.brand_name if site_settings else "Mystic Day" }}</a>
+      <nav class="nav-links">
+        <a href="/plans">구독안내</a>
+        <a href="/contact">문의</a>
+        {% if user %}
+          <span class="top-plan grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>
+          {% if notification_count %}<span class="notification-badge">알림 {{ notification_count }}</span>{% endif %}
+          <a href="/profile">프로필</a>
+          <a href="/fortune">오늘의 운세</a>
+          <a href="/vip-report">VIP 리포트</a>
+          {% if user.role == "admin" %}<a href="/automation-studio">자동화 스튜디오</a>{% endif %}
+          <a href="/logout">로그아웃</a>
+        {% else %}
+          <a href="/signup">회원가입</a>
+          <a href="/login">로그인</a>
+        {% endif %}
+        <a class="admin-link" href="/admin/login">관리자</a>
+      </nav>
+    </div>
+    {% if user %}
+    <div class="mobile-grade-strip mobile-only">
+      <span class="mobile-grade-label">현재 등급</span>
+      <span class="grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>
+      
+    </div>
+    {% endif %}
+    <nav class="mobile-top-tabs mobile-only" aria-label="빠른 메뉴">
+      <a href="/" data-path="/"><span class="icon">🏠</span><span>홈</span></a>
+      <a href="/plans" data-path="/plans"><span class="icon">💎</span><span>플랜</span></a>
+      {% if user %}
+      <a href="/fortune" data-path="/fortune"><span class="icon">🔮</span><span>운세</span></a>
+      <a href="/vip-report" data-path="/vip-report"><span class="icon">📘</span><span>VIP리포트</span></a>
+      <a href="/profile" data-path="/profile"><span class="icon">👤</span><span>프로필</span></a>
+      <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
+      <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
+      {% if user.role == "admin" %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}
+      {% else %}
+      <a href="/signup" data-path="/signup"><span class="icon">✍️</span><span>가입</span></a>
+      <a href="/login" data-path="/login"><span class="icon">🔐</span><span>로그인</span></a>
+      <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
+      <a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="wrap">
+    {% if subscription_status and user and user.role == 'customer' %}<div class="subscription-banner {{ subscription_status.kind }}">{{ subscription_status.message }}</div>{% endif %}
+    {% if attendance_status and user and user.role == 'customer' and request.url.path != '/fortune' %}<div class="attendance-banner">연속 출석 {{ attendance_status.streak }}일 · {% if attendance_status.checked_today %}오늘 출석 완료{% else %}오늘 출석 체크로 리워드 받기{% endif %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <button id="installAppBtn" class="push-enable-btn install-app-btn" type="button" style="display:none; right:84px;">앱 설치</button>
+  <button class="push-enable-btn" id="pushEnableBtn" type="button">알림 허용</button>
+  <div id="pushToastStack" class="push-toast-stack"></div>
+  {% if active_ad %}
+  <section class="wrap footer-ad-wrap">
+    <section class="ad-banner card footer-ad-banner">
+      {% if active_ad.target_url %}<a href="{{ active_ad.target_url }}" target="_blank" rel="noopener" class="ad-banner-link">{% endif %}
+        <div class="ad-banner-media">{% if active_ad.media_type == 'video' %}<video src="{{ active_ad.media_url }}" controls playsinline preload="metadata" poster="/static/default-ad.svg"></video>{% else %}<img src="{{ active_ad.media_url }}" alt="{{ active_ad.title }}" onerror="this.onerror=null;this.src='/static/default-ad.svg';">{% endif %}</div>
+        <div class="ad-banner-copy"><div class="badge">광고 / 프로모션</div><strong>{{ active_ad.title }}</strong><p>{{ active_ad.description }}</p></div>
+      {% if active_ad.target_url %}</a>{% endif %}
+    </section>
+  </section>
+  {% endif %}
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div><div class="footer-brand">{{ site_settings.brand_name if site_settings else "Mystic Day" }}</div><p class="footer-copy">{{ site_settings.footer_description if site_settings else "운세 기반 구독형 서비스 테스트와 실결제 준비를 함께 진행할 수 있도록 설계된 프리미엄 리포트 플랫폼입니다." }}</p></div>
+      <div class="footer-links"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/refund-policy">환불정책</a><a href="/support-info">고객센터정보</a></div>
+    </div>
+  </footer>
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", function(){ navigator.serviceWorker.register("/static/sw.js").catch(function(){}); }); }
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); deferredPrompt = e; var b=document.getElementById("installAppBtn"); if(b) b.style.display="inline-flex"; });
+(function(){
+  var path = window.location.pathname || "/";
+  document.querySelectorAll('.mobile-top-tabs a').forEach(function(link){
+    var linkPath = link.getAttribute('data-path') || link.getAttribute('href') || '';
+    var active = linkPath === '/' ? path === '/' : path === linkPath || path.indexOf(linkPath + '/') === 0;
+    if (active) link.classList.add('active');
+  });
+})();
+(function(){
+  const btn = document.getElementById('pushEnableBtn');
+  const stack = document.getElementById('pushToastStack');
+  const seen = new Set();
+  function showToast(item){
+    if (seen.has(item.id)) return;
+    seen.add(item.id);
+    const el = document.createElement('div');
+    el.className = 'push-toast';
+    el.innerHTML = '<strong>' + item.title + '</strong><p>' + item.message + '</p>' + (item.target_url ? '<a href="'+item.target_url+'">바로가기</a>' : '');
+    stack.prepend(el);
+    setTimeout(function(){ el.classList.add('show'); }, 10);
+    setTimeout(function(){ el.classList.remove('show'); setTimeout(function(){ el.remove(); }, 280); }, 7000);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        const n = new Notification(item.title, { body: item.message, icon: '/static/icon-192.png' });
+        n.onclick = function(){ if(item.target_url){ window.open(item.target_url, '_blank'); } window.focus(); };
+      } catch(e) {}
+    }
+  }
+  async function poll(){
+    try {
+      const res = await fetch('/api/notifications', { credentials: 'same-origin' });
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.items || []).forEach(showToast);
+      if ((data.count || 0) > 0) { fetch('/api/notifications/read-all', { method: 'POST', credentials: 'same-origin' }).catch(function(){}); }
+    } catch(e) {}
+  }
+  var installBtn = document.getElementById("installAppBtn");
+  if (installBtn) {
+    installBtn.addEventListener("click", async function(){
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch(e) {}
+      deferredPrompt = null;
+      installBtn.style.display = "none";
+    });
+  }
+  if (btn) {
+    btn.addEventListener('click', function(){
+      if ('Notification' in window) {
+        Notification.requestPermission().then(function(result){ if (result === 'granted') btn.textContent = '알림 허용됨'; });
+      }
+    });
+    if (!('Notification' in window)) btn.style.display = 'none';
+    else if (Notification.permission === 'granted') btn.textContent = '알림 허용됨';
+  }
+  poll();
+  setInterval(poll, 20000);
+})();
+</script>
+</body>
+</html>
