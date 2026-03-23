@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}결제 진행{% endblock %}
+{% block content %}
+<section class="card payment-hero enhanced-payment-hero">
+  <div class="section-head">
+    <h1>{{ payment_provider_meta[payment.provider].label if payment.provider in payment_provider_meta else payment.provider }} 결제 진행</h1>
+    <p>주문번호 기반으로 결제와 구독 상태를 관리하도록 만들었습니다. 테스트결제는 즉시 승인, 계좌이체는 관리자 확인, 토스/카카오는 실연동 준비형 안내로 구성되어 있습니다.</p>
+  </div>
+  <div class="payment-status-row">
+    <span class="grade-badge grade-{{ payment.plan|lower }}">{{ payment.plan }}</span>
+    <span class="status-pill status-{{ payment.status|lower|replace('_', '-') }}">{{ payment.status }}</span>
+    <span class="muted">주문번호 {{ payment.order_id }}</span>
+  </div>
+</section>
+
+<div class="info-grid two">
+  <section class="card">
+    <h3>주문 정보</h3>
+    <div class="checkout-lines">
+      <div><span>상품</span><strong>{{ payment.plan }} 플랜</strong></div>
+      <div><span>결제 금액</span><strong>{{ "{:,}".format(payment.amount) }}원</strong></div>
+      <div><span>결제 수단</span><strong>{{ payment_provider_meta[payment.provider].label if payment.provider in payment_provider_meta else payment.provider }}</strong></div>
+      <div><span>주기</span><strong>{{ payment.billing_cycle_days }}일</strong></div>
+      <div><span>생성일</span><strong>{{ payment.created_at }}</strong></div>
+    </div>
+  </section>
+  <section class="card">
+    {% if payment.provider == 'BANK' %}
+      <h3>계좌이체 안내</h3>
+      <div class="legal-body"><p><strong>{{ bank_account.bank }}</strong> {{ bank_account.number }}<br>예금주 {{ bank_account.holder }}</p><p class="muted">입금 후 아래에 입금자명을 남기면 관리자 확인 뒤 등급이 반영됩니다.</p></div>
+      {% if request.query_params.get('requested') or payment.status == 'WAITING_DEPOSIT' %}<div class="success">입금 신청이 접수되었습니다. 관리자 확인 후 플랜이 반영됩니다.</div>{% endif %}
+      <div class="actions stacked-actions">
+        <form method="post" action="/checkout/{{ payment.order_id }}/bank-request" class="bank-request-form">
+          <input type="text" name="depositor_name" placeholder="입금자명 입력" value="{{ payment.depositor_name or user.name }}" required>
+          <input type="text" name="memo" placeholder="메모 (선택)" value="{{ payment.fail_reason or '' }}">
+          <button class="btn primary big-btn" type="submit">입금 완료 후 신청하기</button>
+        </form>
+      </div>
+    {% elif payment.provider in ['TOSS','KAKAO'] %}
+      <h3>실결제 연동 준비형 화면</h3>
+      <div class="feature-list provider-checkout-list">
+        <div>웹 구독 결제 버튼 자리</div>
+        <div>결제 승인 후 같은 주문번호로 상태 업데이트</div>
+        <div>성공 시 {{ payment.plan }} 등급과 만료일 자동 반영</div>
+        <div>실패 시 사유 기록 및 재시도 유도</div>
+      </div>
+      <div class="preview-banner soft">현재 파일에는 실연동 준비 구조와 운영 문구가 들어가 있습니다. 실제 키를 넣으면 승인 API를 이 주문번호에 연결하면 됩니다.</div>
+      <div class="actions stacked-actions">
+        <form method="post" action="/checkout/{{ payment.order_id }}/complete"><button class="btn primary big-btn" type="submit">{{ payment_provider_meta[payment.provider].label }} 테스트 승인</button></form>
+        <form method="post" action="/checkout/{{ payment.order_id }}/fail"><input type="hidden" name="reason" value="{{ payment_provider_meta[payment.provider].label }} 테스트 취소"><button class="btn big-btn" type="submit">테스트 실패 처리</button></form>
+      </div>
+    {% else %}
+      <h3>테스트 결제</h3>
+      <ul class="feature-list"><li>결제 성공 내역 저장</li><li>{{ payment.plan }} 등급 자동 적용</li><li>이용권 만료일 30일 자동 설정</li><li>결제내역 / 관리자 매출 집계 반영</li></ul>
+      <div class="actions stacked-actions">
+        <form method="post" action="/checkout/{{ payment.order_id }}/complete"><button class="btn primary big-btn" type="submit">테스트 결제 성공 처리</button></form>
+        <form method="post" action="/checkout/{{ payment.order_id }}/fail"><input type="hidden" name="reason" value="테스트 결제 취소"><button class="btn big-btn" type="submit">테스트 결제 실패 처리</button></form>
+      </div>
+    {% endif %}
+    <a class="btn" href="/payments">내 결제내역 보기</a>
+    <a class="btn" href="/plans">플랜 선택으로 돌아가기</a>
+  </section>
+</div>
+
+<section class="card note-card">
+  <h3>정기구독/앱 확장 포인트</h3>
+  <p>웹은 토스페이먼츠/카카오페이 구조를, 앱은 인앱결제 구조를 붙일 수 있도록 주문번호·결제 상태·만료일 관리가 먼저 준비된 버전입니다. 광고와 푸시, CRM과 함께 수익형 구조로 확장하기 쉽게 수정했습니다.</p>
+</section>
+{% endblock %}

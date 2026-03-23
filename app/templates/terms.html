@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}이용약관{% endblock %}
+{% block content %}
+<section class="card legal-card">
+  <div class="section-head compact">
+    <h1>이용약관</h1>
+    <p>관리자 페이지에서 입력한 전체 약관 내용이 그대로 노출됩니다.</p>
+  </div>
+  <div class="legal-body legal-preformatted">{{ site_settings.terms_full_text }}</div>
+</section>
+{% endblock %}

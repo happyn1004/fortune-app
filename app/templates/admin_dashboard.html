@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>관리자 대시보드</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<main class="wrap admin-wrap">
+  <section class="hero-grid admin-head-grid">
+    <div class="card hero-card">
+      <div class="badge">관리자 센터</div>
+      <h1>회원 · 결제 · 광고 · 푸시 · CRM을<br><span>한 화면에서 운영</span></h1>
+      <p class="subtext">광고 업로드, 푸시 발송, 자동 푸시 캠페인, 결제 수단 운영, 회원 CRM, 데이터 백업까지 한 번에 관리하도록 재정리했습니다.</p>
+      {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">DB 백업이 생성되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
+    </div>
+    <div class="card score-card">
+      <div class="ring"><div class="score-title">Customers</div><div class="score-num">{{ stats.total_users }}</div><div class="score-label">현재 회원 수</div></div>
+    </div>
+  </section>
+
+  <section class="card filter-card admin-hook-card">
+    <div class="table-head-row"><h3>메인 후킹 흐름 점검</h3><p class="muted">이 내용은 관리자 화면에서만 확인되며, 고객 메인에는 노출되지 않습니다.</p></div>
+    <div class="info-grid three admin-hook-grid">
+      <div class="card small-card elevated"><h3>1. 첫 클릭 유도</h3><p>첫 화면은 고객용 문구와 CTA만 남기고, 운영 전략 설명 문구는 관리자에서만 점검하도록 분리했습니다.</p></div>
+      <div class="card small-card elevated"><h3>2. 신뢰 숫자 관리</h3><p>메인에 보이는 확인 수·프리미엄 회원 수·업그레이드 전환율은 후킹용 수치로 보정해 더 강하게 보이도록 조정했습니다.</p></div>
+      <div class="card small-card elevated"><h3>3. 전환 흐름</h3><p>오늘의 코멘트 → 관계운 티저 → 이번주 행운 로또 번호 → 핵심 리딩 → VIP 보기 흐름을 계속 유지해 전환을 높이세요.</p></div>
+    </div>
+  </section>
+
+
+  <section class="admin-overview-grid crm-grid-expanded">
+    <div class="card admin-stat-stack">
+      <div class="admin-stat-head"><h3>회원 현황</h3><p class="muted">등급 분포와 활성 유료 전환을 함께 봅니다.</p></div>
+      <div class="info-grid five stats-five compact-stats">
+        <div class="card stat-card"><div class="stat-label">총 회원</div><div class="stat-value">{{ stats.total_users }}</div></div>
+        <div class="card stat-card"><div class="stat-label">Free</div><div class="stat-value">{{ stats.free_users }}</div></div>
+        <div class="card stat-card"><div class="stat-label">Basic</div><div class="stat-value">{{ stats.basic_users }}</div></div>
+        <div class="card stat-card"><div class="stat-label">Premium</div><div class="stat-value">{{ stats.premium_users }}</div></div>
+        <div class="card stat-card"><div class="stat-label">VIP</div><div class="stat-value">{{ stats.vip_users }}</div></div>
+      </div>
+    </div>
+    <div class="card admin-sales-panel">
+      <div class="admin-stat-head"><h3>CRM 핵심 지표</h3><p class="muted">유료 전환과 휴면 상태를 빠르게 확인합니다.</p></div>
+      <div class="info-grid three compact-stats">
+        <div class="card stat-card"><div class="stat-label">유료 회원</div><div class="stat-value">{{ crm.active_paid }}</div></div>
+        <div class="card stat-card"><div class="stat-label">전환율</div><div class="stat-value">{{ crm.conversion_rate }}%</div></div>
+        <div class="card stat-card"><div class="stat-label">7일 휴면</div><div class="stat-value">{{ crm.dormant_7 }}</div></div>
+        <div class="card stat-card"><div class="stat-label">7일 신규</div><div class="stat-value">{{ crm.recent_7 }}</div></div>
+        <div class="card stat-card"><div class="stat-label">입금 대기</div><div class="stat-value">{{ crm.waiting_bank }}</div></div>
+        <div class="card stat-card"><div class="stat-label">누적 조회</div><div class="stat-value">{{ crm.today_views }}</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>결제 수단 운영 가이드</h3><p class="muted">웹 결제와 테스트, 수동 입금까지 한 번에 관리할 수 있도록 정리했습니다.</p></div>
+    <div class="info-grid four">
+      {% for key, meta in payment_provider_meta.items() %}
+      <div class="card small-card provider-box"><h4>{{ meta.label }}</h4><p>{{ meta.description }}</p><div class="muted">코드 {{ key }}</div></div>
+      {% endfor %}
+    </div>
+    <div class="preview-banner soft">실제 승인 키만 연결하면 주문번호 기준으로 같은 결제 흐름을 사용할 수 있습니다.</div>
+  </section>
+
+  <section class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>광고 / 푸시 / 자동 캠페인</h3><p class="muted">광고는 푸터 위에 노출되고, 푸시는 즉시 발송 또는 자동 발송 캠페인으로 운용할 수 있습니다.</p></div>
+    <div class="admin-marketing-grid triple-grid">
+      <form method="post" action="/admin/ads" enctype="multipart/form-data" class="marketing-box">
+        <h4>광고 등록</h4>
+        <label>광고 제목<input type="text" name="title" required></label>
+        <label>설명<input type="text" name="description"></label>
+        <label>링크 URL<input type="text" name="target_url" placeholder="https://..."></label>
+        <label>이미지/영상 파일<input type="file" name="media_file" accept="image/*,video/*" required></label>
+        <button class="btn primary" type="submit">광고 업로드</button>
+      </form>
+      <form method="post" action="/admin/push" class="marketing-box">
+        <h4>즉시 푸시</h4>
+        <label>알림 제목<input type="text" name="title" required></label>
+        <label>알림 내용<textarea name="message" rows="5" required></textarea></label>
+        <label>이동 링크<input type="text" name="target_url" placeholder="/fortune 또는 https://..."></label>
+        <label>대상 등급<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
+        <button class="btn primary" type="submit">즉시 발송</button>
+      </form>
+      <form method="post" action="/admin/push-campaigns" class="marketing-box">
+        <h4>자동 푸시 캠페인</h4>
+        <label>캠페인명<input type="text" name="title" required></label>
+        <label>메시지<textarea name="message" rows="5" required></textarea></label>
+        <label>이동 링크<input type="text" name="target_url" value="/fortune"></label>
+        <label>대상 등급<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
+        <label>발송 타이밍<select name="schedule_type"><option value="MORNING">아침</option><option value="EVENING">저녁</option><option value="LOTTO">금요일 로또</option><option value="DORMANT">휴면 복귀</option></select></label>
+        <button class="btn primary" type="submit">캠페인 저장</button>
+      </form>
+    </div>
+    <div class="admin-marketing-grid lower-grid triple-grid">
+      <div class="marketing-box"><h4>등록된 광고</h4><div class="marketing-list">{% for ad in ads %}<div class="marketing-row"><div><strong>{{ ad.title }}</strong><div class="muted">{{ ad.media_type }} · {{ ad.created_at }}</div><div class="muted">{{ ad.media_url }}</div></div><div class="marketing-actions"><form method="post" action="/admin/ads/{{ ad.id }}/toggle"><button class="btn mini" type="submit">{{ '숨기기' if ad.is_active else '노출' }}</button></form><form method="post" action="/admin/ads/{{ ad.id }}/delete"><button class="btn mini" type="submit">삭제</button></form></div></div>{% else %}<div class="muted">아직 광고가 없습니다.</div>{% endfor %}</div></div>
+      <div class="marketing-box"><h4>최근 푸시</h4><div class="marketing-list">{% for row in pushes %}<div class="marketing-row"><div><strong>{{ row.title }}</strong><div class="muted">{{ row.audience_plan }} · {{ row.created_at }}</div><div class="muted">{{ row.message }}</div></div></div>{% else %}<div class="muted">아직 푸시 발송 내역이 없습니다.</div>{% endfor %}</div></div>
+      <div class="marketing-box"><h4>자동 캠페인</h4><div class="marketing-list">{% for row in campaigns %}<div class="marketing-row"><div><strong>{{ row.title }}</strong><div class="muted">{{ row.schedule_type }} · {{ row.audience_plan }}</div><div class="muted">{{ row.message }}</div></div><div class="marketing-actions"><form method="post" action="/admin/push-campaigns/{{ row.id }}/toggle"><button class="btn mini" type="submit">{{ '중지' if row.is_active else '재개' }}</button></form><form method="post" action="/admin/push-campaigns/{{ row.id }}/delete"><button class="btn mini" type="submit">삭제</button></form></div></div>{% else %}<div class="muted">아직 자동 캠페인이 없습니다.</div>{% endfor %}</div></div>
+    </div>
+  </section>
+
+  <section class="card filter-card admin-data-card">
+    <div class="table-head-row"><h3>데이터 백업 · 복원 · 내보내기</h3><p class="muted">업데이트 전 백업을 만들고, 문제가 생기면 즉시 복원할 수 있습니다.</p></div>
+    <div class="admin-data-grid">
+      <div class="admin-data-box"><h4>백업/내보내기</h4><div class="admin-action-stack"><form method="post" action="/admin/backup/create"><button class="btn primary" type="submit">즉시 백업 생성</button></form><a class="btn" href="/admin/backup/download">현재 DB 다운로드</a><a class="btn" href="/admin/export/users.csv">회원 CSV 다운로드</a><a class="btn" href="/admin/export/payments.csv">결제 CSV 다운로드</a></div></div>
+      <div class="admin-data-box"><h4>백업 복원</h4><form method="post" action="/admin/restore" enctype="multipart/form-data" class="admin-restore-form"><input type="file" name="backup_file" accept=".db" required><button class="btn primary" type="submit">업로드 후 복원</button></form><p class="muted">복원 전 현재 DB는 자동으로 한 번 더 백업됩니다.</p></div>
+      <div class="admin-data-box"><h4>최근 백업</h4><div class="backup-list">{% for item in backup_files %}<div class="backup-row"><div><strong>{{ item.filename }}</strong><div class="muted">{{ item.modified_at }} · {{ "{:,}".format(item.size) }} bytes</div></div><a class="btn mini" href="/admin/backup/file/{{ item.filename }}">다운로드</a></div>{% else %}<div class="muted">백업 파일이 아직 없습니다.</div>{% endfor %}</div></div>
+    </div>
+  </section>
+
+  <section class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>필수 정보 관리</h3><p class="muted">이용약관, 개인정보처리방침, 환불정책, 고객센터정보에 쓰이는 내용을 관리자에서 바로 수정할 수 있습니다.</p></div>
+    <form method="post" action="/admin/settings" class="settings-form-grid">
+      <label>브랜드명<input type="text" name="brand_name" value="{{ site_settings.brand_name }}"></label>
+      <label>사업자/상호명<input type="text" name="business_name" value="{{ site_settings.business_name }}"></label>
+      <label>대표자명<input type="text" name="representative_name" value="{{ site_settings.representative_name }}"></label>
+      <label>사업자등록번호<input type="text" name="business_number" value="{{ site_settings.business_number }}"></label>
+      <label>통신판매업 신고번호<input type="text" name="ecommerce_number" value="{{ site_settings.ecommerce_number }}"></label>
+      <label>고객센터 이메일<input type="text" name="support_email" value="{{ site_settings.support_email }}"></label>
+      <label>고객센터 전화번호<input type="text" name="support_phone" value="{{ site_settings.support_phone }}"></label>
+      <label>운영시간<input type="text" name="support_hours" value="{{ site_settings.support_hours }}"></label>
+      <label class="span-2">사업장 주소<input type="text" name="business_address" value="{{ site_settings.business_address }}"></label>
+      <label>개인정보관리책임자<input type="text" name="privacy_manager" value="{{ site_settings.privacy_manager }}"></label>
+      <label class="span-2">푸터 설명<textarea name="footer_description" rows="3">{{ site_settings.footer_description }}</textarea></label>
+      <div class="span-2 legal-editor-grid">
+        <label class="legal-editor-box"><span>이용약관 전체</span><textarea name="terms_full_text" rows="14" class="legal-scroll-box">{{ site_settings.terms_full_text }}</textarea></label>
+        <label class="legal-editor-box"><span>개인정보처리방침 전체</span><textarea name="privacy_full_text" rows="14" class="legal-scroll-box">{{ site_settings.privacy_full_text }}</textarea></label>
+        <label class="legal-editor-box"><span>환불정책 전체</span><textarea name="refund_full_text" rows="14" class="legal-scroll-box">{{ site_settings.refund_full_text }}</textarea></label>
+        <label class="legal-editor-box"><span>고객센터정보 전체</span><textarea name="support_full_text" rows="14" class="legal-scroll-box">{{ site_settings.support_full_text }}</textarea></label>
+      </div>
+      <div class="actions span-2"><button class="btn primary" type="submit">필수 정보 저장</button></div>
+    </form>
+  </section>
+
+  <section class="card filter-card">
+    <form method="get" class="filter-form">
+      <label>검색어<input type="text" name="keyword" value="{{ keyword }}" placeholder="이름, 이메일, 띠, 메모"></label>
+      <label>등급 필터<select name="plan_filter"><option value="ALL" {% if plan_filter == 'ALL' %}selected{% endif %}>전체</option>{% for level in plan_levels %}<option value="{{ level }}" {% if plan_filter == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select></label>
+      <label>정렬<select name="sort"><option value="created_desc" {% if sort == 'created_desc' %}selected{% endif %}>가입 최신순</option><option value="created_asc" {% if sort == 'created_asc' %}selected{% endif %}>가입 오래된순</option><option value="name_asc" {% if sort == 'name_asc' %}selected{% endif %}>이름순</option><option value="plan_desc" {% if sort == 'plan_desc' %}selected{% endif %}>등급 높은순</option><option value="expiry_asc" {% if sort == 'expiry_asc' %}selected{% endif %}>만료일 빠른순</option></select></label>
+      <div class="actions admin-filter-actions"><button class="btn primary" type="submit">검색/적용</button><a class="btn" href="/admin">초기화</a></div>
+    </form>
+  </section>
+
+  <section class="card table-card">
+    <div class="table-head-row"><h3>회원 목록</h3><p class="muted">등급, 만료일, 연락처, 운영 메모를 바로 수정할 수 있습니다.</p></div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원정보</th><th>연락처</th><th>현재 등급</th><th>띠</th><th>가입일</th><th>관리</th></tr></thead><tbody>{% for u in users %}<tr><td data-label="ID">{{ u.id }}</td><td data-label="회원정보"><div><strong><a class="link-inline" href="/admin/user/{{ u.id }}">{{ u.name }}</a></strong></div><div class="muted">{{ u.email }}</div></td><td data-label="연락처">{{ u.phone or '-' }}</td><td data-label="현재 등급"><span class="grade-badge grade-{{ u.plan|lower }}">{{ u.plan }}</span></td><td data-label="띠">{{ u.zodiac or '-' }}</td><td data-label="가입일">{{ u.created_at }}</td><td data-label="관리"><form method="post" action="/admin/user/{{ u.id }}/manage" class="member-manage-form"><div class="inline-form inline-admin-form wide-form"><select name="plan">{% for level in plan_levels %}<option value="{{ level }}" {% if u.plan == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select><input type="date" name="plan_expires_at" value="{{ u.plan_expires_at or '' }}"></div><input type="text" name="phone" value="{{ u.phone or '' }}" placeholder="연락처 입력"><input type="text" name="admin_memo" value="{{ u.admin_memo or '' }}" placeholder="운영 메모 입력"><button class="btn mini" type="submit">저장</button></form></td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="card table-card">
+    <h3>최근 결제 내역</h3>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>주문번호</th><th>회원</th><th>플랜</th><th>금액</th><th>상태</th><th>결제수단</th><th>입금자명</th><th>생성일</th><th>결제일</th><th>처리</th></tr></thead><tbody>{% for p in payments %}<tr><td data-label="주문번호">{{ p.order_id }}</td><td data-label="회원"><strong>{{ p.user_name }}</strong><div class="muted">{{ p.user_email }}</div></td><td data-label="플랜"><span class="grade-badge grade-{{ p.plan|lower }}">{{ p.plan }}</span></td><td data-label="금액">{{ "{:,}".format(p.amount) }}원</td><td data-label="상태"><span class="status-pill status-{{ p.status|lower|replace('_', '-') }}">{{ p.status }}</span></td><td data-label="결제수단">{{ payment_provider_meta[p.provider].label if p.provider in payment_provider_meta else p.provider }}</td><td data-label="입금자명">{{ p.depositor_name or '-' }}</td><td data-label="생성일">{{ p.created_at }}</td><td data-label="결제일">{{ p.paid_at or '-' }}</td><td data-label="처리">{% if p.provider == 'BANK' and p.status == 'WAITING_DEPOSIT' %}<div class="stacked-pay-buttons"><form method="post" action="/admin/payments/{{ p.order_id }}/confirm-bank"><button class="btn mini primary" type="submit">입금 확인</button></form><form method="post" action="/admin/payments/{{ p.order_id }}/reject-bank"><input type="hidden" name="reason" value="입금 미확인"><button class="btn mini" type="submit">반려</button></form></div>{% else %}<span class="muted">-</span>{% endif %}</td></tr>{% else %}<tr><td colspan="10" class="muted center">아직 결제 데이터가 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="card table-card">
+    <h3>문의 목록</h3>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원</th><th>제목</th><th>내용</th><th>상태</th><th>처리</th></tr></thead><tbody>{% for q in inquiries %}<tr><td data-label="ID">{{ q.id }}</td><td data-label="회원">{{ q.user_name or '비회원' }}</td><td data-label="제목">{{ q.subject }}</td><td data-label="내용">{{ q.message }}</td><td data-label="상태">{{ q.status }}</td><td data-label="처리"><form method="post" action="/admin/inquiry/{{ q.id }}/status" class="inline-form inline-admin-form"><select name="status"><option value="WAITING" {% if q.status == 'WAITING' %}selected{% endif %}>WAITING</option><option value="DONE" {% if q.status == 'DONE' %}selected{% endif %}>DONE</option><option value="HOLD" {% if q.status == 'HOLD' %}selected{% endif %}>HOLD</option></select><button class="btn mini" type="submit">저장</button></form></td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <div class="actions"><a class="btn" href="/logout">로그아웃</a><a class="btn primary" href="/">고객 화면 보기</a></div>
+</main>
+<nav class="mobile-quickbar mobile-only"><a href="/"><span class="icon">🏠</span><span>고객</span></a><a href="/admin"><span class="icon">📊</span><span>대시</span></a><a href="/automation-studio"><span class="icon">⚙️</span><span>자동화</span></a><a href="/contact"><span class="icon">💬</span><span>문의</span></a><a href="/logout"><span class="icon">🚪</span><span>로그아웃</span></a></nav>
+</body></html>
