@@ -5,7 +5,7 @@
   <div class="section-head compact">
     <h2>사주 프로필 입력</h2>
     <p>현재 등급은 <span class="grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span> 입니다. 출생 시간을 모르시면 비워두셔도 됩니다.</p>
-    {% if user.plan_expires_at %}<p class="muted">이용권 만료일: {{ user.plan_expires_at }}</p>{% endif %}
+    {% if user.plan_expires_at %}<p class="muted">이용권 만료일: {{ user.plan_expires_at }} · 현재 등급 <span class="grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span></p>{% endif %}
   </div>
   <form method="post" class="form-grid two-col profile-form-grid">
     {% set birth_parts = (user.birth_date or '--').split('-') %}

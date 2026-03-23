@@ -1,5 +1,32 @@
 {% extends 'base.html' %}
 {% block content %}
+{% if attendance_status %}
+<section class="card reward-top-strip {% if attendance_status.checked_today %}is-checked{% endif %}">
+  <div class="reward-top-main">
+    <div class="reward-top-badge">출석 & 리워드</div>
+    <div class="reward-top-line">
+      <strong>연속 출석 {{ attendance_status.streak }}일</strong>
+      {% if attendance_status.checked_today %}
+      <span class="reward-inline-pill done">오늘 출석 완료</span>
+      {% else %}
+      <span class="reward-inline-pill ready">오늘 체크 시 즉시 리워드 지급</span>
+      {% endif %}
+    </div>
+    <p class="reward-top-copy">7일마다 프리미엄 강화 리워드, 30일마다 VIP 1일 체험 리워드가 열립니다.</p>
+  </div>
+  <div class="reward-top-meta">
+    <div class="reward-meta-inline"><span class="label">최근 보상</span><strong>{{ attendance_status.latest_reward_value or '추천번호 +1세트' }}</strong></div>
+    <div class="reward-meta-inline"><span class="label">현재 등급</span><strong>{{ user.plan }}</strong></div>
+  </div>
+  <div class="reward-top-actions">
+    {% if attendance_status.checked_today %}
+    <div class="reward-done-pill">오늘 출석 완료</div>
+    {% else %}
+    <form method="post" action="/attendance/check"><button class="btn primary reward-check-btn" type="submit">오늘 출석 체크</button></form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
 <section class="fortune-hero card premium-fortune-shell">
   <div class="fortune-hero-copy">
     <div class="badge">{{ fortune.plan_meta.label }} · {{ fortune.plan_meta.report_name }}</div>
@@ -39,33 +66,23 @@
   </div>
 </section>
 
-<section class="info-grid two fortune-top-flow">
+<section class="info-grid two fortune-top-flow comment-focus-grid">
   <div class="card side-premium-card top-comment-card">
     <div class="premium-header">
       <h3>오늘의 코멘트</h3>
       <p>{{ fortune.plan_meta.accent }}</p>
     </div>
     <div class="quote-box">{{ fortune['오늘의코멘트'] }}</div>
-    <div class="tip-box">
-      <div class="tip-label">맞춤 초점</div>
+  </div>
+  <div class="card focus-card">
+    <div class="premium-header focus-header">
+      <h3>맞춤 초점</h3>
+      <p>오늘 가장 선명하게 잡아야 할 한 가지</p>
+    </div>
+    <div class="tip-box focus-tip-box">
+      <div class="tip-label">FOCUS POINT</div>
       <p>{{ fortune['맞춤초점'] }}</p>
     </div>
-  </div>
-
-  <div class="card attendance-card">
-    <div class="panel-head">
-      <h3>출석 & 리워드</h3>
-      <span class="panel-chip">매일 보상</span>
-    </div>
-    {% if attendance_status %}
-    <div class="attendance-streak">연속 출석 <strong>{{ attendance_status.streak }}</strong>일</div>
-    <p class="muted">7일마다 프리미엄 강화 리워드, 30일마다 VIP 1일 체험 리워드가 준비됩니다.</p>
-    {% if attendance_status.checked_today %}
-    <div class="success">오늘 출석 완료 · 최근 보상: {{ attendance_status.latest_reward_value or '추천번호 +1세트' }}</div>
-    {% else %}
-    <form method="post" action="/attendance/check"><button class="btn primary" type="submit">오늘 출석 체크</button></form>
-    {% endif %}
-    {% endif %}
   </div>
 </section>
 
@@ -170,7 +187,7 @@
     <div class="vip-brief-text">{{ fortune['VIP브리핑'] }}</div>
   </div>
   {% else %}
-  <div class="card lock-card vip-lock vip-colored-card"><div class="lock-title">VIP에서만 보이는 최상위 해석</div><p>투자운, 계약운, 타이밍 코칭, 월간 인사이트, VIP 브리핑은 VIP 전용 구성입니다. Premium과도 확실히 차이 나도록 설계했습니다.</p><a class="btn" href="/plans">VIP 보기</a></div>
+  <div class="card lock-card vip-lock vip-colored-card"><div class="lock-title">VIP에서만 보이는 최상위 해석</div><p>투자운, 계약운, 타이밍 코칭, 월간 인사이트, VIP 브리핑은 VIP 전용 구성입니다. Premium과도 확실히 차이 나도록 설계했습니다.</p><a class="btn primary" href="/plans">VIP 보기</a></div>
   {% endif %}
 </section>
 {% endblock %}

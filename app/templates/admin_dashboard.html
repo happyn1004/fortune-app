@@ -7,7 +7,7 @@
       <div class="badge">관리자 센터</div>
       <h1>회원 · 결제 · 광고 · 푸시 · CRM을<br><span>한 화면에서 운영</span></h1>
       <p class="subtext">광고 업로드, 푸시 발송, 자동 푸시 캠페인, 결제 수단 운영, 회원 CRM, 데이터 백업까지 한 번에 관리하도록 재정리했습니다.</p>
-      {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">DB 백업이 생성되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
+      {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">전체 백업 파일이 다운로드되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
     </div>
     <div class="card score-card">
       <div class="ring"><div class="score-title">Customers</div><div class="score-num">{{ stats.total_users }}</div><div class="score-label">현재 회원 수</div></div>
@@ -95,10 +95,10 @@
   </section>
 
   <section class="card filter-card admin-data-card">
-    <div class="table-head-row"><h3>데이터 백업 · 복원 · 내보내기</h3><p class="muted">업데이트 전 백업을 만들고, 문제가 생기면 즉시 복원할 수 있습니다.</p></div>
+    <div class="table-head-row"><h3>데이터 백업 · 복원 · 내보내기</h3><p class="muted">GitHub 업로드나 Render 재배포 전에 먼저 백업 파일을 내려받고, 문제가 생기면 즉시 복원할 수 있습니다.</p></div>
     <div class="admin-data-grid">
-      <div class="admin-data-box"><h4>백업/내보내기</h4><div class="admin-action-stack"><form method="post" action="/admin/backup/create"><button class="btn primary" type="submit">즉시 백업 생성</button></form><a class="btn" href="/admin/backup/download">현재 DB 다운로드</a><a class="btn" href="/admin/export/users.csv">회원 CSV 다운로드</a><a class="btn" href="/admin/export/payments.csv">결제 CSV 다운로드</a></div></div>
-      <div class="admin-data-box"><h4>백업 복원</h4><form method="post" action="/admin/restore" enctype="multipart/form-data" class="admin-restore-form"><input type="file" name="backup_file" accept=".db" required><button class="btn primary" type="submit">업로드 후 복원</button></form><p class="muted">복원 전 현재 DB는 자동으로 한 번 더 백업됩니다.</p></div>
+      <div class="admin-data-box"><h4>백업/내보내기</h4><div class="admin-action-stack"><a class="btn primary" href="/admin/backup/create">전체 백업 다운로드(.zip)</a><a class="btn" href="/admin/backup/download">원본 DB 다운로드(.db)</a><a class="btn" href="/admin/export/users.csv">회원 CSV 다운로드</a><a class="btn" href="/admin/export/payments.csv">결제 CSV 다운로드</a></div><p class="muted">전체 백업 ZIP에는 복원용 DB와 회원/결제 CSV가 함께 들어 있습니다. CSV는 엑셀에서 바로 열 수 있습니다.</p></div>
+      <div class="admin-data-box"><h4>백업 복원</h4><form method="post" action="/admin/restore" enctype="multipart/form-data" class="admin-restore-form"><input type="file" name="backup_file" accept=".db,.zip" required><button class="btn primary" type="submit">업로드 후 복원</button></form><p class="muted">복원 전 현재 DB는 자동으로 한 번 더 백업됩니다. .db 또는 전체 백업 .zip 모두 복원할 수 있습니다.</p><div class="preview-banner soft">권장 순서: 1 백업 다운로드 → 2 GitHub 수정 업로드 → 3 Render 자동배포 확인 → 4 필요시 여기서 복원</div></div>
       <div class="admin-data-box"><h4>최근 백업</h4><div class="backup-list">{% for item in backup_files %}<div class="backup-row"><div><strong>{{ item.filename }}</strong><div class="muted">{{ item.modified_at }} · {{ "{:,}".format(item.size) }} bytes</div></div><a class="btn mini" href="/admin/backup/file/{{ item.filename }}">다운로드</a></div>{% else %}<div class="muted">백업 파일이 아직 없습니다.</div>{% endfor %}</div></div>
     </div>
   </section>

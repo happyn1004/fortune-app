@@ -63,6 +63,19 @@ uvicorn app.main:app --reload
 - 회원 CSV 다운로드
 - 결제 CSV 다운로드
 
+
+## Render Free 운영 시 수정/배포 안전 절차
+1. 관리자 `/admin` 접속
+2. **현재 DB 다운로드** 또는 **즉시 백업 생성** 실행
+3. GitHub `fortune-app` 저장소 안의 파일 수정 후 커밋
+4. Render 자동 배포 또는 Manual Deploy 확인
+5. 데이터가 초기화되었으면 관리자에서 `.db` 백업 파일 업로드 후 복원
+
+### 꼭 기억할 점
+- **GitHub는 코드 보관용**입니다.
+- **회원/결제/문의/설정 데이터는 DB 백업 파일로 따로 보호**해야 합니다.
+- Free 플랜은 Persistent Disk가 없으므로, 중요한 수정 전에는 관리자에서 반드시 백업을 내려받는 것을 권장합니다.
+
 ## 결제 테스트
 1. 회원 로그인
 2. `/plans` 에서 Basic/Premium/VIP 선택
@@ -88,3 +101,10 @@ uvicorn app.main:app --reload
 - 자세한 순서: `DEPLOY_PUBLIC.md`
 - 공개 후 웹 주소만 공유하면 누구나 접속 가능
 - 현재 구조는 PWA 포함이라 앱처럼 설치도 가능
+
+
+## NICEPAY 카드결제 설정
+- 운영 화면에서는 테스트결제 버튼을 제거하고 카드결제/계좌이체만 노출되도록 수정했습니다.
+- Render Environment에 `NICEPAY_MID`, `NICEPAY_CLIENT_KEY`, `NICEPAY_SECRET_KEY`, `NICEPAY_MERCHANT_KEY`, `NICEPAY_RETURN_BASE_URL`를 추가합니다.
+- `NICEPAY_RETURN_BASE_URL`에는 실제 서비스 주소(예: onrender 도메인)를 넣습니다.
+- 운영 전에는 외부에 노출된 키를 재발급한 뒤 새 키를 넣어 주세요.

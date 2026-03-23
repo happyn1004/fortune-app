@@ -12,6 +12,13 @@ from datetime import datetime, date, timedelta
 import json
 import hashlib
 import uuid
+import csv
+import io
+import tempfile
+import zipfile
+import base64
+import urllib.request
+import urllib.error
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -62,6 +69,57 @@ def list_backups(limit: int = 10):
     return items
 
 
+def write_users_csv(path: Path):
+    conn = get_db()
+    rows = conn.execute("SELECT id, name, email, phone, plan, zodiac, created_at, plan_expires_at, admin_memo FROM users WHERE role='customer' ORDER BY id DESC").fetchall()
+    conn.close()
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "name", "email", "phone", "plan", "zodiac", "created_at", "plan_expires_at", "admin_memo"])
+        for row in rows:
+            writer.writerow([row["id"], row["name"], row["email"], row["phone"], row["plan"], row["zodiac"], row["created_at"], row["plan_expires_at"], row["admin_memo"]])
+
+
+def write_payments_csv(path: Path):
+    conn = get_db()
+    rows = conn.execute("SELECT payments.order_id, users.name AS user_name, users.email AS user_email, payments.plan, payments.amount, payments.provider, payments.status, payments.depositor_name, payments.created_at, payments.paid_at, payments.fail_reason FROM payments JOIN users ON payments.user_id = users.id ORDER BY payments.id DESC").fetchall()
+    conn.close()
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(["order_id", "user_name", "user_email", "plan", "amount", "provider", "status", "depositor_name", "created_at", "paid_at", "fail_reason"])
+        for row in rows:
+            writer.writerow([row["order_id"], row["user_name"], row["user_email"], row["plan"], row["amount"], row["provider"], row["status"], row["depositor_name"], row["created_at"], row["paid_at"], row["fail_reason"]])
+
+
+def create_full_backup_bundle() -> Path:
+    if not DB_PATH.exists():
+        init_db()
+    create_db_backup("manual")
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    bundle_path = get_backup_dir() / f"fortune_full_backup_{stamp}.zip"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        db_copy = tmpdir_path / f"fortune_backup_{stamp}.db"
+        shutil.copy2(DB_PATH, db_copy)
+        users_csv = tmpdir_path / "users_export.csv"
+        payments_csv = tmpdir_path / "payments_export.csv"
+        write_users_csv(users_csv)
+        write_payments_csv(payments_csv)
+        summary_txt = tmpdir_path / "README_BACKUP.txt"
+        summary_txt.write_text(
+            "MysticDay 전체 백업 묶음\n"
+            "- fortune_backup_*.db : 관리자 복원에 사용하는 원본 데이터베이스 파일\n"
+            "- users_export.csv : 회원 목록 엑셀 확인용 CSV\n"
+            "- payments_export.csv : 결제 내역 엑셀 확인용 CSV\n\n"
+            "복원 방법: 관리자 > 백업 복원에서 .db 파일 또는 전체 백업 .zip 파일을 업로드하세요.\n",
+            encoding="utf-8",
+        )
+        with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in [db_copy, users_csv, payments_csv, summary_txt]:
+                zf.write(file_path, arcname=file_path.name)
+    return bundle_path
+
+
 def resolve_db_path() -> Path:
     data_dir = get_data_dir()
     target = data_dir / "fortune.db"
@@ -83,12 +141,24 @@ PLAN_LEVELS = ["Free", "Basic", "Premium", "VIP"]
 PLAN_RANK = {"Free": 0, "Basic": 1, "Premium": 2, "VIP": 3}
 PLAN_PRICES = {"Basic": 4900, "Premium": 9900, "VIP": 19900}
 PAYMENT_PROVIDER_META = {
-    "TESTPG": {"label": "테스트결제", "description": "개발/시연용 즉시 승인 흐름", "kind": "demo"},
-    "TOSS": {"label": "토스페이먼츠", "description": "웹 정기결제 연동 준비용", "kind": "web"},
-    "KAKAO": {"label": "카카오페이", "description": "카카오 간편결제 연동 준비용", "kind": "web"},
+    "NICEPAY": {"label": "카드결제", "description": "나이스페이 결제창으로 바로 결제", "kind": "card"},
     "BANK": {"label": "계좌이체", "description": "관리자 확인 후 등급 반영", "kind": "manual"},
+    "TESTPG": {"label": "테스트결제", "description": "개발 내부 확인용", "kind": "demo"},
+    "TOSS": {"label": "토스페이먼츠", "description": "확장 준비용", "kind": "web"},
+    "KAKAO": {"label": "카카오페이", "description": "확장 준비용", "kind": "web"},
 }
 BANK_ACCOUNT = {"bank": "카카오뱅크", "number": "3333-01-2827779", "holder": "정대식"}
+
+
+NICEPAY_MID = os.environ.get("NICEPAY_MID", "").strip()
+NICEPAY_CLIENT_KEY = os.environ.get("NICEPAY_CLIENT_KEY", "").strip()
+NICEPAY_SECRET_KEY = os.environ.get("NICEPAY_SECRET_KEY", "").strip()
+NICEPAY_MERCHANT_KEY = os.environ.get("NICEPAY_MERCHANT_KEY", "").strip()
+NICEPAY_USE_SANDBOX = os.environ.get("NICEPAY_USE_SANDBOX", "false").lower() in {"1", "true", "yes", "y", "on"}
+NICEPAY_RETURN_BASE_URL = os.environ.get("NICEPAY_RETURN_BASE_URL", "").strip()
+NICEPAY_JS_URL = "https://pay.nicepay.co.kr/v1/js/"
+NICEPAY_API_BASE = "https://sandbox-api.nicepay.co.kr" if NICEPAY_USE_SANDBOX else "https://api.nicepay.co.kr"
+
 DEFAULT_SITE_SETTINGS = {
     "brand_name": "Mystic Day",
     "footer_description": "운세 기반 구독형 서비스 테스트와 실결제 준비를 함께 진행할 수 있도록 설계된 프리미엄 리포트 플랫폼입니다.",
@@ -681,7 +751,7 @@ def get_subscription_status(user):
         return {"kind": "expired", "message": "이용권이 만료되어 Free로 전환되었습니다.", "days_left": days_left}
     if days_left <= 3:
         return {"kind": "warning", "message": f"이용권 만료까지 {days_left}일 남았습니다.", "days_left": days_left}
-    return {"kind": "active", "message": f"이용권 만료일은 {expire_date.isoformat()} 입니다.", "days_left": days_left}
+    return {"kind": "active", "message": f"이용권 만료 {expire_date.isoformat()}", "days_left": days_left}
 
 
 def get_current_user(request: Request):
@@ -1112,6 +1182,112 @@ def generate_automation_pack(user):
 
 
 
+
+def get_nicepay_config(request: Request | None = None):
+    base_url = NICEPAY_RETURN_BASE_URL.rstrip("/")
+    if not base_url and request is not None:
+        base_url = str(request.base_url).rstrip("/")
+    return {
+        "enabled": bool(NICEPAY_CLIENT_KEY and NICEPAY_SECRET_KEY and base_url),
+        "client_key": NICEPAY_CLIENT_KEY,
+        "mid": NICEPAY_MID,
+        "merchant_key": NICEPAY_MERCHANT_KEY,
+        "return_url": f"{base_url}/nicepay/return" if base_url else "",
+        "js_url": NICEPAY_JS_URL,
+        "use_sandbox": NICEPAY_USE_SANDBOX,
+        "mode_label": "TEST" if NICEPAY_USE_SANDBOX else "운영",
+    }
+
+
+def _nicepay_hash(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _nicepay_field(payload: dict, *names: str) -> str:
+    for name in names:
+        if name in payload and payload[name] is not None:
+            return str(payload[name])
+    return ""
+
+
+def verify_nicepay_auth_payload(payload: dict) -> tuple[bool, str]:
+    if not NICEPAY_MERCHANT_KEY:
+        return True, "merchant key 미설정으로 서명 검증 생략"
+    auth_token = _nicepay_field(payload, "authToken", "AuthToken")
+    mid = _nicepay_field(payload, "mid", "MID") or NICEPAY_MID
+    amount = _nicepay_field(payload, "amount", "Amt")
+    signature = _nicepay_field(payload, "signature", "Signature").lower()
+    expected = _nicepay_hash(f"{auth_token}{mid}{amount}{NICEPAY_MERCHANT_KEY}").lower()
+    return expected == signature, "" if expected == signature else "나이스페이 인증 서명 검증 실패"
+
+
+def verify_nicepay_approval_payload(payload: dict, amount: int) -> tuple[bool, str]:
+    if not NICEPAY_MERCHANT_KEY:
+        return True, "merchant key 미설정으로 승인 서명 검증 생략"
+    tid = str(payload.get("tid") or "")
+    mid = str(payload.get("mid") or NICEPAY_MID or "")
+    signature = str(payload.get("signature") or "").lower()
+    expected = _nicepay_hash(f"{tid}{mid}{amount}{NICEPAY_MERCHANT_KEY}").lower()
+    return expected == signature, "" if expected == signature else "나이스페이 승인 서명 검증 실패"
+
+
+def approve_nicepay_payment(tid: str, amount: int):
+    if not NICEPAY_CLIENT_KEY or not NICEPAY_SECRET_KEY:
+        raise RuntimeError("NICEPAY client/secret key가 설정되지 않았습니다")
+    url = f"{NICEPAY_API_BASE}/v1/payments/{tid}"
+    auth_value = base64.b64encode(f"{NICEPAY_CLIENT_KEY}:{NICEPAY_SECRET_KEY}".encode("utf-8")).decode("ascii")
+    body = json.dumps({"amount": amount}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Basic {auth_value}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(raw or f"HTTP {exc.code}")
+
+
+def complete_payment(order_id: str, paid_at_override: str | None = None, provider_reference: str | None = None):
+    conn = get_db()
+    payment = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
+    if not payment:
+        conn.close()
+        return None
+    if payment["status"] == "PAID":
+        user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
+        conn.close()
+        return {"payment": payment, "user": user}
+    paid_at = paid_at_override or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
+    base_date = date.today()
+    current_exp = parse_date_value(current_user["plan_expires_at"]) if current_user else None
+    if current_exp and current_exp >= date.today():
+        base_date = current_exp + timedelta(days=1)
+    new_expire = (base_date + timedelta(days=payment["billing_cycle_days"] - 1)).isoformat()
+    conn.execute("UPDATE payments SET status='PAID', paid_at=?, fail_reason=NULL, provider_reference=COALESCE(?, provider_reference) WHERE order_id=?", (paid_at, provider_reference, order_id))
+    conn.execute("UPDATE users SET plan=?, plan_expires_at=? WHERE id=?", (payment["plan"], new_expire, payment["user_id"]))
+    conn.commit()
+    payment = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
+    user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
+    conn.close()
+    return {"payment": payment, "user": user}
+
+
+def fail_payment(order_id: str, reason: str):
+    conn = get_db()
+    conn.execute("UPDATE payments SET status='FAILED', fail_reason=? WHERE order_id=?", (reason, order_id))
+    conn.commit()
+    conn.close()
+
+
 def create_payment_for_plan(user_id: int, plan: str, provider: str = "TESTPG"):
     amount = PLAN_PRICES.get(plan)
     if amount is None:
@@ -1134,38 +1310,6 @@ def get_payment_by_order_id(order_id: str):
     conn.close()
     return payment
 
-
-def complete_payment(order_id: str):
-    conn = get_db()
-    payment = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
-    if not payment:
-        conn.close()
-        return None
-    if payment["status"] == "PAID":
-        user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
-        conn.close()
-        return {"payment": payment, "user": user}
-    paid_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    current_user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
-    base_date = date.today()
-    current_exp = parse_date_value(current_user["plan_expires_at"]) if current_user else None
-    if current_exp and current_exp >= date.today():
-        base_date = current_exp + timedelta(days=1)
-    new_expire = (base_date + timedelta(days=payment["billing_cycle_days"] - 1)).isoformat()
-    conn.execute("UPDATE payments SET status='PAID', paid_at=?, fail_reason=NULL WHERE order_id=?", (paid_at, order_id))
-    conn.execute("UPDATE users SET plan=?, plan_expires_at=? WHERE id=?", (payment["plan"], new_expire, payment["user_id"]))
-    conn.commit()
-    payment = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
-    user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
-    conn.close()
-    return {"payment": payment, "user": user}
-
-
-def fail_payment(order_id: str, reason: str):
-    conn = get_db()
-    conn.execute("UPDATE payments SET status='FAILED', fail_reason=? WHERE order_id=?", (reason, order_id))
-    conn.commit()
-    conn.close()
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -1327,7 +1471,7 @@ def change_plan(request: Request, plan: str = Form(...), provider: str = Form("T
         return RedirectResponse(url="/login", status_code=303)
     if plan not in PLAN_LEVELS[1:]:
         plan = "Basic"
-    provider = provider if provider in ["TESTPG", "TOSS", "KAKAO", "BANK"] else "TESTPG"
+    provider = provider if provider in ["NICEPAY", "BANK"] else "NICEPAY"
     payment = create_payment_for_plan(user["id"], plan, provider)
     return RedirectResponse(url=f"/checkout/{payment['order_id']}", status_code=303)
 
@@ -1340,7 +1484,7 @@ def checkout_page(order_id: str, request: Request):
     payment = get_payment_by_order_id(order_id)
     if not payment or payment["user_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="결제 정보를 찾을 수 없습니다")
-    return render_view(request, "checkout.html", {"user": user, "payment": payment, "bank_account": BANK_ACCOUNT})
+    return render_view(request, "checkout.html", {"user": user, "payment": payment, "bank_account": BANK_ACCOUNT, "nicepay": get_nicepay_config(request)})
 
 
 @app.post("/checkout/{order_id}/complete")
@@ -1385,6 +1529,58 @@ def checkout_bank_request(order_id: str, request: Request, depositor_name: str =
     conn.commit()
     conn.close()
     return RedirectResponse(url=f"/checkout/{order_id}?requested=1", status_code=303)
+
+
+@app.post("/nicepay/return")
+async def nicepay_return(request: Request):
+    payload = {k: v for k, v in (await request.form()).items()}
+    order_id = _nicepay_field(payload, "orderId", "Moid")
+    payment = get_payment_by_order_id(order_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="결제 정보를 찾을 수 없습니다")
+
+    auth_code = _nicepay_field(payload, "authResultCode", "AuthResultCode")
+    auth_msg = _nicepay_field(payload, "authResultMsg", "AuthResultMsg") or "나이스페이 인증 실패"
+    amount_str = _nicepay_field(payload, "amount", "Amt")
+    tid = _nicepay_field(payload, "tid", "TxTid")
+
+    if auth_code != "0000":
+        fail_payment(order_id, auth_msg)
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    try:
+        requested_amount = int(amount_str)
+    except ValueError:
+        fail_payment(order_id, "인증 금액 확인 실패")
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    if requested_amount != int(payment["amount"]):
+        fail_payment(order_id, "주문 금액 불일치")
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    verified, verify_msg = verify_nicepay_auth_payload(payload)
+    if not verified:
+        fail_payment(order_id, verify_msg)
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    try:
+        approval = approve_nicepay_payment(tid, requested_amount)
+    except Exception as exc:
+        fail_payment(order_id, f"승인 API 오류: {exc}")
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    if str(approval.get("resultCode")) != "0000":
+        fail_payment(order_id, str(approval.get("resultMsg") or "나이스페이 승인 실패"))
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    ok, approval_msg = verify_nicepay_approval_payload(approval, requested_amount)
+    if not ok:
+        fail_payment(order_id, approval_msg)
+        return RedirectResponse(url=f"/payment/fail?order_id={order_id}", status_code=303)
+
+    paid_at = str(approval.get("paidAt") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    complete_payment(order_id, paid_at_override=paid_at, provider_reference=str(approval.get("tid") or tid))
+    return RedirectResponse(url=f"/payment/success?order_id={order_id}", status_code=303)
 
 
 @app.get("/payment/success", response_class=HTMLResponse)
@@ -1588,10 +1784,15 @@ def admin_reject_bank_payment(order_id: str, request: Request, reason: str = For
     return RedirectResponse(url="/admin?bank_rejected=1", status_code=303)
 
 
-@app.post("/admin/backup/create")
+@app.get("/admin/backup/create")
 def admin_create_backup(request: Request, admin=Depends(require_admin)):
-    create_db_backup("manual")
-    return RedirectResponse(url="/admin?backup_created=1", status_code=303)
+    bundle_path = create_full_backup_bundle()
+    return FileResponse(path=str(bundle_path), media_type="application/zip", filename=bundle_path.name)
+
+
+@app.post("/admin/backup/create")
+def admin_create_backup_post(request: Request, admin=Depends(require_admin)):
+    return admin_create_backup(request, admin)
 
 
 @app.get("/admin/backup/download")
@@ -1612,14 +1813,25 @@ def admin_download_backup_file(filename: str, request: Request, admin=Depends(re
 @app.post("/admin/restore")
 async def admin_restore_backup(request: Request, backup_file: UploadFile = File(...), admin=Depends(require_admin)):
     filename = Path(backup_file.filename or "backup.db").name.lower()
-    if not filename.endswith(".db"):
-        return RedirectResponse(url="/admin?restore_error=1", status_code=303)
     data = await backup_file.read()
     if not data:
         return RedirectResponse(url="/admin?restore_error=1", status_code=303)
+    db_bytes = None
+    if filename.endswith(".db"):
+        db_bytes = data
+    elif filename.endswith(".zip"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                db_name = next((name for name in zf.namelist() if name.lower().endswith(".db")), None)
+                if db_name:
+                    db_bytes = zf.read(db_name)
+        except Exception:
+            db_bytes = None
+    if not db_bytes:
+        return RedirectResponse(url="/admin?restore_error=1", status_code=303)
     create_db_backup("before_restore")
     tmp_path = get_data_dir() / "fortune_restore_tmp.db"
-    tmp_path.write_bytes(data)
+    tmp_path.write_bytes(db_bytes)
     shutil.copy2(tmp_path, DB_PATH)
     try:
         tmp_path.unlink()
@@ -1632,31 +1844,15 @@ async def admin_restore_backup(request: Request, backup_file: UploadFile = File(
 
 @app.get("/admin/export/users.csv")
 def admin_export_users_csv(request: Request, admin=Depends(require_admin)):
-    conn = get_db()
-    rows = conn.execute("SELECT id, name, email, phone, plan, zodiac, created_at, plan_expires_at, admin_memo FROM users WHERE role='customer' ORDER BY id DESC").fetchall()
-    conn.close()
     export_path = get_data_dir() / "users_export.csv"
-    import csv
-    with export_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(["id", "name", "email", "phone", "plan", "zodiac", "created_at", "plan_expires_at", "admin_memo"])
-        for row in rows:
-            writer.writerow([row["id"], row["name"], row["email"], row["phone"], row["plan"], row["zodiac"], row["created_at"], row["plan_expires_at"], row["admin_memo"]])
+    write_users_csv(export_path)
     return FileResponse(path=str(export_path), media_type="text/csv", filename=export_path.name)
 
 
 @app.get("/admin/export/payments.csv")
 def admin_export_payments_csv(request: Request, admin=Depends(require_admin)):
-    conn = get_db()
-    rows = conn.execute("SELECT payments.order_id, users.name AS user_name, users.email AS user_email, payments.plan, payments.amount, payments.provider, payments.status, payments.depositor_name, payments.created_at, payments.paid_at, payments.fail_reason FROM payments JOIN users ON payments.user_id = users.id ORDER BY payments.id DESC").fetchall()
-    conn.close()
     export_path = get_data_dir() / "payments_export.csv"
-    import csv
-    with export_path.open("w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(["order_id", "user_name", "user_email", "plan", "amount", "provider", "status", "depositor_name", "created_at", "paid_at", "fail_reason"])
-        for row in rows:
-            writer.writerow([row["order_id"], row["user_name"], row["user_email"], row["plan"], row["amount"], row["provider"], row["status"], row["depositor_name"], row["created_at"], row["paid_at"], row["fail_reason"]])
+    write_payments_csv(export_path)
     return FileResponse(path=str(export_path), media_type="text/csv", filename=export_path.name)
 
 

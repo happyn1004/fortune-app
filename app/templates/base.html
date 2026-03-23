@@ -35,6 +35,13 @@
         <a class="admin-link" href="/admin/login">관리자</a>
       </nav>
     </div>
+    {% if user %}
+    <div class="mobile-grade-strip mobile-only">
+      <span class="mobile-grade-label">현재 등급</span>
+      <span class="grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>
+      
+    </div>
+    {% endif %}
     <nav class="mobile-top-tabs mobile-only" aria-label="빠른 메뉴">
       <a href="/" data-path="/"><span class="icon">🏠</span><span>홈</span></a>
       <a href="/plans" data-path="/plans"><span class="icon">💎</span><span>플랜</span></a>
@@ -55,7 +62,7 @@
   </header>
   <main class="wrap">
     {% if subscription_status and user and user.role == 'customer' %}<div class="subscription-banner {{ subscription_status.kind }}">{{ subscription_status.message }}</div>{% endif %}
-    {% if attendance_status and user and user.role == 'customer' %}<div class="attendance-banner">연속 출석 {{ attendance_status.streak }}일 · {% if attendance_status.checked_today %}오늘 출석 완료{% else %}오늘 출석 체크로 리워드 받기{% endif %}</div>{% endif %}
+    {% if attendance_status and user and user.role == 'customer' and request.url.path != '/fortune' %}<div class="attendance-banner">연속 출석 {{ attendance_status.streak }}일 · {% if attendance_status.checked_today %}오늘 출석 완료{% else %}오늘 출석 체크로 리워드 받기{% endif %}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
   <button id="installAppBtn" class="push-enable-btn install-app-btn" type="button" style="display:none; right:84px;">앱 설치</button>

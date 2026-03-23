@@ -3,16 +3,17 @@
 <section class="card plan-top-card">
   <div class="section-head compact">
     <h2>구독 플랜 안내</h2>
-    <p>결제는 테스트형과 실연동 준비형을 함께 제공합니다. 웹은 토스/카카오페이 흐름, 수동 확인은 계좌이체, 개발용은 테스트결제로 운영할 수 있습니다.</p>
+    <p>카드결제는 나이스페이, 수동 확인은 계좌이체로 운영합니다.</p>
   </div>
   {% if request.query_params.get('success') %}<div class="success">플랜이 변경되었습니다.</div>{% endif %}
   <div class="preview-banner soft">{{ site_settings.payment_notice }}</div>
 </section>
 
 <section class="card provider-guide-card">
-  <div class="section-head compact"><h2>결제 수단 안내</h2><p>현재 파일은 실서비스 전환용 구조를 포함하고 있으며, 테스트와 운영을 함께 고려해 정리했습니다.</p></div>
-  <div class="info-grid four">
-    {% for key, meta in payment_provider_meta.items() %}
+  <div class="section-head compact"><h2>결제 수단 안내</h2><p>나이스페이 카드결제와 무통장입금만 노출되도록 정리했습니다.</p></div>
+  <div class="info-grid two">
+    {% for key in ['NICEPAY','BANK'] %}
+    {% set meta = payment_provider_meta[key] %}
     <div class="card small-card provider-box">
       <h3>{{ meta.label }}</h3>
       <p>{{ meta.description }}</p>
@@ -47,12 +48,12 @@
       {% endif %}
     </ul>
     {% if user %}
-    <div class="provider-button-grid">
-      {% for provider in ['TESTPG','TOSS','KAKAO','BANK'] %}
+    <div class="provider-button-grid two-buttons">
+      {% for provider in ['NICEPAY','BANK'] %}
       <form method="post" class="provider-order-form">
         <input type="hidden" name="plan" value="{{ plan }}">
         <input type="hidden" name="provider" value="{{ provider }}">
-        <button class="btn {% if provider in ['TOSS','KAKAO'] %}primary{% endif %}" type="submit">{{ payment_provider_meta[provider].label }}</button>
+        <button class="btn {% if provider == 'NICEPAY' %}primary{% endif %}" type="submit">{{ payment_provider_meta[provider].label }}</button>
       </form>
       {% endfor %}
     </div>
@@ -83,6 +84,6 @@
 
 <section class="card note-card">
   <h3>무통장입금 안내</h3>
-  <p><strong>{{ bank_account.bank }}</strong> {{ bank_account.number }} (예금주 {{ bank_account.holder }})<br>플랜 선택 후 계좌이체 신청을 누르면 주문번호가 생성되고, 입금자명 입력 후 관리자가 확인하면 등급이 반영됩니다.</p>
+  <p><strong>{{ bank_account.bank }}</strong> {{ bank_account.number }} (예금주 {{ bank_account.holder }})<br>플랜 선택 후 계좌이체를 누르면 주문번호가 생성되고, 입금자명 입력 후 관리자가 확인하면 등급이 반영됩니다.</p>
 </section>
 {% endblock %}
