@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}결제 진행{% endblock %}
+{% block content %}
+<section class="card payment-hero enhanced-payment-hero">
+  <div class="section-head">
+    <h1>{{ payment_provider_meta[payment.provider].label if payment.provider in payment_provider_meta else payment.provider }} 진행</h1>
+    <p>나이스페이 카드결제는 실결제 연동, 계좌이체는 관리자 확인 후 반영됩니다.</p>
+  </div>
+  <div class="payment-status-row">
+    <span class="grade-badge grade-{{ payment.plan|lower }}">{{ payment.plan }}</span>
+    <span class="status-pill status-{{ payment.status|lower|replace('_', '-') }}">{{ payment.status }}</span>
+    <span class="muted">주문번호 {{ payment.order_id }}</span>
+  </div>
+</section>
+
+<div class="info-grid two">
+  <section class="card">
+    <h3>주문 정보</h3>
+    <div class="checkout-lines">
+      <div><span>상품</span><strong>{{ payment.plan }} 플랜</strong></div>
+      <div><span>결제 금액</span><strong>{{ "{:,}".format(payment.amount) }}원</strong></div>
+      <div><span>결제 수단</span><strong>{{ payment_provider_meta[payment.provider].label if payment.provider in payment_provider_meta else payment.provider }}</strong></div>
+      <div><span>주기</span><strong>{{ payment.billing_cycle_days }}일</strong></div>
+      <div><span>생성일</span><strong>{{ payment.created_at }}</strong></div>
+    </div>
+  </section>
+  <section class="card">
+    {% if payment.provider == 'NICEPAY' %}
+      <h3>나이스페이 카드결제</h3>
+      {% if nicepay.enabled %}
+      <div class="legal-body">
+        <p><strong>실제 카드 결제창으로 이동합니다.</strong><br>결제가 완료되면 {{ payment.plan }} 등급과 이용권 만료일이 자동 반영됩니다.</p>
+        <p class="muted">주문번호 {{ payment.order_id }} · {{ nicepay.mode_label }} 모드</p>
+      </div>
+      <div class="preview-banner soft">카드 인증 후 나이스페이가 returnUrl로 결과를 POST하고, 서버가 승인 API를 호출해 최종 결제를 확정합니다.</div>
+      <div class="actions stacked-actions">
+        <button class="btn primary big-btn" type="button" onclick="requestNicePayCard()">카드결제 진행</button>
+      </div>
+      <script src="{{ nicepay.js_url }}"></script>
+      <script>
+      function requestNicePayCard(){
+        AUTHNICE.requestPay({
+          clientId: {{ nicepay.client_key|tojson }},
+          method: 'card',
+          orderId: {{ payment.order_id|tojson }},
+          amount: {{ payment.amount }},
+          goodsName: {{ (payment.plan ~ ' 이용권')|tojson }},
+          returnUrl: {{ nicepay.return_url|tojson }},
+          buyerName: {{ (user.name or '')|tojson }},
+          buyerTel: {{ (user.phone or '')|tojson }},
+          buyerEmail: {{ (user.email or '')|tojson }},
+          fnError: function (result) {
+            alert(result.errorMsg || '결제창 호출 중 오류가 발생했습니다.');
+          }
+        });
+      }
+      </script>
+      {% else %}
+      <div class="preview-banner soft">나이스페이 환경변수가 아직 완성되지 않았습니다. Render Environment에 NICEPAY_MID, NICEPAY_CLIENT_KEY, NICEPAY_SECRET_KEY, NICEPAY_MERCHANT_KEY, NICEPAY_RETURN_BASE_URL을 넣은 뒤 다시 시도해 주세요.</div>
+      {% endif %}
+    {% elif payment.provider == 'BANK' %}
+      <h3>계좌이체 안내</h3>
+      <div class="legal-body"><p><strong>{{ bank_account.bank }}</strong> {{ bank_account.number }}<br>예금주 {{ bank_account.holder }}</p><p class="muted">입금 후 아래에 입금자명을 남기면 관리자 확인 뒤 등급이 반영됩니다.</p></div>
+      {% if request.query_params.get('requested') or payment.status == 'WAITING_DEPOSIT' %}<div class="success">입금 신청이 접수되었습니다. 관리자 확인 후 플랜이 반영됩니다.</div>{% endif %}
+      <div class="actions stacked-actions">
+        <form method="post" action="/checkout/{{ payment.order_id }}/bank-request" class="bank-request-form">
+          <input type="text" name="depositor_name" placeholder="입금자명 입력" value="{{ payment.depositor_name or user.name }}" required>
+          <input type="text" name="memo" placeholder="메모 (선택)" value="{{ payment.fail_reason or '' }}">
+          <button class="btn primary big-btn" type="submit">입금 완료 후 신청하기</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="preview-banner soft">지원하지 않는 결제수단입니다. 플랜 선택으로 돌아가 카드결제 또는 계좌이체를 선택해 주세요.</div>
+    {% endif %}
+    <a class="btn" href="/payments">내 결제내역 보기</a>
+    <a class="btn" href="/plans">플랜 선택으로 돌아가기</a>
+  </section>
+</div>
+
+<section class="card note-card">
+  <h3>결제 반영 방식</h3>
+  <p>카드결제는 나이스페이 승인 완료 시 자동으로 등급과 이용권 만료일이 반영됩니다. 계좌이체는 관리자 확인 후 반영됩니다.</p>
+</section>
+{% endblock %}

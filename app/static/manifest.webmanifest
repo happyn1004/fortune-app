@@ -1,0 +1,14 @@
+{
+  "name": "Mystic Day 프리미엄 운세",
+  "short_name": "MysticDay",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8f1",
+  "theme_color": "#ff7a00",
+  "description": "오늘의 운세, 재물운, 관계운, 행운 로또 번호를 앱처럼 확인하는 프리미엄 리포트 서비스",
+  "icons": [
+    {"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"},
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
