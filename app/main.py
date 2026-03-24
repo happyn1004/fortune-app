@@ -190,6 +190,9 @@ DB_PATH = resolve_db_path()
 
 app = FastAPI(title="Fortune Service")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fortune-secret-key-change-me")
+DEFAULT_ADMIN_EMAIL = os.environ.get("DEFAULT_ADMIN_EMAIL", "admin@unsejoa.kr").strip().lower()
+DEFAULT_ADMIN_PASSWORD = os.environ.get("DEFAULT_ADMIN_PASSWORD", "Unsejoa!Temp2026#1")
+STAFF_ROLES = {"admin", "manager"}
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -647,6 +650,8 @@ def init_db():
     ensure_column(conn, "users", "last_fortune_at", "last_fortune_at TEXT")
     ensure_column(conn, "users", "phone", "phone TEXT")
     ensure_column(conn, "users", "interests", "interests TEXT")
+    ensure_column(conn, "users", "must_change_password", "must_change_password INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "users", "password_changed_at", "password_changed_at TEXT")
     ensure_column(conn, "users", "last_attendance_date", "last_attendance_date TEXT")
     ensure_column(conn, "users", "attendance_streak", "attendance_streak INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "payments", "provider", "provider TEXT NOT NULL DEFAULT 'TESTPG'")
@@ -673,19 +678,33 @@ def init_db():
     if not existing_settings.get("support_full_text"):
         cur.execute("INSERT INTO site_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", ("support_full_text", build_support_full_text(existing_settings), now_ts))
 
-    cur.execute("SELECT id FROM users WHERE email = ?", ("admin@fortune.local",))
-    if cur.fetchone() is None:
+    default_admin_email = DEFAULT_ADMIN_EMAIL.lower()
+    temp_admin_hash = hash_password(DEFAULT_ADMIN_PASSWORD)
+    cur.execute("SELECT id, role FROM users WHERE lower(email) = ?", (default_admin_email,))
+    existing_default_admin = cur.fetchone()
+    if existing_default_admin is None:
         cur.execute(
-            "INSERT INTO users (name,email,password_hash,role,plan,created_at) VALUES (?,?,?,?,?,?)",
+            "INSERT INTO users (name,email,password_hash,role,plan,created_at,must_change_password) VALUES (?,?,?,?,?,?,?)",
             (
                 "최고관리자",
-                "admin@fortune.local",
-                hash_password("admin1234"),
+                default_admin_email,
+                temp_admin_hash,
                 "admin",
                 "VIP",
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                1,
             ),
         )
+    elif existing_default_admin["role"] != "admin":
+        cur.execute(
+            "UPDATE users SET role='admin', plan='VIP', must_change_password=1 WHERE id=?",
+            (existing_default_admin["id"],),
+        )
+
+    cur.execute("SELECT id FROM users WHERE email = ?", ("admin@fortune.local",))
+    legacy_admin = cur.fetchone()
+    if legacy_admin is not None and default_admin_email != "admin@fortune.local":
+        cur.execute("UPDATE users SET role='manager' WHERE id=? AND role='admin'", (legacy_admin["id"],))
     cur.execute("SELECT COUNT(*) FROM push_campaigns")
     if cur.fetchone()[0] == 0:
         now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -819,6 +838,22 @@ def get_current_user(request: Request):
     user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     conn.close()
     return apply_expiry_rules(user)
+
+
+def is_staff(user) -> bool:
+    return bool(user and user["role"] in STAFF_ROLES)
+
+
+def is_admin(user) -> bool:
+    return bool(user and user["role"] == "admin")
+
+
+def redirect_for_user_role(user):
+    if is_staff(user):
+        if user["must_change_password"]:
+            return "/admin/change-password"
+        return "/admin"
+    return "/profile"
 
 
 def get_quote_and_tip():
@@ -1422,9 +1457,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None})
     request.session["user_id"] = user["id"]
     record_login(user["id"])
-    if user["role"] == "admin":
-        return RedirectResponse(url="/admin", status_code=303)
-    return RedirectResponse(url="/profile", status_code=303)
+    return RedirectResponse(url=redirect_for_user_role(user), status_code=303)
 
 
 @app.get("/logout")
@@ -1734,40 +1767,86 @@ def contact_submit(request: Request, subject: str = Form(...), message: str = Fo
 
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
-    return render_view(request, "admin_login.html", {"error": None, "user": None})
+    user = get_current_user(request)
+    if is_staff(user):
+        return RedirectResponse(url=redirect_for_user_role(user), status_code=303)
+    return render_view(request, "admin_login.html", {"error": None, "user": None, "default_admin_email": DEFAULT_ADMIN_EMAIL})
 
 
 @app.post("/admin/login", response_class=HTMLResponse)
 def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
+    normalized_email = email.strip().lower()
     conn = get_db()
     user = conn.execute(
-        "SELECT * FROM users WHERE email = ? AND password_hash = ? AND role = 'admin'",
-        (email, hash_password(password)),
+        "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ? AND role IN ('admin','manager')",
+        (normalized_email, hash_password(password)),
     ).fetchone()
     conn.close()
     if not user:
-        return render_view(request, "admin_login.html", {"error": "관리자 계정이 올바르지 않습니다.", "user": None})
+        return render_view(request, "admin_login.html", {"error": "관리자 또는 매니저 계정이 올바르지 않습니다.", "user": None, "default_admin_email": DEFAULT_ADMIN_EMAIL})
     request.session["user_id"] = user["id"]
     record_login(user["id"])
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url=redirect_for_user_role(user), status_code=303)
+
+
+def require_staff(request: Request):
+    user = get_current_user(request)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="관리자/매니저만 접근할 수 있습니다")
+    return user
 
 
 
 def require_admin(request: Request):
     user = get_current_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="관리자만 접근할 수 있습니다")
+    if not is_admin(user):
+        raise HTTPException(status_code=403, detail="최고 관리자만 접근할 수 있습니다")
     return user
 
 
+@app.get("/admin/change-password", response_class=HTMLResponse)
+def admin_change_password_page(request: Request, staff=Depends(require_staff)):
+    if not staff["must_change_password"]:
+        return RedirectResponse(url="/admin", status_code=303)
+    return render_view(request, "admin_change_password.html", {"user": staff, "error": None})
+
+
+@app.post("/admin/change-password", response_class=HTMLResponse)
+def admin_change_password(
+    request: Request,
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    staff=Depends(require_staff),
+):
+    if not staff["must_change_password"]:
+        return RedirectResponse(url="/admin", status_code=303)
+    if len(new_password) < 10:
+        return render_view(request, "admin_change_password.html", {"user": staff, "error": "새 비밀번호는 10자 이상이어야 합니다."})
+    if new_password != confirm_password:
+        return render_view(request, "admin_change_password.html", {"user": staff, "error": "새 비밀번호와 확인 비밀번호가 일치하지 않습니다."})
+    if new_password == DEFAULT_ADMIN_PASSWORD:
+        return render_view(request, "admin_change_password.html", {"user": staff, "error": "임시 비밀번호와 다른 비밀번호를 입력해주세요."})
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET password_hash=?, must_change_password=0, password_changed_at=? WHERE id=?",
+        (hash_password(new_password), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), staff["id"]),
+    )
+    conn.commit()
+    conn.close()
+    return RedirectResponse(url="/admin?password_changed=1", status_code=303)
+
+
 @app.get("/admin", response_class=HTMLResponse)
-def admin_dashboard(request: Request, admin=Depends(require_admin)):
+def admin_dashboard(request: Request, admin=Depends(require_staff)):
+    if admin["must_change_password"]:
+        return RedirectResponse(url="/admin/change-password", status_code=303)
     keyword = request.query_params.get("keyword", "").strip()
     plan_filter = request.query_params.get("plan_filter", "ALL")
     sort = request.query_params.get("sort", "created_desc")
     bank_confirmed = bool(request.query_params.get("bank_confirmed"))
     bank_rejected = bool(request.query_params.get("bank_rejected"))
     settings_updated = bool(request.query_params.get("settings_updated"))
+    password_changed = bool(request.query_params.get("password_changed"))
 
     where_parts = ["role = 'customer'"]
     params = []
@@ -1808,12 +1887,42 @@ def admin_dashboard(request: Request, admin=Depends(require_admin)):
         "paid_amount": conn.execute("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='PAID'").fetchone()[0],
     }
     campaigns = conn.execute("SELECT * FROM push_campaigns ORDER BY id DESC").fetchall()
+    staff_rows = conn.execute("SELECT id, name, email, role, created_at, last_login_at, must_change_password FROM users WHERE role IN ('admin','manager') ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id ASC").fetchall()
     conn.close()
-    return render_view(request, "admin_dashboard.html", {"admin": admin, "users": users, "inquiries": inquiries, "payments": payments, "stats": stats, "plan_levels": PLAN_LEVELS, "updated": request.query_params.get("updated"), "keyword": keyword, "plan_filter": plan_filter, "sort": sort, "bank_confirmed": bank_confirmed, "bank_rejected": bank_rejected, "settings_updated": settings_updated, "backup_created": request.query_params.get("backup_created"), "restore_done": request.query_params.get("restore_done"), "restore_error": request.query_params.get("restore_error"), "backup_files": list_backups(12), "ads": get_admin_ads(12), "pushes": get_recent_pushes(12), "crm": get_crm_snapshot(), "campaigns": campaigns, "payment_provider_meta": PAYMENT_PROVIDER_META, "storage_status": get_storage_status(), "user": admin})
+    return render_view(request, "admin_dashboard.html", {
+        "admin": admin,
+        "users": users,
+        "inquiries": inquiries,
+        "payments": payments,
+        "stats": stats,
+        "plan_levels": PLAN_LEVELS,
+        "updated": request.query_params.get("updated"),
+        "keyword": keyword,
+        "plan_filter": plan_filter,
+        "sort": sort,
+        "bank_confirmed": bank_confirmed,
+        "bank_rejected": bank_rejected,
+        "settings_updated": settings_updated,
+        "password_changed": password_changed,
+        "backup_created": request.query_params.get("backup_created"),
+        "restore_done": request.query_params.get("restore_done"),
+        "restore_error": request.query_params.get("restore_error"),
+        "backup_files": list_backups(12),
+        "ads": get_admin_ads(12),
+        "pushes": get_recent_pushes(12),
+        "crm": get_crm_snapshot(),
+        "campaigns": campaigns,
+        "payment_provider_meta": PAYMENT_PROVIDER_META,
+        "storage_status": get_storage_status(),
+        "user": admin,
+        "is_super_admin": admin["role"] == "admin",
+        "staff_rows": staff_rows,
+        "default_admin_email": DEFAULT_ADMIN_EMAIL,
+    })
 
 
 @app.get("/admin/user/{user_id}", response_class=HTMLResponse)
-def admin_user_detail(user_id: int, request: Request, admin=Depends(require_admin)):
+def admin_user_detail(user_id: int, request: Request, admin=Depends(require_staff)):
     conn = get_db()
     user_row = conn.execute("SELECT * FROM users WHERE id=? AND role='customer'", (user_id,)).fetchone()
     conn.close()
@@ -2172,16 +2281,26 @@ def admin_manage_user(
     plan_expires_at: str = Form(""),
     admin_memo: str = Form(""),
     phone: str = Form(""),
+    staff_role: str = Form("customer"),
     admin=Depends(require_admin),
 ):
     if plan not in PLAN_LEVELS:
         plan = "Free"
     expires = plan_expires_at.strip() or None
     memo = admin_memo.strip() or None
+    allowed_roles = {"customer", "manager"}
+    next_role = staff_role if staff_role in allowed_roles else "customer"
     conn = get_db()
+    target_user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    if not target_user:
+        conn.close()
+        return RedirectResponse(url="/admin?updated=0", status_code=303)
+    if target_user["role"] == "admin":
+        conn.close()
+        return RedirectResponse(url="/admin?updated=0", status_code=303)
     conn.execute(
-        "UPDATE users SET plan=?, plan_expires_at=?, admin_memo=?, phone=? WHERE id=? AND role='customer'",
-        (plan, expires, memo, phone.strip() or None, user_id),
+        "UPDATE users SET plan=?, plan_expires_at=?, admin_memo=?, phone=?, role=? WHERE id=?",
+        (plan, expires, memo, phone.strip() or None, next_role, user_id),
     )
     conn.commit()
     conn.close()

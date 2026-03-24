@@ -7,7 +7,7 @@
       <div class="badge">관리자 센터</div>
       <h1>회원 · 결제 · 광고 · 푸시 · CRM을<br><span>한 화면에서 운영</span></h1>
       <p class="subtext">광고 업로드, 푸시 발송, 자동 푸시 캠페인, 결제 수단 운영, 회원 CRM, 데이터 백업까지 한 번에 관리하도록 재정리했습니다.</p>
-      {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">전체 백업 파일이 다운로드되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
+      {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if password_changed %}<div class="success" style="margin-top:16px;">새 관리자 비밀번호가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">전체 백업 파일이 다운로드되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
     </div>
     <div class="card score-card">
       <div class="ring"><div class="score-title">Customers</div><div class="score-num">{{ stats.total_users }}</div><div class="score-label">현재 회원 수</div></div>
@@ -37,7 +37,7 @@
       <div class="card small-card elevated"><h3>3. 전환 흐름</h3><p>오늘의 코멘트 → 관계운 티저 → 이번주 행운 로또 번호 → 핵심 리딩 → VIP 보기 흐름을 계속 유지해 전환을 높이세요.</p></div>
     </div>
   </section>
-
+  {% endif %}
 
   <section class="admin-overview-grid crm-grid-expanded">
     <div class="card admin-stat-stack">
@@ -63,6 +63,17 @@
     </div>
   </section>
 
+  <section class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>운영자 계정 관리</h3><p class="muted">최고관리자는 {{ default_admin_email }} 입니다. 일반 회원은 아래 회원 목록에서 매니저로 변경하면 관리자 페이지에 들어올 수 있습니다.</p></div>
+    <div class="preview-banner soft" style="margin-bottom:14px;">
+      <div><strong>최초 관리자 아이디</strong> {{ default_admin_email }}</div>
+      <div><strong>최초 임시 비밀번호</strong> Unsejoa!Temp2026#1</div>
+      <div><strong>현재 로그인 권한</strong> {{ admin.role }}</div>
+    </div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>최근 로그인</th><th>상태</th></tr></thead><tbody>{% for staff in staff_rows %}<tr><td data-label="이름">{{ staff.name }}</td><td data-label="이메일">{{ staff.email }}</td><td data-label="권한"><span class="status-pill status-{{ staff.role }}">{{ staff.role }}</span></td><td data-label="최근 로그인">{{ staff.last_login_at or '-' }}</td><td data-label="상태">{% if staff.must_change_password %}비밀번호 변경 필요{% else %}정상{% endif %}</td></tr>{% else %}<tr><td colspan="5" class="muted center">운영자 계정이 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  {% if is_super_admin %}
   <section class="card filter-card admin-settings-card">
     <div class="table-head-row"><h3>결제 수단 운영 가이드</h3><p class="muted">웹 결제와 테스트, 수동 입금까지 한 번에 관리할 수 있도록 정리했습니다.</p></div>
     <div class="info-grid four">
@@ -142,6 +153,8 @@
     </form>
   </section>
 
+{% endif %}
+
   <section class="card filter-card">
     <form method="get" class="filter-form">
       <label>검색어<input type="text" name="keyword" value="{{ keyword }}" placeholder="이름, 이메일, 띠, 메모"></label>
@@ -153,17 +166,17 @@
 
   <section class="card table-card">
     <div class="table-head-row"><h3>회원 목록</h3><p class="muted">등급, 만료일, 연락처, 운영 메모를 바로 수정할 수 있습니다.</p></div>
-    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원정보</th><th>연락처</th><th>현재 등급</th><th>띠</th><th>가입일</th><th>관리</th></tr></thead><tbody>{% for u in users %}<tr><td data-label="ID">{{ u.id }}</td><td data-label="회원정보"><div><strong><a class="link-inline" href="/admin/user/{{ u.id }}">{{ u.name }}</a></strong></div><div class="muted">{{ u.email }}</div></td><td data-label="연락처">{{ u.phone or '-' }}</td><td data-label="현재 등급"><span class="grade-badge grade-{{ u.plan|lower }}">{{ u.plan }}</span></td><td data-label="띠">{{ u.zodiac or '-' }}</td><td data-label="가입일">{{ u.created_at }}</td><td data-label="관리"><form method="post" action="/admin/user/{{ u.id }}/manage" class="member-manage-form"><div class="inline-form inline-admin-form wide-form"><select name="plan">{% for level in plan_levels %}<option value="{{ level }}" {% if u.plan == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select><input type="date" name="plan_expires_at" value="{{ u.plan_expires_at or '' }}"></div><input type="text" name="phone" value="{{ u.phone or '' }}" placeholder="연락처 입력"><input type="text" name="admin_memo" value="{{ u.admin_memo or '' }}" placeholder="운영 메모 입력"><button class="btn mini" type="submit">저장</button></form></td></tr>{% endfor %}</tbody></table></div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원정보</th><th>연락처</th><th>현재 등급</th><th>띠</th><th>가입일</th><th>관리</th></tr></thead><tbody>{% for u in users %}<tr><td data-label="ID">{{ u.id }}</td><td data-label="회원정보"><div><strong><a class="link-inline" href="/admin/user/{{ u.id }}">{{ u.name }}</a></strong></div><div class="muted">{{ u.email }}</div></td><td data-label="연락처">{{ u.phone or '-' }}</td><td data-label="현재 등급"><span class="grade-badge grade-{{ u.plan|lower }}">{{ u.plan }}</span></td><td data-label="띠">{{ u.zodiac or '-' }}</td><td data-label="가입일">{{ u.created_at }}</td><td data-label="관리">{% if is_super_admin %}<form method="post" action="/admin/user/{{ u.id }}/manage" class="member-manage-form"><div class="inline-form inline-admin-form wide-form"><select name="plan">{% for level in plan_levels %}<option value="{{ level }}" {% if u.plan == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select><input type="date" name="plan_expires_at" value="{{ u.plan_expires_at or '' }}"></div><div class="inline-form inline-admin-form wide-form"><select name="staff_role"><option value="customer" {% if u.role == 'customer' %}selected{% endif %}>일반회원</option><option value="manager" {% if u.role == 'manager' %}selected{% endif %}>매니저</option></select></div><input type="text" name="phone" value="{{ u.phone or '' }}" placeholder="연락처 입력"><input type="text" name="admin_memo" value="{{ u.admin_memo or '' }}" placeholder="운영 메모 입력"><button class="btn mini" type="submit">저장</button></form>{% else %}<div class="muted">매니저는 조회만 가능합니다.</div>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
   </section>
 
   <section class="card table-card">
     <h3>최근 결제 내역</h3>
-    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>주문번호</th><th>회원</th><th>플랜</th><th>금액</th><th>상태</th><th>결제수단</th><th>입금자명</th><th>생성일</th><th>결제일</th><th>처리</th></tr></thead><tbody>{% for p in payments %}<tr><td data-label="주문번호">{{ p.order_id }}</td><td data-label="회원"><strong>{{ p.user_name }}</strong><div class="muted">{{ p.user_email }}</div></td><td data-label="플랜"><span class="grade-badge grade-{{ p.plan|lower }}">{{ p.plan }}</span></td><td data-label="금액">{{ "{:,}".format(p.amount) }}원</td><td data-label="상태"><span class="status-pill status-{{ p.status|lower|replace('_', '-') }}">{{ p.status }}</span></td><td data-label="결제수단">{{ payment_provider_meta[p.provider].label if p.provider in payment_provider_meta else p.provider }}</td><td data-label="입금자명">{{ p.depositor_name or '-' }}</td><td data-label="생성일">{{ p.created_at }}</td><td data-label="결제일">{{ p.paid_at or '-' }}</td><td data-label="처리">{% if p.provider == 'BANK' and p.status == 'WAITING_DEPOSIT' %}<div class="stacked-pay-buttons"><form method="post" action="/admin/payments/{{ p.order_id }}/confirm-bank"><button class="btn mini primary" type="submit">입금 확인</button></form><form method="post" action="/admin/payments/{{ p.order_id }}/reject-bank"><input type="hidden" name="reason" value="입금 미확인"><button class="btn mini" type="submit">반려</button></form></div>{% else %}<span class="muted">-</span>{% endif %}</td></tr>{% else %}<tr><td colspan="10" class="muted center">아직 결제 데이터가 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>주문번호</th><th>회원</th><th>플랜</th><th>금액</th><th>상태</th><th>결제수단</th><th>입금자명</th><th>생성일</th><th>결제일</th><th>처리</th></tr></thead><tbody>{% for p in payments %}<tr><td data-label="주문번호">{{ p.order_id }}</td><td data-label="회원"><strong>{{ p.user_name }}</strong><div class="muted">{{ p.user_email }}</div></td><td data-label="플랜"><span class="grade-badge grade-{{ p.plan|lower }}">{{ p.plan }}</span></td><td data-label="금액">{{ "{:,}".format(p.amount) }}원</td><td data-label="상태"><span class="status-pill status-{{ p.status|lower|replace('_', '-') }}">{{ p.status }}</span></td><td data-label="결제수단">{{ payment_provider_meta[p.provider].label if p.provider in payment_provider_meta else p.provider }}</td><td data-label="입금자명">{{ p.depositor_name or '-' }}</td><td data-label="생성일">{{ p.created_at }}</td><td data-label="결제일">{{ p.paid_at or '-' }}</td><td data-label="처리">{% if is_super_admin and p.provider == 'BANK' and p.status == 'WAITING_DEPOSIT' %}<div class="stacked-pay-buttons"><form method="post" action="/admin/payments/{{ p.order_id }}/confirm-bank"><button class="btn mini primary" type="submit">입금 확인</button></form><form method="post" action="/admin/payments/{{ p.order_id }}/reject-bank"><input type="hidden" name="reason" value="입금 미확인"><button class="btn mini" type="submit">반려</button></form></div>{% else %}<span class="muted">-</span>{% endif %}</td></tr>{% else %}<tr><td colspan="10" class="muted center">아직 결제 데이터가 없습니다.</td></tr>{% endfor %}</tbody></table></div>
   </section>
 
   <section class="card table-card">
     <h3>문의 목록</h3>
-    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원</th><th>제목</th><th>내용</th><th>상태</th><th>처리</th></tr></thead><tbody>{% for q in inquiries %}<tr><td data-label="ID">{{ q.id }}</td><td data-label="회원">{{ q.user_name or '비회원' }}</td><td data-label="제목">{{ q.subject }}</td><td data-label="내용">{{ q.message }}</td><td data-label="상태">{{ q.status }}</td><td data-label="처리"><form method="post" action="/admin/inquiry/{{ q.id }}/status" class="inline-form inline-admin-form"><select name="status"><option value="WAITING" {% if q.status == 'WAITING' %}selected{% endif %}>WAITING</option><option value="DONE" {% if q.status == 'DONE' %}selected{% endif %}>DONE</option><option value="HOLD" {% if q.status == 'HOLD' %}selected{% endif %}>HOLD</option></select><button class="btn mini" type="submit">저장</button></form></td></tr>{% endfor %}</tbody></table></div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원</th><th>제목</th><th>내용</th><th>상태</th><th>처리</th></tr></thead><tbody>{% for q in inquiries %}<tr><td data-label="ID">{{ q.id }}</td><td data-label="회원">{{ q.user_name or '비회원' }}</td><td data-label="제목">{{ q.subject }}</td><td data-label="내용">{{ q.message }}</td><td data-label="상태">{{ q.status }}</td><td data-label="처리">{% if is_super_admin %}<form method="post" action="/admin/inquiry/{{ q.id }}/status" class="inline-form inline-admin-form"><select name="status"><option value="WAITING" {% if q.status == 'WAITING' %}selected{% endif %}>WAITING</option><option value="DONE" {% if q.status == 'DONE' %}selected{% endif %}>DONE</option><option value="HOLD" {% if q.status == 'HOLD' %}selected{% endif %}>HOLD</option></select><button class="btn mini" type="submit">저장</button></form>{% else %}<span class="muted">조회만 가능</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
   </section>
   <div class="actions"><a class="btn" href="/logout">로그아웃</a><a class="btn primary" href="/">고객 화면 보기</a></div>
 </main>
