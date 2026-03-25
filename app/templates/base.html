@@ -22,7 +22,7 @@
         <a href="/contact">문의</a>
         {% if user %}
           {% if user.role in ['admin','manager'] %}<span class="top-plan grade-badge grade-vip">운영자 VIP</span>{% else %}<span class="top-plan grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>{% endif %}
-          {% if notification_count %}<span class="notification-badge">알림 {{ notification_count }}</span>{% endif %}
+          {# 베타 운영: 상단 알림 카운트 배지 숨김 #}
           <a href="/profile">프로필</a>
           <a href="/fortune">오늘의 운세</a>
           <a href="/vip-report">VIP 리포트</a>

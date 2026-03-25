@@ -1,41 +1,64 @@
 {% extends 'base.html' %}
 {% block title %}Mystic Day{% endblock %}
 {% block content %}
-<section class="hero-grid commercial-hero-grid hook-main-grid">
-  <div class="card hero-card commercial-hero hook-hero-card">
-    <div class="badge">오늘의 흐름 · 재물 운 · 관계 신호 · 행운 로또</div>
-    <h1>오늘, 잘 풀릴 사람은 <span>흐름부터 먼저 봅니다</span></h1>
-    <p class="subtext">놓치면 아쉬운 기회, 피하면 좋은 선택, 지금 잡아야 할 흐름을 한눈에 정리해드립니다. 무료 핵심 요약으로 가볍게 시작하고, 더 깊은 해석은 Basic · Premium · VIP에서 단계별로 이어집니다.</p>
-    <div class="hero-benefit-strip">
-      <span>회원가입 후 바로 확인</span>
-      <span>무료 핵심 공개 제공</span>
-      <span>부담 없이 시작 가능</span>
+<section class="hero-grid commercial-hero-grid hook-main-grid home-premium-grid">
+  <div class="card hero-card commercial-hero hook-hero-card home-lux-hero">
+    <div class="hero-topline-row">
+      <div class="badge badge-lux">오늘의 흐름 · 재물 운 · 관계 신호 · 행운 로또</div>
+      <div class="hero-trust-mini">매일 업데이트 · 모바일 최적화 · 무료 시작 가능</div>
     </div>
-    <div class="hook-stat-row">
+    <h1>오늘의 흐름을 먼저 읽고, <span>좋은 타이밍을 놓치지 마세요</span></h1>
+    <p class="subtext">하루의 기회와 주의 포인트를 보기 좋게 정리해드립니다. 무료 핵심 요약으로 가볍게 시작하고, 더 깊은 해석은 Basic · Premium · VIP에서 단계별로 확인할 수 있습니다.</p>
+
+    <div class="hero-benefit-strip hero-benefit-lux">
+      <span>무료 핵심 요약 제공</span>
+      <span>회원가입 후 바로 확인</span>
+      <span>오늘의 행운 로또 2세트</span>
+    </div>
+
+    <div class="hook-stat-row hero-polish-stats">
       <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 확인한 사람들</span></div>
-      <div><strong>{{ "{:,}".format(hero_stats.vip_focus) }}</strong><span>더 깊은 해석을 보는 회원</span></div>
+      <div><strong>{{ "{:,}".format(hero_stats.vip_focus) }}</strong><span>심화 해석을 보는 회원</span></div>
       <div><strong>{{ hero_stats.conversion_rate }}%</strong><span>다시 찾는 만족도</span></div>
     </div>
-    <div class="actions hero-primary-actions">
-      <a class="btn primary big-cta" href="{{ '/fortune' if user else '/signup' }}">오늘 운명 확인하기</a>
-      <a class="btn" href="/plans">플랜별 차이 보기</a>
+
+    <div class="actions hero-primary-actions home-hero-actions">
+      <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">오늘의 운세 바로 보기</a>
+      <a class="btn hero-secondary-cta" href="/plans">플랜별 차이 한눈에 보기</a>
     </div>
-    <div class="chips hero-proof-chips"><span>오늘의 한마디</span><span>관계 흐름 티저</span><span>행운 로또 2세트</span><span>VIP 심화 해석</span></div>
-    <div class="preview-banner soft">{{ site_settings.hero_trust_text }}</div>
+
+    <div class="hero-promise-panel">
+      <div class="hero-promise-item">
+        <strong>오늘 바로 확인</strong>
+        <span>복잡하지 않게 핵심부터 빠르게</span>
+      </div>
+      <div class="hero-promise-item">
+        <strong>무료로 시작</strong>
+        <span>부담 없이 경험한 뒤 필요한 만큼만</span>
+      </div>
+      <div class="hero-promise-item">
+        <strong>더 깊은 해석</strong>
+        <span>중요한 날일수록 플랜별 심화 분석</span>
+      </div>
+    </div>
+
+    <div class="chips hero-proof-chips hero-proof-lux"><span>오늘의 한마디</span><span>관계 흐름 티저</span><span>행운 로또 2세트</span><span>VIP 심화 해석</span></div>
+    <div class="preview-banner soft hero-trust-banner">{{ site_settings.hero_trust_text }}</div>
   </div>
-  <div class="card score-card launch-panel premium-sales-panel vip-spotlight-card">
+
+  <div class="card score-card launch-panel premium-sales-panel vip-spotlight-card home-vip-card">
     <div class="vip-spotlight-badge">지금 가장 깊게 보는 플랜</div>
     <div class="vip-spotlight-head">
-      <div class="vip-spotlight-kicker">가장 강한 해석</div>
+      <div class="vip-spotlight-kicker">중요한 결정을 앞둔 분께 추천</div>
       <div class="vip-spotlight-title">VIP</div>
-      <div class="vip-spotlight-subtitle">투자 · 계약 · 타이밍 · 월간 인사이트까지, 중요한 결정을 앞둘수록 더 큰 차이를 만드는 프리미엄 구간입니다.</div>
+      <div class="vip-spotlight-subtitle">투자 · 계약 · 타이밍 · 월간 인사이트까지, 단순한 오늘 운세를 넘어 실제 선택에 참고할 수 있는 프리미엄 리포트입니다.</div>
     </div>
     <div class="vip-spotlight-points">
       <span>로또 5세트</span>
       <span>VIP 전략 브리핑</span>
       <span>월간 인사이트</span>
     </div>
-    <div class="vip-spotlight-highlight">무료는 힌트까지, 깊은 해석은 VIP에서</div>
+    <div class="vip-spotlight-highlight">무료는 핵심 요약까지, 깊은 판단은 VIP에서</div>
     <a class="btn primary vip-spotlight-btn" href="/plans">VIP 혜택 자세히 보기</a>
     <ul class="bullet-list premium-hook-list vip-bullet-list">
       <li><strong>Free</strong> : 오늘의 핵심 흐름 + 로또 2세트</li>
@@ -46,15 +69,35 @@
   </div>
 </section>
 
-<section class="info-grid four trust-strip">
-  <div class="card stat-card"><div class="stat-label">오늘 먼저 체크할 포인트</div><div class="stat-value">핵심 코멘트</div></div>
-  <div class="card stat-card"><div class="stat-label">무료로 시작되는 혜택</div><div class="stat-value">행운 로또 2세트</div></div>
-  <div class="card stat-card"><div class="stat-label">가장 많이 고르는 시작</div><div class="stat-value">Basic</div></div>
-  <div class="card stat-card"><div class="stat-label">깊은 해석이 필요한 순간</div><div class="stat-value">VIP</div></div>
+<section class="info-grid four trust-strip home-trust-strip">
+  <div class="card stat-card luxe-stat-card"><div class="stat-label">오늘 먼저 체크할 포인트</div><div class="stat-value">핵심 코멘트</div><p>놓치기 쉬운 흐름을 먼저 정리해 드립니다.</p></div>
+  <div class="card stat-card luxe-stat-card"><div class="stat-label">무료로 시작되는 혜택</div><div class="stat-value">행운 로또 2세트</div><p>가볍게 체험하고 필요할 때만 확장할 수 있습니다.</p></div>
+  <div class="card stat-card luxe-stat-card"><div class="stat-label">가장 많이 고르는 시작</div><div class="stat-value">Basic</div><p>오늘의 이유와 방향까지 보고 싶은 분께 적합합니다.</p></div>
+  <div class="card stat-card luxe-stat-card"><div class="stat-label">깊은 해석이 필요한 순간</div><div class="stat-value">VIP</div><p>중요한 계약, 투자, 타이밍 판단에 더 유리합니다.</p></div>
 </section>
 
+<section class="card compare-teaser home-value-section">
+  <div class="section-head compact section-head-center">
+    <h2>처음이어도 쉽게, 필요한 만큼만 깊게</h2>
+    <p>지금 상태에 맞춰 가볍게 시작할 수도 있고, 더 깊은 해석으로 확장할 수도 있게 구성했습니다.</p>
+  </div>
+  <div class="home-value-grid">
+    <div class="home-value-box">
+      <strong>1. 무료로 시작</strong>
+      <p>오늘의 핵심 흐름과 로또 2세트로 부담 없이 먼저 경험해 보세요.</p>
+    </div>
+    <div class="home-value-box">
+      <strong>2. 필요한 플랜 선택</strong>
+      <p>관계, 재물, 사업, 타이밍 등 내가 필요한 깊이에 맞춰 선택할 수 있습니다.</p>
+    </div>
+    <div class="home-value-box">
+      <strong>3. 매일 더 편하게 확인</strong>
+      <p>모바일에서도 보기 좋게 정리되어 언제든 빠르게 확인할 수 있습니다.</p>
+    </div>
+  </div>
+</section>
 
-<section class="card compare-teaser">
+<section class="card compare-teaser home-plan-section">
   <div class="section-head compact">
     <h2>지금 내게 맞는 플랜, 한눈에 고르세요</h2>
     <p>무료로 가볍게 시작할지, 더 깊은 해석까지 볼지 바로 비교할 수 있게 정리했습니다.</p>
@@ -70,16 +113,16 @@
   </div>
 </section>
 
-<section class="info-grid three">
-  <div class="card small-card">
+<section class="info-grid three home-support-grid">
+  <div class="card small-card quote-card-lux">
     <h3>오늘의 명언</h3>
     <p class="quote">“{{ quote }}”</p>
   </div>
-  <div class="card small-card">
+  <div class="card small-card tip-card-lux">
     <h3>오늘의 생활 팁</h3>
     <p>{{ tip }}</p>
   </div>
-  <div class="card small-card install-guide-trigger-card">
+  <div class="card small-card install-guide-trigger-card install-lux-card">
     <h3>앱처럼 설치하기</h3>
     <p>{{ site_settings.pwa_prompt_text }}</p>
     <button class="link-inline guide-toggle-btn" type="button" data-guide-toggle aria-expanded="false" aria-controls="pwaGuide">설치 가이드 보기</button>

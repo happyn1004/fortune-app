@@ -15,27 +15,14 @@
       <p class="lead">첫 화면은 빠르게 보여주고, 실제 로그인과 운세 데이터는 뒤에서 Render 백엔드와 연결하는 구조입니다.</p>
       <div class="actions">
         <a class="btn primary" id="openAppBtn" href="#">서비스 열기</a>
-        <button class="btn" id="wakeBtn" type="button">백엔드 깨우기</button>
-      </div>
-      <div class="status-box">
-        <div><strong>백엔드 상태</strong> <span id="statusText">확인 중...</span></div>
-        <div><strong>서버 시간</strong> <span id="serverTime">-</span></div>
-      </div>
-      <p class="guide">사용법: 이 폴더를 Netlify에 올리고, shell-config.js에서 <code>window.APP_BASE_URL</code> 을 실제 Render 주소로 바꾸세요.</p>
+              </div>
+      <p class="guide">베타 서비스 안정화를 위해 백엔드 상태 안내와 대기 문구는 화면에서 숨겼습니다. 서비스 열기 버튼으로 바로 이동해 주세요.</p>
     </section>
   </main>
   <script src="./shell-config.js"></script>
   <script>
     const appBase = (window.APP_BASE_URL || '').replace(/\/$/, '');
-    const statusText = document.getElementById('statusText');
-    const serverTime = document.getElementById('serverTime');
     const openAppBtn = document.getElementById('openAppBtn');
-    const wakeBtn = document.getElementById('wakeBtn');
-
-    function setStatus(text, ok) {
-      statusText.textContent = text;
-      statusText.className = ok ? 'ok' : 'warn';
-    }
 
     if (appBase) {
       openAppBtn.href = appBase;
@@ -49,22 +36,16 @@
 
     async function wakeBackend() {
       if (!appBase) {
-        setStatus('APP_BASE_URL 미설정', false);
         return;
       }
-      setStatus('백엔드 확인 중...', false);
       try {
         const res = await fetch(appBase + '/api/ping', { method: 'GET', mode: 'cors' });
         const data = await res.json();
-        setStatus(data.ok ? '준비 완료' : '응답 확인 필요', !!data.ok);
-        serverTime.textContent = data.server_time || '-';
       } catch (err) {
-        setStatus('백엔드 기동 중 또는 연결 실패', false);
       }
     }
 
-    wakeBtn.addEventListener('click', wakeBackend);
-    wakeBackend();
+    window.setTimeout(wakeBackend, 200);
   </script>
 </body>
 </html>
