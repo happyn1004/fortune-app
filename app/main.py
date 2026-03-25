@@ -3659,23 +3659,14 @@ def api_push_public_key(request: Request):
     return JSONResponse({'ok': True, 'public_key': get_vapid_public_key(), 'enabled': webpush_is_ready()})
 
 
-@app.post("/api/push/subscribe")
-async def api_push_subscribe(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
-    try:
-        payload = await request.json()
-    except Exception:
-        return JSONResponse({'ok': False, 'message': '요청 형식이 올바르지 않습니다.'}, status_code=400)
-    subscription = payload.get('subscription') or {}
+def _extract_push_record_from_request_payload(payload: dict, request: Request, user) -> tuple[dict | None, str]:
+    subscription = (payload or {}).get('subscription') or {}
     endpoint = (subscription.get('endpoint') or '').strip()
     keys = subscription.get('keys') or {}
     p256dh_key = (keys.get('p256dh') or '').strip()
     auth_key = (keys.get('auth') or '').strip()
     if not endpoint or not p256dh_key or not auth_key:
-        return JSONResponse({'ok': False, 'message': '구독 정보가 올바르지 않습니다.'}, status_code=400)
-
+        return None, 'subscription_invalid'
     record = {
         'user_id': user['id'],
         'endpoint': endpoint,
@@ -3685,14 +3676,15 @@ async def api_push_subscribe(request: Request):
         'plan_snapshot': user['plan'],
         'queued_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
+    return record, ''
 
-    # 가장 먼저 파일 스토어에 즉시 저장해 클릭 직후 알림 연결 상태가 확정되도록 한다.
-    # DB 락이 있어도 실제 발송 로직은 파일 스토어 구독 정보를 함께 사용한다.
+
+def _store_push_record_with_background_sync(record: dict) -> tuple[bool, str]:
     try:
         _store_push_subscription_file(record)
     except Exception as e:
         print(f"[push_subscribe_file_store_failed] {e}")
-        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'file_store_failed'}, status_code=500)
+        return False, 'file_store_failed'
 
     def _sync_push_subscription_background():
         try:
@@ -3722,6 +3714,26 @@ async def api_push_subscribe(request: Request):
             _append_push_subscription_queue(record)
         except Exception as enqueue_error:
             print(f"[push_subscribe_fallback_enqueue_failed] {enqueue_error}")
+    return True, ''
+
+
+@app.post("/api/push/subscribe")
+async def api_push_subscribe(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({'ok': False, 'message': '요청 형식이 올바르지 않습니다.'}, status_code=400)
+
+    record, error_code = _extract_push_record_from_request_payload(payload, request, user)
+    if not record:
+        return JSONResponse({'ok': False, 'message': '구독 정보가 올바르지 않습니다.', 'error': error_code or 'subscription_invalid'}, status_code=400)
+
+    stored_ok, store_error = _store_push_record_with_background_sync(record)
+    if not stored_ok:
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': store_error or 'file_store_failed'}, status_code=500)
 
     try:
         threading.Thread(
@@ -3739,6 +3751,60 @@ async def api_push_subscribe(request: Request):
         'stored_in_file': True,
         'message': '알림 연결이 완료되었습니다.'
     })
+
+
+@app.post("/api/push/connect-verify")
+async def api_push_connect_verify(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    record, error_code = _extract_push_record_from_request_payload(payload, request, user)
+    if not record:
+        return JSONResponse({'ok': False, 'message': '구독 정보가 올바르지 않습니다.', 'error': error_code or 'subscription_invalid'}, status_code=400)
+
+    stored_ok, store_error = _store_push_record_with_background_sync(record)
+    if not stored_ok:
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': store_error or 'file_store_failed'}, status_code=500)
+
+    subscription = (payload or {}).get('subscription') or {}
+    title = ((payload or {}).get('title') or '알림 연결 테스트').strip()
+    message = ((payload or {}).get('message') or '푸시 연결 테스트가 정상 동작했습니다. 이제 실제 알림도 받을 수 있습니다.').strip()
+    last_reason = 'send_failed'
+    for attempt in range(3):
+        if attempt:
+            time.sleep(1.2)
+        ok, reason = send_test_web_push_to_user_subscription(
+            int(user['id']),
+            subscription=subscription,
+            endpoint=record['endpoint'],
+            title=title[:80] or '알림 연결 테스트',
+            message=message[:180] or '푸시 연결 테스트가 정상 동작했습니다. 이제 실제 알림도 받을 수 있습니다.',
+            target_url='/fortune',
+        )
+        if ok:
+            return JSONResponse({
+                'ok': True,
+                'stored': True,
+                'verified': True,
+                'stored_in_file': True,
+                'message': '알림 연결과 테스트 발송이 완료되었습니다.'
+            })
+        last_reason = reason or 'send_failed'
+
+    status = 400 if last_reason not in {'webpush_not_ready'} else 503
+    return JSONResponse({
+        'ok': False,
+        'stored': True,
+        'verified': False,
+        'stored_in_file': True,
+        'error': last_reason,
+        'message': '알림 연결은 저장되었지만 테스트 발송 확인에 실패했습니다.'
+    }, status_code=status)
 
 
 @app.get("/api/push/subscription-status")
