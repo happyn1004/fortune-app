@@ -1574,6 +1574,44 @@ def _store_push_subscription_db(record: dict, fast: bool = False):
         conn.close()
 
 
+def _store_push_subscription_with_retry(record: dict, total_wait_seconds: float = 8.0) -> bool:
+    deadline = time.time() + max(1.0, float(total_wait_seconds))
+    attempts = [True, False, False, False]
+    last_error = None
+    for idx, fast in enumerate(attempts, start=1):
+        try:
+            _store_push_subscription_db(record, fast=fast)
+            return True
+        except sqlite3.OperationalError as e:
+            last_error = e
+            if time.time() >= deadline:
+                break
+            sleep_for = min(0.45 * idx, max(0.15, deadline - time.time()))
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+        except Exception as e:
+            last_error = e
+            break
+
+    while time.time() < deadline:
+        try:
+            _store_push_subscription_db(record, fast=False)
+            return True
+        except sqlite3.OperationalError as e:
+            last_error = e
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            time.sleep(min(0.75, max(0.2, remaining)))
+        except Exception as e:
+            last_error = e
+            break
+
+    if last_error:
+        raise last_error
+    return False
+
+
 def _queue_has_push_subscription(endpoint: str, user_id: int | None = None) -> bool:
     global PUSH_SUBSCRIBE_QUEUE_FILE
     endpoint = (endpoint or '').strip()
@@ -3387,8 +3425,9 @@ async def api_push_subscribe(request: Request):
         'plan_snapshot': user['plan'],
         'queued_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
+
     try:
-        _store_push_subscription_db(record, fast=True)
+        _store_push_subscription_with_retry(record, total_wait_seconds=8.5)
         try:
             threading.Thread(
                 target=record_event,
@@ -3399,12 +3438,35 @@ async def api_push_subscribe(request: Request):
             pass
         return JSONResponse({'ok': True, 'stored': True, 'queued': False, 'message': '알림 연결 저장이 완료되었습니다.'})
     except sqlite3.OperationalError as e:
-        print(f"[push_subscribe_fast_store_busy] {e}")
+        print(f"[push_subscribe_retry_busy] {e}")
     except Exception as e:
-        print(f"[push_subscribe_fast_store_failed] {e}")
+        print(f"[push_subscribe_retry_failed] {e}")
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'subscribe_failed'}, status_code=500)
 
     try:
         _append_push_subscription_queue(record)
+        try:
+            _process_push_subscription_queue_once()
+        except Exception as queue_process_error:
+            print(f"[push_subscribe_queue_inline_process_failed] {queue_process_error}")
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT id, is_active, updated_at FROM push_subscriptions WHERE endpoint=? AND user_id=? LIMIT 1",
+                (endpoint, user['id'])
+            ).fetchone()
+        finally:
+            conn.close()
+        if row and row['is_active']:
+            try:
+                threading.Thread(
+                    target=record_event,
+                    args=("push_subscribe_ok_after_queue", request, user["id"], {"plan": user["plan"]}),
+                    daemon=True,
+                ).start()
+            except Exception:
+                pass
+            return JSONResponse({'ok': True, 'stored': True, 'queued': False, 'message': '알림 연결 저장이 완료되었습니다.'})
     except Exception as e:
         print(f"[push_subscribe_enqueue] failed: {e}")
         return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'queue_failed'}, status_code=500)
@@ -3417,7 +3479,7 @@ async def api_push_subscribe(request: Request):
         ).start()
     except Exception:
         pass
-    return JSONResponse({'ok': True, 'stored': False, 'queued': True, 'message': '알림 연결 저장이 접수되었습니다.'})
+    return JSONResponse({'ok': False, 'stored': False, 'queued': True, 'message': '알림 연결 저장이 지연되고 있습니다.', 'error': 'subscribe_queue_pending'}, status_code=503)
 
 
 @app.get("/api/push/subscription-status")
