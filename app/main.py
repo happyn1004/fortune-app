@@ -21,6 +21,7 @@ import zipfile
 import base64
 import urllib.request
 import urllib.error
+import unicodedata
 
 try:
     from pywebpush import webpush, WebPushException
