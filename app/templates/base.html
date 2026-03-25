@@ -407,23 +407,15 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         });
       }
       savePendingPushSubscription(subscription);
-      setStatus('알림 연결 정보를 서버에 접수하는 중입니다.', 'info');
+      setStatus('알림 연결 정보를 저장하는 중입니다.', 'info');
       const saveResult = await notifyServerSubscribe(subscription, options || {});
       const endpoint = subscription && subscription.endpoint ? subscription.endpoint : ((subscription.toJSON ? subscription.toJSON() : subscription) || {}).endpoint;
-      if (saveResult && saveResult.queued) {
-        updatePushButton('working', '마무리 중...');
-        setStatus('알림 연결을 마무리하는 중입니다. 잠시만 기다려 주세요.', 'info');
-        const stored = endpoint ? await waitForServerSubscription(endpoint, 8, 1000) : false;
-        if (stored) {
-          clearPendingPushSubscription();
-          updatePushButton('ready');
-          setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
-          return true;
-        }
-        schedulePushRetry((saveResult && saveResult.retry_after_ms) || 4000);
-        updatePushButton('', '알림 설정');
-        setStatus('알림 연결 저장이 지연되고 있습니다. 3~5초 후 자동으로 다시 확인합니다.', 'warn');
-        return false;
+      if (saveResult && saveResult.ok) {
+        clearPendingPushSubscription();
+        updatePushButton('ready');
+        setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
+        if (saveResult.queued && endpoint) schedulePushRetry((saveResult && saveResult.retry_after_ms) || 2000);
+        return true;
       }
       clearPendingPushSubscription();
       updatePushButton('ready');
@@ -491,7 +483,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 9000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true }), 4500, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
@@ -503,10 +495,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
-        schedulePushRetry(5000);
-        updatePushButton('ready');
-        setStatus('알림 연결 요청은 접수되었습니다. 서버가 백그라운드에서 자동 마무리 중입니다.', 'info');
-        alert('알림 연결 요청은 접수되었습니다. 서버가 백그라운드에서 자동 마무리 중입니다. 잠시 후 자동으로 연결 상태를 다시 확인합니다.');
+        schedulePushRetry(2500);
+        updatePushButton('', '알림 설정');
+        setStatus('알림 연결 확인이 지연되었습니다. 버튼을 한 번 더 눌러 주세요.', 'warn');
+        alert('알림 연결 확인이 지연되었습니다. 알림 설정 버튼을 한 번 더 눌러 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
