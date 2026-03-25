@@ -7,7 +7,7 @@ services:
     healthCheckPath: /
     envVars:
       - key: DATA_DIR
-        value: /var/data/mysticday
+        value: /data/mysticday
       - key: RENDER
         value: "true"
       - key: SESSION_SECRET
@@ -16,5 +16,5 @@ services:
         value: "1"
     disk:
       name: mysticday-data
-      mountPath: /var/data
+      mountPath: /data
       sizeGB: 1
