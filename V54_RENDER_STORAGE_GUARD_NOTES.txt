@@ -1,0 +1,5 @@
+V54 Render Storage Guard
+- Render에서 /var/data 같은 비정상 경로를 더 이상 기본 후보로 사용하지 않음
+- DATA_DIR / RENDER_DISK_PATH / 실제 선택 경로가 불일치하면 앱이 즉시 실패하도록 가드 추가
+- free web service + local SQLite 조합처럼 영속 저장이 불가능한 환경을 조기에 드러내도록 수정
+- 권장 설정: paid Web Service + Persistent Disk mountPath=/data + DATA_DIR=/data/mysticday
