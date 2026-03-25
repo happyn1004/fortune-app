@@ -294,7 +294,7 @@ def get_storage_status() -> dict:
     data_dir = get_data_dir()
     data_dir_str = str(data_dir)
     render_markers = ("/var/data", "/data", ".render_disk")
-    is_render_runtime = is_render_runtime() or "/opt/render/" in data_dir_str or "onrender" in data_dir_str
+    render_runtime_active = is_render_runtime() or "/opt/render/" in data_dir_str or "onrender" in data_dir_str
     uses_persistent_disk = any(marker in data_dir_str for marker in render_markers)
     recommended_data_dir = os.environ.get("DATA_DIR") or os.environ.get("RENDER_DISK_PATH") or "/var/data/mysticday"
     db_summaries = []
@@ -313,13 +313,13 @@ def get_storage_status() -> dict:
         "data_dir": data_dir_str,
         "db_path": str(data_dir / "fortune.db"),
         "backup_dir": str(get_backup_dir()),
-        "is_render_runtime": is_render_runtime,
+        "is_render_runtime": render_runtime_active,
         "uses_persistent_disk": uses_persistent_disk,
         "warning": None,
         "recommended_data_dir": recommended_data_dir,
         "db_candidates": db_summaries,
     }
-    if is_render_runtime and not uses_persistent_disk:
+    if render_runtime_active and not uses_persistent_disk:
         status["warning"] = (
             "현재 Render에서 영구 디스크가 아닌 위치에 DB가 저장되고 있습니다. "
             "업데이트/재배포 시 회원, 결제, 출석 데이터가 초기화될 수 있습니다. "
