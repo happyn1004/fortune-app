@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  mysticday:
+    build: .
+    container_name: mysticday
+    ports:
+      - "8000:8000"
+    environment:
+      - APPDATA=/data
+    volumes:
+      - mysticday_data:/data
+    restart: unless-stopped
+volumes:
+  mysticday_data:
