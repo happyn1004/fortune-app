@@ -1676,3 +1676,34 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 
 .admin-sub-toolbar { margin-top: 0; margin-bottom: 16px; }
 @media (max-width: 720px) { .admin-sub-toolbar { margin: 0 -12px 12px; } }
+
+
+/* v47 mobile admin quick actions visibility */
+.admin-mobile-sticky-toolbar { position: sticky; top: 0; z-index: 60; }
+@media (max-width: 760px) {
+  .admin-mobile-sticky-toolbar {
+    position: sticky;
+    top: 0;
+    margin: 0 -14px 14px;
+    border-radius: 0 0 16px 16px;
+    padding: 10px 12px;
+  }
+  .admin-mobile-sticky-toolbar .admin-sticky-left {
+    display: none;
+  }
+  .admin-mobile-sticky-toolbar .admin-sticky-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+    width: 100%;
+    justify-content: stretch;
+  }
+  .admin-mobile-sticky-toolbar .admin-sticky-actions .btn {
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 40px;
+  }
+}

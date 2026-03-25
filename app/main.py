@@ -61,17 +61,23 @@ def get_data_dir() -> Path:
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
+    render_persistent_candidates = [
+        Path("/data/mysticday"),
+        Path("/var/data/mysticday"),
+        Path("/opt/render/project/.render_disk/mysticday"),
+    ]
+    is_render_runtime = bool(os.environ.get("RENDER")) or "onrender" in os.environ.get("RENDER_EXTERNAL_URL", "") or "onrender" in os.environ.get("RENDER_SERVICE_NAME", "")
+    if is_render_runtime:
+        writable_candidate = _first_writable_dir(render_persistent_candidates)
+        if writable_candidate:
+            return writable_candidate
+
     appdata = os.environ.get("APPDATA", "").strip()
     if appdata:
         data_dir = Path(appdata).expanduser() / "MysticDay"
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
-    render_persistent_candidates = [
-        Path("/var/data/mysticday"),
-        Path("/data/mysticday"),
-        Path("/opt/render/project/.render_disk/mysticday"),
-    ]
     writable_candidate = _first_writable_dir(render_persistent_candidates)
     if writable_candidate:
         return writable_candidate
@@ -199,6 +205,7 @@ def get_storage_status() -> dict:
 
 
 DB_PATH = resolve_db_path()
+print(f"[STORAGE] DATA_DIR={get_data_dir()} DB_PATH={DB_PATH}")
 
 app = FastAPI(title="Fortune Service")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fortune-secret-key-change-me")
@@ -394,6 +401,32 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
     return response
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+@app.get("/storage-debug", response_class=HTMLResponse)
+def storage_debug(request: Request):
+    status = get_storage_status()
+    conn = get_db()
+    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE role IN ('admin','manager')").fetchone()[0]
+    recent_users = conn.execute("SELECT email, role, created_at FROM users ORDER BY id DESC LIMIT 5").fetchall()
+    conn.close()
+    rows = "".join(
+        f"<tr><td>{row['email']}</td><td>{row['role']}</td><td>{row['created_at'] or ''}</td></tr>"
+        for row in recent_users
+    )
+    html = f"""<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>Storage Debug</title><link rel='stylesheet' href='/static/style.css'></head><body><main class='wrap admin-wrap'>
+    <div class='card'><h2>Storage Debug</h2>
+    <p><strong>data_dir:</strong> {status['data_dir']}</p>
+    <p><strong>db_path:</strong> {status['db_path']}</p>
+    <p><strong>uses_persistent_disk:</strong> {status['uses_persistent_disk']}</p>
+    <p><strong>is_render_runtime:</strong> {status['is_render_runtime']}</p>
+    <p><strong>warning:</strong> {status['warning'] or '-'}</p>
+    <p><strong>users:</strong> {user_count} / <strong>admins:</strong> {admin_count}</p>
+    <div class='table-wrap'><table><thead><tr><th>email</th><th>role</th><th>created_at</th></tr></thead><tbody>{rows}</tbody></table></div>
+    <div style='margin-top:14px;display:flex;gap:8px;flex-wrap:wrap'><a class='btn' href='/admin/login'>관리자 로그인</a><a class='btn' href='/login'>고객 로그인</a><a class='btn' href='/'>홈</a></div>
+    </div></main></body></html>"""
+    return HTMLResponse(html)
 
 PLAN_LEVELS = ["Free", "Basic", "Premium", "VIP"]
 PLAN_RANK = {"Free": 0, "Basic": 1, "Premium": 2, "VIP": 3}
