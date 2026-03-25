@@ -3579,61 +3579,59 @@ async def api_push_subscribe(request: Request):
         'queued_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
 
+    # 가장 먼저 파일 스토어에 즉시 저장해 클릭 직후 알림 연결 상태가 확정되도록 한다.
+    # DB 락이 있어도 실제 발송 로직은 파일 스토어 구독 정보를 함께 사용한다.
     try:
-        _store_push_subscription_with_retry(record, total_wait_seconds=8.5)
-        try:
-            threading.Thread(
-                target=record_event,
-                args=("push_subscribe_ok", request, user["id"], {"plan": user["plan"]}),
-                daemon=True,
-            ).start()
-        except Exception:
-            pass
-        return JSONResponse({'ok': True, 'stored': True, 'queued': False, 'message': '알림 연결 저장이 완료되었습니다.'})
-    except sqlite3.OperationalError as e:
-        print(f"[push_subscribe_retry_busy] {e}")
+        _store_push_subscription_file(record)
     except Exception as e:
-        print(f"[push_subscribe_retry_failed] {e}")
-        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'subscribe_failed'}, status_code=500)
+        print(f"[push_subscribe_file_store_failed] {e}")
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'file_store_failed'}, status_code=500)
+
+    def _sync_push_subscription_background():
+        try:
+            _store_push_subscription_with_retry(record, total_wait_seconds=8.5)
+            try:
+                _process_push_subscription_queue_once()
+            except Exception as queue_process_error:
+                print(f"[push_subscribe_background_queue_inline_process_failed] {queue_process_error}")
+        except sqlite3.OperationalError as e:
+            print(f"[push_subscribe_background_busy] {e}")
+            try:
+                _append_push_subscription_queue(record)
+            except Exception as enqueue_error:
+                print(f"[push_subscribe_background_enqueue_failed] {enqueue_error}")
+        except Exception as e:
+            print(f"[push_subscribe_background_failed] {e}")
+            try:
+                _append_push_subscription_queue(record)
+            except Exception as enqueue_error:
+                print(f"[push_subscribe_background_enqueue_failed] {enqueue_error}")
 
     try:
-        _append_push_subscription_queue(record)
-        try:
-            _process_push_subscription_queue_once()
-        except Exception as queue_process_error:
-            print(f"[push_subscribe_queue_inline_process_failed] {queue_process_error}")
-        conn = get_db()
-        try:
-            row = conn.execute(
-                "SELECT id, is_active, updated_at FROM push_subscriptions WHERE endpoint=? AND user_id=? LIMIT 1",
-                (endpoint, user['id'])
-            ).fetchone()
-        finally:
-            conn.close()
-        if row and row['is_active']:
-            try:
-                threading.Thread(
-                    target=record_event,
-                    args=("push_subscribe_ok_after_queue", request, user["id"], {"plan": user["plan"]}),
-                    daemon=True,
-                ).start()
-            except Exception:
-                pass
-            return JSONResponse({'ok': True, 'stored': True, 'queued': False, 'message': '알림 연결 저장이 완료되었습니다.'})
+        threading.Thread(target=_sync_push_subscription_background, daemon=True).start()
     except Exception as e:
-        print(f"[push_subscribe_enqueue] failed: {e}")
-        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'queue_failed'}, status_code=500)
+        print(f"[push_subscribe_background_start_failed] {e}")
+        try:
+            _append_push_subscription_queue(record)
+        except Exception as enqueue_error:
+            print(f"[push_subscribe_fallback_enqueue_failed] {enqueue_error}")
 
     try:
         threading.Thread(
             target=record_event,
-            args=("push_subscribe_queue", request, user["id"], {"plan": user["plan"]}),
+            args=("push_subscribe_ok", request, user["id"], {"plan": user["plan"]}),
             daemon=True,
         ).start()
     except Exception:
         pass
-    _store_push_subscription_file(record)
-    return JSONResponse({'ok': True, 'stored': True, 'queued': True, 'message': '알림 연결이 완료되었습니다. 서버 동기화는 잠시 후 자동 정리됩니다.'})
+
+    return JSONResponse({
+        'ok': True,
+        'stored': True,
+        'queued': False,
+        'stored_in_file': True,
+        'message': '알림 연결이 완료되었습니다.'
+    })
 
 
 @app.get("/api/push/subscription-status")

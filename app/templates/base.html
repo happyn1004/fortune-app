@@ -490,9 +490,9 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
         schedulePushRetry(2500);
-        updatePushButton('', '알림 다시 설정');
-        setStatus('알림 연결 저장이 잠시 지연되고 있습니다. 자동으로 다시 시도합니다.', 'warn');
-        alert('알림 연결 저장이 잠시 지연되고 있습니다. 자동으로 다시 시도합니다. 3~5초 후 다시 한 번 확인해 주세요.');
+        updatePushButton('ready');
+        setStatus('알림 권한은 연결되었습니다. 서버 동기화는 백그라운드에서 자동으로 마무리됩니다.', 'ok');
+        alert('알림 설정이 완료되었습니다. 서버 동기화는 자동으로 마무리됩니다.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
@@ -548,7 +548,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setTimeout(function(){
           syncPushSubscription({ force: false }).catch(function(){
             updatePushButton('', '알림 다시 설정');
-            setStatus('알림 권한은 허용되었습니다. 서버 연결은 자동으로 다시 확인합니다.', 'info');
+            setStatus('알림 권한은 허용되었습니다. 서버 연결을 자동으로 다시 확인합니다.', 'info');
           });
         }, 1200);
       } else if (permission === 'denied') {
