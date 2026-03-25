@@ -1,0 +1,4 @@
+V62 push fix summary
+1. push_subscriptions 분리 DB 적용: /var/data/mysticday/push_subscriptions.db
+2. subscribe 저장 경합 최소화
+3. queued 상태일 때 즉시 성공 문구 대신 실제 저장 확인 후 완료 처리

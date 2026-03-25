@@ -267,7 +267,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     try {
       const result = await notifyServerSubscribe(pending, { force: true, silent: true });
       if (result && result.queued && pending.endpoint) {
-        const stored = await waitForServerSubscription(pending.endpoint, 3, 900);
+        const stored = await waitForServerSubscription(pending.endpoint, 6, 1000);
         if (!stored) {
           schedulePushRetry(result.retry_after_ms || 5000);
           return false;
@@ -337,7 +337,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     pushSyncAbortController = new AbortController();
     const timeoutId = setTimeout(function(){
       try { pushSyncAbortController.abort(); } catch (e) {}
-    }, (options && options.silent) ? 2200 : 2800);
+    }, (options && options.silent) ? 3500 : 5000);
     try {
       const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
         method: 'POST',
@@ -411,19 +411,19 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       const saveResult = await notifyServerSubscribe(subscription, options || {});
       const endpoint = subscription && subscription.endpoint ? subscription.endpoint : ((subscription.toJSON ? subscription.toJSON() : subscription) || {}).endpoint;
       if (saveResult && saveResult.queued) {
-        updatePushButton('ready');
-        setStatus('알림 연결이 접수되었습니다. 백그라운드에서 자동 마무리 중입니다.', 'info');
-        window.setTimeout(async function(){
-          const stored = endpoint ? await waitForServerSubscription(endpoint, 3, 900) : false;
-          if (stored) {
-            clearPendingPushSubscription();
-            updatePushButton('ready');
-            setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
-          } else {
-            schedulePushRetry((saveResult && saveResult.retry_after_ms) || 5000);
-          }
-        }, 0);
-        return true;
+        updatePushButton('working', '마무리 중...');
+        setStatus('알림 연결을 마무리하는 중입니다. 잠시만 기다려 주세요.', 'info');
+        const stored = endpoint ? await waitForServerSubscription(endpoint, 8, 1000) : false;
+        if (stored) {
+          clearPendingPushSubscription();
+          updatePushButton('ready');
+          setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
+          return true;
+        }
+        schedulePushRetry((saveResult && saveResult.retry_after_ms) || 4000);
+        updatePushButton('', '알림 설정');
+        setStatus('알림 연결 저장이 지연되고 있습니다. 3~5초 후 자동으로 다시 확인합니다.', 'warn');
+        return false;
       }
       clearPendingPushSubscription();
       updatePushButton('ready');

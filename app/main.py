@@ -44,6 +44,7 @@ PUSH_SUBSCRIBE_QUEUE_FILE = None
 PUSH_SUBSCRIBE_QUEUE_LOCK = threading.Lock()
 PUSH_SUBSCRIBE_WAKE_EVENT = threading.Event()
 PUSH_SUBSCRIBE_WORKER_STARTED = False
+PUSH_DB_PATH = None
 
 
 def _first_writable_dir(candidates: list[Path]) -> Path | None:
@@ -556,6 +557,15 @@ def get_storage_status() -> dict:
 
 DATA_DIR = get_data_dir()
 DB_PATH = resolve_db_path()
+
+
+def resolve_push_db_path() -> Path:
+    data_dir = get_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / "push_subscriptions.db"
+
+
+PUSH_DB_PATH = resolve_push_db_path()
 print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH}")
 
 app = FastAPI(title="Fortune Service")
@@ -655,8 +665,8 @@ def is_subscription_plan_allowed(subscription_row, audience_plan: str) -> bool:
 
 def disable_push_subscription(conn: sqlite3.Connection, subscription_id: int, reason: str = ""):
     conn.execute(
-        "UPDATE push_subscriptions SET is_active=0, last_failure_at=?, failure_reason=? WHERE id=?",
-        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], subscription_id),
+        "UPDATE push_subscriptions SET is_active=0, last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
+        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_id),
     )
 
 
@@ -1055,6 +1065,15 @@ def get_fast_write_db():
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=1200")
     conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def get_push_db(timeout: float = 3.0):
+    conn = sqlite3.connect(PUSH_DB_PATH, timeout=timeout, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     return conn
 
 
@@ -1525,6 +1544,36 @@ def init_db():
     conn.close()
 
 
+def init_push_db():
+    conn = get_push_db(timeout=5.0)
+    try:
+        cur = conn.cursor()
+        cur.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh_key TEXT NOT NULL,
+                auth_key TEXT NOT NULL,
+                user_agent TEXT,
+                plan_snapshot TEXT NOT NULL DEFAULT 'Free',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_success_at TEXT,
+                last_failure_at TEXT,
+                failure_reason TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active);
+            CREATE INDEX IF NOT EXISTS idx_push_subscriptions_updated_at ON push_subscriptions(updated_at);
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _append_push_subscription_queue(record: dict):
     global PUSH_SUBSCRIBE_QUEUE_FILE
     if PUSH_SUBSCRIBE_QUEUE_FILE is None:
@@ -1539,7 +1588,7 @@ def _append_push_subscription_queue(record: dict):
 
 def _store_push_subscription_db(record: dict):
     now_ts = record.get('queued_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = get_fast_write_db()
+    conn = get_push_db(timeout=2.5)
     try:
         conn.execute("BEGIN IMMEDIATE")
         conn.execute(
@@ -1679,6 +1728,7 @@ def start_push_subscription_worker():
 
 
 init_db()
+init_push_db()
 create_db_backup("startup")
 sync_db_to_mirrors("startup")
 start_push_subscription_worker()
@@ -3442,7 +3492,7 @@ def api_push_subscription_status(request: Request, endpoint: str = ""):
     endpoint = (endpoint or '').strip()
     if not endpoint:
         return JSONResponse({'ok': False, 'stored': False, 'message': 'endpoint가 필요합니다.'}, status_code=400)
-    conn = get_db()
+    conn = get_push_db(timeout=2.0)
     try:
         row = conn.execute(
             "SELECT id, is_active, updated_at FROM push_subscriptions WHERE endpoint=? AND user_id=? LIMIT 1",
@@ -3469,7 +3519,7 @@ async def api_push_unsubscribe(request: Request):
     payload = await request.json()
     endpoint = ((payload or {}).get('endpoint') or '').strip()
     if endpoint:
-        conn = get_db()
+        conn = get_push_db(timeout=2.0)
         try:
             conn.execute("UPDATE push_subscriptions SET is_active=0, updated_at=? WHERE endpoint=? AND user_id=?", (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), endpoint, user['id']))
             conn.commit()
@@ -3653,7 +3703,12 @@ def admin_delete_user(user_id: int, request: Request, admin=Depends(require_admi
     try:
         conn.execute("BEGIN")
         conn.execute("DELETE FROM user_notifications WHERE user_id=?", (user_id,))
-        conn.execute("DELETE FROM push_subscriptions WHERE user_id=?", (user_id,))
+        push_conn = get_push_db(timeout=3.0)
+        try:
+            push_conn.execute("DELETE FROM push_subscriptions WHERE user_id=?", (user_id,))
+            push_conn.commit()
+        finally:
+            push_conn.close()
         conn.execute("DELETE FROM attendance_log WHERE user_id=?", (user_id,))
         conn.execute("DELETE FROM inquiries WHERE user_id=?", (user_id,))
         conn.execute("DELETE FROM payments WHERE user_id=?", (user_id,))
