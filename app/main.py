@@ -1414,10 +1414,10 @@ def render_view(request: Request, template_name: str, context: dict):
     brand_name = context["site_settings"].get("brand_name", "운세조아")
     path = str(request.url.path or "/")
     if path == "/":
-        context.setdefault("meta_title", f"{brand_name} | 오늘의 운세와 무료 로또 번호")
+        context.setdefault("meta_title", "오늘의 운세와 무료 로또 번호")
         context.setdefault("meta_description", "사주 감성으로 보는 오늘의 운세, 금전운, 연애운, 무료 로또 번호까지 지금 바로 확인하세요.")
     else:
-        context.setdefault("meta_title", f"{brand_name} | 오늘의 운세")
+        context.setdefault("meta_title", "오늘의 운세")
         context.setdefault("meta_description", "오늘의 흐름과 행운 숫자를 간편하게 확인할 수 있는 운세 서비스입니다.")
     context.setdefault("og_site_name", brand_name)
     context.setdefault("og_url", str(request.url))
