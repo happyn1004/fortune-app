@@ -26,9 +26,7 @@
           <a href="/profile">프로필</a>
           <a href="/fortune">오늘의 운세</a>
           <a href="/vip-report">VIP 리포트</a>
-          {% if user.role in ['admin','manager'] %}<a href="/admin">관리자 홈</a>{% endif %}
           {% if user.role == "admin" %}<a href="/automation-studio">자동화 스튜디오</a>{% endif %}
-          <a href="/switch-account?target=/login">계정 전환</a>
           <a href="/logout">로그아웃</a>
         {% else %}
           <a href="/signup">회원가입</a>
@@ -53,7 +51,7 @@
       <a href="/profile" data-path="/profile"><span class="icon">👤</span><span>프로필</span></a>
       <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
       <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
-      {% if user.role in ['admin','manager'] %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자홈</span></a><a href="/" data-path="/"><span class="icon">🏠</span><span>고객화면</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}<a href="/switch-account?target=/login" data-path="/switch-account"><span class="icon">🔄</span><span>계정전환</span></a>
+      {% if user.role == "admin" %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}
       {% else %}
       <a href="/signup" data-path="/signup"><span class="icon">✍️</span><span>가입</span></a>
       <a href="/login" data-path="/login"><span class="icon">🔐</span><span>로그인</span></a>

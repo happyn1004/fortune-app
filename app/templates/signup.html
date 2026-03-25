@@ -6,7 +6,7 @@
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" class="form-grid">
     <label>이름<input type="text" name="name" required></label>
-    <label>이메일<input type="email" name="email" required></label>
+    <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="email" autocorrect="off" spellcheck="false" inputmode="email"></label>
     <label>연락처(핸드폰번호)<input type="text" name="phone" inputmode="tel" placeholder="010-1234-5678" required></label>
     <label>비밀번호<input type="password" name="password" required></label>
     <button class="btn primary" type="submit">가입하고 시작하기</button>

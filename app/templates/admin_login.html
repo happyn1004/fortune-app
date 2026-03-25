@@ -1,25 +1,28 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>관리자 로그인</title><link rel="stylesheet" href="/static/style.css"></head>
 <body>
-<main class="wrap admin-wrap">
-  <div class="admin-mobile-quick mobile-only">
-    <a href="/admin">관리자 홈</a>
-    <a href="/">고객 화면</a>
-    <a href="/fortune">운세 보기</a>
-    <a href="/profile">프로필</a>
-    <a href="/switch-account?target=/login">계정 전환</a>
-    <a href="/logout">로그아웃</a>
+<div class="wrap" style="padding-top:12px;">
+  <div class="admin-sticky-toolbar admin-mobile-sticky-toolbar admin-sub-toolbar">
+    <div class="admin-sticky-left">
+      <strong>빠른 이동</strong>
+      <span class="muted">모바일에서도 위에 고정됩니다.</span>
+    </div>
+    <div class="admin-sticky-actions">
+      <a class="btn mini" href="/">고객 화면</a>
+      <a class="btn mini" href="/login">고객 로그인</a>
+      <a class="btn mini" href="/signup">회원가입</a>
+    </div>
   </div>
-
+</div>
+<main class="wrap admin-wrap">
   <div class="card form-card narrow">
     <h2>관리자 / 매니저 로그인</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <p class="muted" style="margin-bottom:14px;">최초 최고관리자 아이디는 <strong>{{ default_admin_email }}</strong> 입니다.</p>{% if switch_mode and user %}<div class="success" style="margin-bottom:14px;">현재 로그인 상태를 종료하고 다른 관리자 계정으로 전환합니다.</div>{% endif %}<form method="post" class="form-grid">
-      <label>이메일<input type="email" name="email" required></label>
+    <p class="muted" style="margin-bottom:14px;">최초 최고관리자 아이디는 <strong>{{ default_admin_email }}</strong> 입니다.</p><form method="post" class="form-grid">
+      <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="email" autocorrect="off" spellcheck="false" inputmode="email"></label>
       <label>비밀번호<input type="password" name="password" required></label>
       <button class="btn primary" type="submit">관리자 로그인</button>
       <a class="btn" href="/">고객 메인으로</a>
-      <a class="btn" href="/switch-account?target=/login">고객 계정 전환</a>
     </form>
   </div>
 </main>

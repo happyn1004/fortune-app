@@ -619,10 +619,6 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def normalize_email(email: str) -> str:
-    return (email or "").strip().lower()
-
-
 def get_site_settings():
     conn = get_db()
     rows = conn.execute("SELECT key, value FROM site_settings").fetchall()
@@ -1765,25 +1761,18 @@ def signup_page(request: Request):
 
 @app.post("/signup", response_class=HTMLResponse)
 def signup(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...), phone: str = Form("")):
-    email = normalize_email(email)
     conn = get_db()
-    existing_user = conn.execute(
-        "SELECT * FROM users WHERE LOWER(TRIM(email)) = ?",
-        (email,),
-    ).fetchone()
-    if existing_user:
-        conn.close()
-        return render_view(request, "signup.html", {"error": "이미 가입된 이메일입니다.", "user": None})
+    normalized_email = normalize_email(email)
     try:
         conn.execute(
             "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
-            (name.strip(), email, hash_password(password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), phone.strip()),
+            (name.strip(), normalized_email, hash_password(password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), phone.strip()),
         )
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
         return render_view(request, "signup.html", {"error": "이미 가입된 이메일입니다.", "user": None})
-    user = conn.execute("SELECT * FROM users WHERE LOWER(TRIM(email)) = ?", (email,)).fetchone()
+    user = conn.execute("SELECT * FROM users WHERE lower(email) = ?", (normalized_email,)).fetchone()
     conn.close()
     request.session["user_id"] = user["id"]
     record_login(user["id"])
@@ -1791,20 +1780,17 @@ def signup(request: Request, name: str = Form(...), email: str = Form(...), pass
 
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, switch: int = 0):
-    current_user = get_current_user(request)
-    if current_user and not switch:
-        return RedirectResponse(url=redirect_for_staff_role(current_user) if is_staff(current_user) else redirect_for_user_role(current_user), status_code=303)
-    return render_view(request, "login.html", {"error": None, "user": current_user if switch else None, "switch_mode": bool(switch)})
+def login_page(request: Request):
+    return render_view(request, "login.html", {"error": None, "user": None})
 
 
 @app.post("/login", response_class=HTMLResponse)
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    email = normalize_email(email)
     conn = get_db()
+    normalized_email = normalize_email(email)
     user = conn.execute(
-        "SELECT * FROM users WHERE LOWER(TRIM(email)) = ? AND password_hash = ?",
-        (email, hash_password(password)),
+        "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ?",
+        (normalized_email, hash_password(password)),
     ).fetchone()
     conn.close()
     if not user:
@@ -1818,16 +1804,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
-
-
-@app.get("/switch-account")
-def switch_account(request: Request, target: str = "/login"):
-    allowed_targets = {"/login", "/admin/login", "/", "/profile", "/admin"}
-    next_target = target if target in allowed_targets else "/login"
-    request.session.clear()
-    if next_target in {"/profile", "/admin"}:
-        next_target = "/"
-    return RedirectResponse(url=next_target, status_code=303)
 
 
 @app.get("/profile", response_class=HTMLResponse)
@@ -2130,11 +2106,11 @@ def contact_submit(request: Request, subject: str = Form(...), message: str = Fo
 
 
 @app.get("/admin/login", response_class=HTMLResponse)
-def admin_login_page(request: Request, switch: int = 0):
+def admin_login_page(request: Request):
     user = get_current_user(request)
-    if is_staff(user) and not switch:
+    if is_staff(user):
         return RedirectResponse(url=redirect_for_staff_role(user), status_code=303)
-    return render_view(request, "admin_login.html", {"error": None, "user": user if switch else None, "switch_mode": bool(switch), "default_admin_email": DEFAULT_ADMIN_EMAIL})
+    return render_view(request, "admin_login.html", {"error": None, "user": None, "default_admin_email": DEFAULT_ADMIN_EMAIL})
 
 
 @app.post("/admin/login", response_class=HTMLResponse)

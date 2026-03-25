@@ -2,15 +2,18 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>회원 상세</title><link rel="stylesheet" href="/static/style.css"></head>
 <body>
 <main class="wrap admin-wrap">
-  <div class="admin-mobile-quick mobile-only">
-    <a href="/admin">관리자 홈</a>
-    <a href="/">고객 화면</a>
-    <a href="/fortune">운세 보기</a>
-    <a href="/profile">프로필</a>
-    <a href="/switch-account?target=/login">계정 전환</a>
-    <a href="/logout">로그아웃</a>
+  <div class="admin-sticky-toolbar admin-mobile-sticky-toolbar admin-sub-toolbar">
+    <div class="admin-sticky-left">
+      <span class="status-pill status-{{ admin.role }}">{{ "최고관리자" if admin.role == "admin" else "매니저" }}</span>
+      <strong>관리자 빠른 이동</strong>
+    </div>
+    <div class="admin-sticky-actions">
+      <a class="btn mini" href="/admin">관리자 홈</a>
+      <a class="btn mini" href="/">고객 화면</a>
+      <a class="btn mini" href="/fortune">운세 보기</a>
+      <a class="btn mini primary" href="/logout">로그아웃</a>
+    </div>
   </div>
-
   <section class="hero-grid admin-head-grid">
     <div class="card hero-card">
       <div class="badge">회원 상세 CRM</div>
