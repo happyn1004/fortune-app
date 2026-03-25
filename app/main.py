@@ -717,7 +717,7 @@ def send_web_push_to_subscription(conn: sqlite3.Connection, subscription_row, pa
             vapid_private_key=private_pem,
             vapid_claims=vapid_claims,
         )
-        now_ts = current_kst_timestamp()
+        now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         if subscription_id:
             conn.execute(
                 "UPDATE push_subscriptions SET last_success_at=?, failure_reason=NULL, is_active=1, updated_at=? WHERE id=?",
@@ -728,7 +728,7 @@ def send_web_push_to_subscription(conn: sqlite3.Connection, subscription_row, pa
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
         reason = str(exc)
-        now_ts = current_kst_timestamp()
+        now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         if status_code in {404, 410}:
             if subscription_id:
                 disable_push_subscription(conn, subscription_id, reason)
@@ -742,7 +742,7 @@ def send_web_push_to_subscription(conn: sqlite3.Connection, subscription_row, pa
             _update_push_subscription_file_state(endpoint, user_id=int(user_id or 0), last_failure_at=now_ts, failure_reason=reason[:250])
         return False
     except Exception as exc:
-        now_ts = current_kst_timestamp()
+        now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         if subscription_id:
             conn.execute(
                 "UPDATE push_subscriptions SET last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
@@ -1688,7 +1688,7 @@ def _save_push_subscriptions_store(data: dict):
 
 
 def _store_push_subscription_file(record: dict):
-    now_ts = current_kst_timestamp()
+    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     endpoint = (record.get('endpoint') or '').strip()
     if not endpoint:
         return False
@@ -2147,17 +2147,18 @@ def redirect_for_staff_role(user):
 
 
 def get_quote_and_tip():
-    idx = current_kst_now().toordinal() % len(QUOTES)
+    idx = datetime.now().toordinal() % len(QUOTES)
     return QUOTES[idx], LIFE_TIPS[idx]
 
-def get_day_key(today: date | None = None) -> str:
-    today = today or current_kst_date()
-    return today.isoformat()
+def get_week_key(today: date | None = None) -> str:
+    today = today or date.today()
+    year, week_num, _ = today.isocalendar()
+    return f"{year}-W{week_num:02d}"
 
 
 def generate_weekly_lotto_numbers(today: date | None = None):
-    today = today or current_kst_date()
-    key = get_day_key(today)
+    today = today or date.today()
+    key = get_week_key(today)
     seed = int(hashlib.sha256(key.encode('utf-8')).hexdigest()[:12], 16)
     sets = []
     strategy_labels = ['안정형', '균형형', '분산형', '역발상형', '공격형']
@@ -2191,8 +2192,8 @@ def generate_weekly_lotto_numbers(today: date | None = None):
             'score': score,
             'avoid': ', '.join(str(n) for n in avoid_numbers),
         })
-    summary = '오늘은 중간 번호대와 고번호를 섞은 균형형 조합이 잘 맞는 흐름입니다. 자정이 지나면 새 번호로 갱신됩니다.'
-    return {'week_key': today.strftime('%Y-%m-%d'), 'sets': sets, 'summary': summary, 'avoid_numbers': avoid_numbers, 'refresh_at': '매일 00:00 (한국시간)'}
+    summary = '이번 주는 중간 번호대와 고번호를 섞은 균형형 조합이 유리한 흐름입니다.'
+    return {'week_key': key, 'sets': sets, 'summary': summary, 'avoid_numbers': avoid_numbers}
 
 
 def get_today_comment(active_plan: str, fortune: dict):
@@ -2247,7 +2248,7 @@ def deliver_pending_notifications_for_user(user):
     if not user_can_use_member_features(user):
         return
     plan = user['plan'] or 'Free'
-    now_ts = current_kst_timestamp()
+    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn = get_db()
     rows = conn.execute(
         """
@@ -2313,8 +2314,8 @@ def mark_all_notifications_read(user):
 def record_attendance(user):
     if not user_can_use_member_features(user):
         return None
-    today = current_kst_date().isoformat()
-    now_ts = current_kst_timestamp()
+    today = date.today().isoformat()
+    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn = get_db()
     existing = conn.execute('SELECT * FROM attendance_log WHERE user_id=? AND attend_date=?', (user['id'], today)).fetchone()
     if existing:
@@ -2326,7 +2327,7 @@ def record_attendance(user):
     if prev['last_attendance_date']:
         try:
             prev_date = datetime.strptime(prev['last_attendance_date'], '%Y-%m-%d').date()
-            if (current_kst_date() - prev_date).days > 1:
+            if (date.today() - prev_date).days > 1:
                 streak = 1
         except Exception:
             streak = 1
@@ -2354,7 +2355,7 @@ def get_attendance_status(user):
         'last_attendance_date': row['last_attendance_date'],
         'latest_reward_type': latest['reward_type'] if latest else None,
         'latest_reward_value': latest['reward_value'] if latest else None,
-        'checked_today': bool(row['last_attendance_date'] == current_kst_date().isoformat()),
+        'checked_today': bool(row['last_attendance_date'] == date.today().isoformat()),
     }
 
 
@@ -2390,7 +2391,7 @@ def build_plan_access(plan: str):
 
 
 def generate_fortune(user, active_plan: str):
-    today = current_kst_now()
+    today = datetime.now()
     quote, tip = get_quote_and_tip()
     if user and user["birth_date"]:
         year = int(user["birth_date"].split("-")[0])
@@ -2504,14 +2505,12 @@ def generate_fortune(user, active_plan: str):
     base_fortune['이번주로또'] = lotto
     base_fortune['오늘의코멘트'] = get_today_comment(active_plan, base_fortune)
     base_fortune['재물집중코멘트'] = '재물운은 크게 벌리는 것보다 새는 비용을 줄이는 정리형 접근이 유리합니다.'
-    base_fortune['갱신기준'] = '매일 00:00 한국시간 기준 자동 갱신'
-    base_fortune['생성일시'] = today.strftime('%Y-%m-%d %H:%M KST')
     return {**base_fortune, "plan_meta": meta, "access": access, "active_plan": active_plan}
 
 
 def record_login(user_id: int):
     conn = get_db()
-    conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (current_kst_timestamp(), user_id))
+    conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_id))
     conn.commit()
     conn.close()
 
