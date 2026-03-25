@@ -233,7 +233,6 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   let lastSavedPushEndpoint = '';
   let pushReadyCheckedAt = 0;
   let pushRetryTimer = null;
-  let pushEnableInFlight = false;
   function savePendingPushSubscription(subscription) {
     try {
       if (!subscription || !subscription.endpoint) return;
@@ -265,14 +264,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     const pending = readPendingPushSubscription();
     if (!pending) return false;
     try {
-      const result = await notifyServerSubscribe(pending, { force: true, silent: true });
-      if (result && result.queued && pending.endpoint) {
-        const stored = await waitForServerSubscription(pending.endpoint, 6, 1000);
-        if (!stored) {
-          schedulePushRetry(result.retry_after_ms || 5000);
-          return false;
-        }
-      }
+      await notifyServerSubscribe(pending, { force: true, silent: true });
       clearPendingPushSubscription();
       updatePushButton('ready');
       setStatus('알림 연결이 복구되었습니다. 이제 시스템 알림으로 받아볼 수 있습니다.', 'ok');
@@ -337,7 +329,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     pushSyncAbortController = new AbortController();
     const timeoutId = setTimeout(function(){
       try { pushSyncAbortController.abort(); } catch (e) {}
-    }, (options && options.silent) ? 3500 : 5000);
+    }, (options && options.silent) ? 4500 : 6000);
     try {
       const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
         method: 'POST',
@@ -354,11 +346,9 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         const code = data && data.error ? data.error : (response.status === 503 ? 'db_busy' : 'subscribe_failed');
         throw new Error(code);
       }
-      if (data && data.ok) {
-        lastSavedPushEndpoint = endpoint;
-        pushReadyCheckedAt = Date.now();
-        try { localStorage.setItem(PUSH_LAST_SYNC_KEY, String(pushReadyCheckedAt)); } catch (e) {}
-      }
+      lastSavedPushEndpoint = endpoint;
+      pushReadyCheckedAt = Date.now();
+      try { localStorage.setItem(PUSH_LAST_SYNC_KEY, String(pushReadyCheckedAt)); } catch (e) {}
       return data;
     } catch (e) {
       if (e && e.name === 'AbortError') throw new Error('subscribe_timeout');
@@ -368,9 +358,8 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       pushSyncAbortController = null;
     }
   }
-  async function waitForServerSubscription(endpoint, tries, intervalMs) {
-    const maxTries = Math.max(2, tries || 4);
-    const waitMs = Math.max(500, intervalMs || 1000);
+  async function waitForServerSubscription(endpoint, tries) {
+    const maxTries = Math.max(3, tries || 8);
     for (let i = 0; i < maxTries; i += 1) {
       try {
         const res = await fetch(buildPushApiUrl('/api/push/subscription-status?endpoint=' + encodeURIComponent(endpoint)), {
@@ -379,9 +368,8 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         });
         const data = await res.json();
         if (res.ok && data && data.ok && data.stored) return true;
-        if (res.ok && data && data.ok && data.queued && i === maxTries - 1) return false;
       } catch (e) {}
-      await new Promise(resolve => setTimeout(resolve, waitMs));
+      await new Promise(resolve => setTimeout(resolve, 1200));
     }
     return false;
   }
@@ -407,15 +395,13 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         });
       }
       savePendingPushSubscription(subscription);
-      setStatus('알림 연결 정보를 저장하는 중입니다.', 'info');
+      setStatus('알림 연결 정보를 서버에 접수하는 중입니다.', 'info');
       const saveResult = await notifyServerSubscribe(subscription, options || {});
-      const endpoint = subscription && subscription.endpoint ? subscription.endpoint : ((subscription.toJSON ? subscription.toJSON() : subscription) || {}).endpoint;
-      if (saveResult && saveResult.ok) {
-        clearPendingPushSubscription();
-        updatePushButton('ready');
-        setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
-        if (saveResult.queued && endpoint) schedulePushRetry((saveResult && saveResult.retry_after_ms) || 2000);
-        return true;
+      if (saveResult && saveResult.queued) {
+        setStatus('알림 연결 저장을 다시 확인하는 중입니다.', 'info');
+        const endpoint = subscription && subscription.endpoint ? subscription.endpoint : ((subscription.toJSON ? subscription.toJSON() : subscription) || {}).endpoint;
+        const stored = endpoint ? await waitForServerSubscription(endpoint, 15) : false;
+        if (!stored) schedulePushRetry(2500);
       }
       clearPendingPushSubscription();
       updatePushButton('ready');
@@ -429,8 +415,6 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   }
   async function enablePush() {
     if (!btn) return;
-    if (pushEnableInFlight) return;
-    pushEnableInFlight = true;
 
     if (!supportsWebPush()) {
       updatePushButton('unsupported');
@@ -483,7 +467,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 4500, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true }), 9000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
@@ -496,15 +480,13 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
         schedulePushRetry(2500);
-        updatePushButton('', '알림 설정');
-        setStatus('알림 연결 확인이 지연되었습니다. 버튼을 한 번 더 눌러 주세요.', 'warn');
-        alert('알림 연결 확인이 지연되었습니다. 알림 설정 버튼을 한 번 더 눌러 주세요.');
+        updatePushButton('', '알림 다시 설정');
+        setStatus('알림 연결 저장이 잠시 지연되고 있습니다. 자동으로 다시 시도합니다.', 'warn');
+        alert('알림 연결 저장이 잠시 지연되고 있습니다. 자동으로 다시 시도합니다. 3~5초 후 다시 한 번 확인해 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
       }
-    } finally {
-      pushEnableInFlight = false;
     }
   }
   document.querySelectorAll('[data-guide-toggle]').forEach(function(toggle){
@@ -552,7 +534,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
       if (permission === 'granted') {
         updatePushButton('ready');
-        setStatus('알림 권한은 이미 허용되어 있습니다. 서버 연결 상태를 자동으로 확인합니다.', 'ok');
+        setStatus('알림이 이미 허용되어 있습니다. 홈 화면에 설치하면 더 앱처럼 사용할 수 있습니다.', 'ok');
         setTimeout(function(){
           syncPushSubscription({ force: false }).catch(function(){
             updatePushButton('', '알림 다시 설정');

@@ -41,12 +41,9 @@ from cryptography.hazmat.primitives.asymmetric import ec
 BASE_DIR = Path(__file__).resolve().parent
 
 PUSH_SUBSCRIBE_QUEUE_FILE = None
-PUSH_SUBSCRIBE_LIVE_FILE = None
 PUSH_SUBSCRIBE_QUEUE_LOCK = threading.Lock()
-PUSH_SUBSCRIBE_LIVE_LOCK = threading.Lock()
 PUSH_SUBSCRIBE_WAKE_EVENT = threading.Event()
 PUSH_SUBSCRIBE_WORKER_STARTED = False
-PUSH_DB_PATH = None
 
 
 def _first_writable_dir(candidates: list[Path]) -> Path | None:
@@ -559,15 +556,6 @@ def get_storage_status() -> dict:
 
 DATA_DIR = get_data_dir()
 DB_PATH = resolve_db_path()
-
-
-def resolve_push_db_path() -> Path:
-    data_dir = get_data_dir()
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir / "push_subscriptions.db"
-
-
-PUSH_DB_PATH = resolve_push_db_path()
 print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH}")
 
 app = FastAPI(title="Fortune Service")
@@ -667,87 +655,64 @@ def is_subscription_plan_allowed(subscription_row, audience_plan: str) -> bool:
 
 def disable_push_subscription(conn: sqlite3.Connection, subscription_id: int, reason: str = ""):
     conn.execute(
-        "UPDATE push_subscriptions SET is_active=0, last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
-        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_id),
+        "UPDATE push_subscriptions SET is_active=0, last_failure_at=?, failure_reason=? WHERE id=?",
+        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], subscription_id),
     )
 
 
-def send_web_push_to_subscription(push_conn: sqlite3.Connection | None, subscription_row, payload: dict, vapid_private_key: str, conn_for_updates: sqlite3.Connection | None = None) -> bool:
+def send_web_push_to_subscription(conn: sqlite3.Connection, subscription_row, payload: dict) -> bool:
     if not webpush_is_ready():
         return False
+    private_pem, public_key = ensure_vapid_keys(conn)
     vapid_claims = {"sub": VAPID_SUBJECT}
-    update_conn = conn_for_updates or push_conn
     try:
         webpush(
             subscription_info=get_push_subscription_payload(subscription_row),
             data=json.dumps(payload, ensure_ascii=False),
-            vapid_private_key=vapid_private_key,
+            vapid_private_key=private_pem,
             vapid_claims=vapid_claims,
         )
-        if update_conn is not None and subscription_row.get("id") is not None:
-            update_conn.execute(
-                "UPDATE push_subscriptions SET last_success_at=?, failure_reason=NULL, is_active=1, updated_at=? WHERE id=?",
-                (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
-            )
+        conn.execute(
+            "UPDATE push_subscriptions SET last_success_at=?, failure_reason=NULL, is_active=1, updated_at=? WHERE id=?",
+            (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
+        )
         return True
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
         reason = str(exc)
-        if update_conn is not None and subscription_row.get("id") is not None:
-            if status_code in {404, 410}:
-                disable_push_subscription(update_conn, subscription_row["id"], reason)
-            else:
-                update_conn.execute(
-                    "UPDATE push_subscriptions SET last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
-                    (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
-                )
+        if status_code in {404, 410}:
+            disable_push_subscription(conn, subscription_row["id"], reason)
+        else:
+            conn.execute(
+                "UPDATE push_subscriptions SET last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
+                (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), reason[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
+            )
         return False
     except Exception as exc:
-        if update_conn is not None and subscription_row.get("id") is not None:
-            update_conn.execute(
-                "UPDATE push_subscriptions SET last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
-                (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), str(exc)[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
-            )
+        conn.execute(
+            "UPDATE push_subscriptions SET last_failure_at=?, failure_reason=?, updated_at=? WHERE id=?",
+            (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), str(exc)[:250], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), subscription_row["id"]),
+        )
         return False
 
 
 def send_web_push_for_notification(notification_id: int):
     conn = get_db()
-    push_conn = get_push_db(timeout=5.0)
     try:
         notification = conn.execute("SELECT * FROM push_notifications WHERE id=?", (notification_id,)).fetchone()
         if not notification or not notification["is_active"] or not webpush_is_ready():
             return
-        private_pem, _public_key = ensure_vapid_keys(conn)
-        db_rows = push_conn.execute("SELECT * FROM push_subscriptions WHERE is_active=1 ORDER BY id DESC").fetchall()
-        merged_rows = []
-        seen = set()
-        user_ids = set()
-        for row in db_rows:
-            item = dict(row)
-            endpoint = item["endpoint"]
-            if endpoint in seen:
-                continue
-            seen.add(endpoint)
-            merged_rows.append(item)
-            if item.get("user_id"):
-                user_ids.add(int(item["user_id"]))
-        for item in _get_live_push_rows():
-            endpoint = item["endpoint"]
-            if endpoint in seen:
-                continue
-            seen.add(endpoint)
-            merged_rows.append(item)
-            if item.get("user_id"):
-                user_ids.add(int(item["user_id"]))
-        plan_map = {}
-        if user_ids:
-            placeholders = ",".join(["?"] * len(user_ids))
-            for r in conn.execute(f"SELECT id, plan FROM users WHERE id IN ({placeholders})", tuple(sorted(user_ids))).fetchall():
-                plan_map[int(r["id"])] = r["plan"]
+        rows = conn.execute(
+            """
+            SELECT ps.*, u.plan AS current_plan
+            FROM push_subscriptions ps
+            LEFT JOIN users u ON u.id = ps.user_id
+            WHERE ps.is_active=1
+            ORDER BY ps.id DESC
+            """
+        ).fetchall()
         target_url = notification["target_url"] or "/fortune"
-        for row in merged_rows:
-            row["current_plan"] = plan_map.get(int(row.get("user_id") or 0))
+        for row in rows:
             if not is_subscription_plan_allowed(row, notification["audience_plan"]):
                 continue
             payload = {
@@ -758,10 +723,9 @@ def send_web_push_for_notification(notification_id: int):
                 "icon": "/static/icon-192.png",
                 "badge": "/static/icon-192.png",
             }
-            send_web_push_to_subscription(push_conn, row, payload, private_pem, conn_for_updates=push_conn)
-        push_conn.commit()
+            send_web_push_to_subscription(conn, row, payload)
+        conn.commit()
     finally:
-        push_conn.close()
         conn.close()
 
 
@@ -1091,15 +1055,6 @@ def get_fast_write_db():
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=1200")
     conn.execute("PRAGMA foreign_keys=ON")
-    return conn
-
-
-def get_push_db(timeout: float = 3.0):
-    conn = sqlite3.connect(PUSH_DB_PATH, timeout=timeout, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA busy_timeout=3000")
     return conn
 
 
@@ -1570,144 +1525,6 @@ def init_db():
     conn.close()
 
 
-def init_push_db():
-    conn = get_push_db(timeout=5.0)
-    try:
-        cur = conn.cursor()
-        cur.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS push_subscriptions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                endpoint TEXT NOT NULL UNIQUE,
-                p256dh_key TEXT NOT NULL,
-                auth_key TEXT NOT NULL,
-                user_agent TEXT,
-                plan_snapshot TEXT NOT NULL DEFAULT 'Free',
-                is_active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                last_success_at TEXT,
-                last_failure_at TEXT,
-                failure_reason TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active);
-            CREATE INDEX IF NOT EXISTS idx_push_subscriptions_updated_at ON push_subscriptions(updated_at);
-            """
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _read_live_push_map() -> dict:
-    global PUSH_SUBSCRIBE_LIVE_FILE
-    if PUSH_SUBSCRIBE_LIVE_FILE is None:
-        PUSH_SUBSCRIBE_LIVE_FILE = DATA_DIR / "push_subscriptions_live.json"
-    file_path = PUSH_SUBSCRIBE_LIVE_FILE
-    if not file_path.exists() or file_path.stat().st_size <= 0:
-        return {}
-    try:
-        data = json.loads(file_path.read_text(encoding='utf-8'))
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def _write_live_push_map(data: dict):
-    global PUSH_SUBSCRIBE_LIVE_FILE
-    if PUSH_SUBSCRIBE_LIVE_FILE is None:
-        PUSH_SUBSCRIBE_LIVE_FILE = DATA_DIR / "push_subscriptions_live.json"
-    file_path = PUSH_SUBSCRIBE_LIVE_FILE
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = file_path.with_suffix('.tmp')
-    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
-    tmp.replace(file_path)
-
-
-def _upsert_live_push_subscription(record: dict):
-    endpoint = (record.get('endpoint') or '').strip()
-    if not endpoint:
-        raise ValueError('endpoint_required')
-    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with PUSH_SUBSCRIBE_LIVE_LOCK:
-        data = _read_live_push_map()
-        current = data.get(endpoint) or {}
-        current.update({
-            'user_id': int(record.get('user_id') or 0),
-            'endpoint': endpoint,
-            'p256dh_key': (record.get('p256dh_key') or '').strip(),
-            'auth_key': (record.get('auth_key') or '').strip(),
-            'user_agent': (record.get('user_agent') or '')[:250],
-            'plan_snapshot': record.get('plan_snapshot') or current.get('plan_snapshot') or 'Free',
-            'is_active': 1,
-            'created_at': current.get('created_at') or now_ts,
-            'updated_at': now_ts,
-        })
-        data[endpoint] = current
-        _write_live_push_map(data)
-
-
-def _deactivate_live_push_subscription(endpoint: str, user_id: int | None = None):
-    endpoint = (endpoint or '').strip()
-    if not endpoint:
-        return
-    with PUSH_SUBSCRIBE_LIVE_LOCK:
-        data = _read_live_push_map()
-        item = data.get(endpoint)
-        if not item:
-            return
-        if user_id is not None and int(item.get('user_id') or 0) != int(user_id):
-            return
-        item['is_active'] = 0
-        item['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        data[endpoint] = item
-        _write_live_push_map(data)
-
-
-def _live_has_push_subscription(endpoint: str, user_id: int | None = None) -> bool:
-    endpoint = (endpoint or '').strip()
-    if not endpoint:
-        return False
-    try:
-        data = _read_live_push_map()
-        item = data.get(endpoint) or {}
-        if not item or int(item.get('is_active') or 0) != 1:
-            return False
-        if user_id is not None and int(item.get('user_id') or 0) != int(user_id):
-            return False
-        return True
-    except Exception:
-        return False
-
-
-def _get_live_push_rows() -> list[dict]:
-    try:
-        data = _read_live_push_map()
-    except Exception:
-        return []
-    rows = []
-    for endpoint, item in data.items():
-        if int((item or {}).get('is_active') or 0) != 1:
-            continue
-        rows.append({
-            'id': None,
-            'user_id': int(item.get('user_id') or 0),
-            'endpoint': endpoint,
-            'p256dh_key': item.get('p256dh_key') or '',
-            'auth_key': item.get('auth_key') or '',
-            'user_agent': item.get('user_agent') or '',
-            'plan_snapshot': item.get('plan_snapshot') or 'Free',
-            'is_active': 1,
-            'created_at': item.get('created_at'),
-            'updated_at': item.get('updated_at'),
-            'last_success_at': item.get('last_success_at'),
-            'last_failure_at': item.get('last_failure_at'),
-            'failure_reason': item.get('failure_reason'),
-        })
-    return rows
-
-
 def _append_push_subscription_queue(record: dict):
     global PUSH_SUBSCRIBE_QUEUE_FILE
     if PUSH_SUBSCRIBE_QUEUE_FILE is None:
@@ -1720,11 +1537,12 @@ def _append_push_subscription_queue(record: dict):
     PUSH_SUBSCRIBE_WAKE_EVENT.set()
 
 
-def _store_push_subscription_db(record: dict):
+def _store_push_subscription_db(record: dict, fast: bool = False):
     now_ts = record.get('queued_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = get_push_db(timeout=2.5)
+    conn = get_fast_write_db() if fast else get_db()
     try:
-        conn.execute("BEGIN IMMEDIATE")
+        if fast:
+            conn.execute('BEGIN IMMEDIATE')
         conn.execute(
             """
             INSERT INTO push_subscriptions (user_id, endpoint, p256dh_key, auth_key, user_agent, plan_snapshot, is_active, created_at, updated_at)
@@ -1758,29 +1576,29 @@ def _store_push_subscription_db(record: dict):
 
 def _queue_has_push_subscription(endpoint: str, user_id: int | None = None) -> bool:
     global PUSH_SUBSCRIBE_QUEUE_FILE
+    endpoint = (endpoint or '').strip()
+    if not endpoint:
+        return False
     if PUSH_SUBSCRIBE_QUEUE_FILE is None:
-        PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / "push_subscribe_queue.jsonl"
+        PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / 'push_subscribe_queue.jsonl'
     queue_file = PUSH_SUBSCRIBE_QUEUE_FILE
-    processing_file = queue_file.with_suffix('.processing')
-    for target in [queue_file, processing_file]:
+    if not queue_file.exists():
+        return False
+    try:
+        with PUSH_SUBSCRIBE_QUEUE_LOCK:
+            lines = queue_file.read_text(encoding='utf-8').splitlines()
+    except Exception:
+        return False
+    for line in reversed(lines[-200:]):
         try:
-            if not target.exists() or target.stat().st_size <= 0:
-                continue
-            for line in target.read_text(encoding='utf-8').splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if (item.get('endpoint') or '').strip() != endpoint:
-                    continue
-                if user_id is not None and int(item.get('user_id') or 0) != int(user_id):
-                    continue
-                return True
+            record = json.loads(line)
         except Exception:
             continue
+        if (record.get('endpoint') or '').strip() != endpoint:
+            continue
+        if user_id is not None and int(record.get('user_id') or 0) != int(user_id):
+            continue
+        return True
     return False
 
 
@@ -1852,18 +1670,16 @@ def _push_subscription_worker_loop():
 
 
 def start_push_subscription_worker():
-    global PUSH_SUBSCRIBE_WORKER_STARTED, PUSH_SUBSCRIBE_QUEUE_FILE, PUSH_SUBSCRIBE_LIVE_FILE
+    global PUSH_SUBSCRIBE_WORKER_STARTED, PUSH_SUBSCRIBE_QUEUE_FILE
     if PUSH_SUBSCRIBE_WORKER_STARTED:
         return
     PUSH_SUBSCRIBE_WORKER_STARTED = True
     PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / "push_subscribe_queue.jsonl"
-    PUSH_SUBSCRIBE_LIVE_FILE = DATA_DIR / "push_subscriptions_live.json"
     threading.Thread(target=_push_subscription_worker_loop, daemon=True, name='push-subscription-worker').start()
 
 
 
 init_db()
-init_push_db()
 create_db_backup("startup")
 sync_db_to_mirrors("startup")
 start_push_subscription_worker()
@@ -3571,56 +3387,37 @@ async def api_push_subscribe(request: Request):
         'plan_snapshot': user['plan'],
         'queued_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
-
     try:
-        _upsert_live_push_subscription(record)
-    except Exception as e:
-        print(f"[push_subscribe_live_failed] {e}")
-        return JSONResponse({'ok': False, 'message': '알림 연결 임시 저장에 실패했습니다.', 'error': 'live_store_failed'}, status_code=500)
-
-    db_stored = False
-    try:
-        _store_push_subscription_db(record)
-        db_stored = True
+        _store_push_subscription_db(record, fast=True)
         try:
             threading.Thread(
                 target=record_event,
-                args=("push_subscribe_direct", request, user["id"], {"plan": user["plan"]}),
+                args=("push_subscribe_ok", request, user["id"], {"plan": user["plan"]}),
                 daemon=True,
             ).start()
         except Exception:
             pass
+        return JSONResponse({'ok': True, 'stored': True, 'queued': False, 'message': '알림 연결 저장이 완료되었습니다.'})
     except sqlite3.OperationalError as e:
-        print(f"[push_subscribe_direct_busy] {e}")
+        print(f"[push_subscribe_fast_store_busy] {e}")
     except Exception as e:
-        print(f"[push_subscribe_direct_failed] {e}")
+        print(f"[push_subscribe_fast_store_failed] {e}")
 
-    queued = False
-    if not db_stored:
-        try:
-            _append_push_subscription_queue(record)
-            queued = True
-        except Exception as e:
-            print(f"[push_subscribe_enqueue] failed: {e}")
-        try:
-            threading.Thread(
-                target=record_event,
-                args=("push_subscribe_queue", request, user["id"], {"plan": user["plan"]}),
-                daemon=True,
-            ).start()
-        except Exception:
-            pass
-        PUSH_SUBSCRIBE_WAKE_EVENT.set()
-    return JSONResponse({
-        'ok': True,
-        'stored': True,
-        'db_stored': db_stored,
-        'queued': queued,
-        'endpoint': endpoint,
-        'retry_after_ms': 1500 if queued else 0,
-        'message': '알림 연결 저장이 완료되었습니다.' if db_stored else '알림 설정이 완료되었습니다. 서버 반영은 자동으로 마무리됩니다.'
-    })
+    try:
+        _append_push_subscription_queue(record)
+    except Exception as e:
+        print(f"[push_subscribe_enqueue] failed: {e}")
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장에 실패했습니다.', 'error': 'queue_failed'}, status_code=500)
 
+    try:
+        threading.Thread(
+            target=record_event,
+            args=("push_subscribe_queue", request, user["id"], {"plan": user["plan"]}),
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+    return JSONResponse({'ok': True, 'stored': False, 'queued': True, 'message': '알림 연결 저장이 접수되었습니다.'})
 
 
 @app.get("/api/push/subscription-status")
@@ -3631,7 +3428,7 @@ def api_push_subscription_status(request: Request, endpoint: str = ""):
     endpoint = (endpoint or '').strip()
     if not endpoint:
         return JSONResponse({'ok': False, 'stored': False, 'message': 'endpoint가 필요합니다.'}, status_code=400)
-    conn = get_push_db(timeout=2.0)
+    conn = get_db()
     try:
         row = conn.execute(
             "SELECT id, is_active, updated_at FROM push_subscriptions WHERE endpoint=? AND user_id=? LIMIT 1",
@@ -3639,18 +3436,8 @@ def api_push_subscription_status(request: Request, endpoint: str = ""):
         ).fetchone()
     finally:
         conn.close()
-    live_stored = _live_has_push_subscription(endpoint, user['id'])
-    queued = False
-    if not row or not row['is_active']:
-        queued = _queue_has_push_subscription(endpoint, user['id'])
-    return JSONResponse({
-        'ok': True,
-        'stored': bool((row and row['is_active']) or live_stored),
-        'queued': queued,
-        'live_stored': live_stored,
-        'updated_at': row['updated_at'] if row else None
-    })
-
+    queued = _queue_has_push_subscription(endpoint, user['id'])
+    return JSONResponse({'ok': True, 'stored': bool(row and row['is_active']), 'queued': queued, 'updated_at': row['updated_at'] if row else None})
 
 
 @app.post("/api/push/unsubscribe")
@@ -3661,8 +3448,7 @@ async def api_push_unsubscribe(request: Request):
     payload = await request.json()
     endpoint = ((payload or {}).get('endpoint') or '').strip()
     if endpoint:
-        _deactivate_live_push_subscription(endpoint, user['id'])
-        conn = get_push_db(timeout=2.0)
+        conn = get_db()
         try:
             conn.execute("UPDATE push_subscriptions SET is_active=0, updated_at=? WHERE endpoint=? AND user_id=?", (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), endpoint, user['id']))
             conn.commit()
@@ -3846,12 +3632,7 @@ def admin_delete_user(user_id: int, request: Request, admin=Depends(require_admi
     try:
         conn.execute("BEGIN")
         conn.execute("DELETE FROM user_notifications WHERE user_id=?", (user_id,))
-        push_conn = get_push_db(timeout=3.0)
-        try:
-            push_conn.execute("DELETE FROM push_subscriptions WHERE user_id=?", (user_id,))
-            push_conn.commit()
-        finally:
-            push_conn.close()
+        conn.execute("DELETE FROM push_subscriptions WHERE user_id=?", (user_id,))
         conn.execute("DELETE FROM attendance_log WHERE user_id=?", (user_id,))
         conn.execute("DELETE FROM inquiries WHERE user_id=?", (user_id,))
         conn.execute("DELETE FROM payments WHERE user_id=?", (user_id,))
