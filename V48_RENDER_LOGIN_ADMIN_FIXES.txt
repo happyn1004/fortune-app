@@ -1,0 +1,1 @@
+이번 수정 내용\n- Render 영구저장 경로 기준을 /var/data 우선으로 정리\n- render.yaml 의 DATA_DIR, disk mountPath 를 /var/data 기준으로 일치시킴\n- 고객/관리자 로그인에 레거시 비밀번호 해시 호환 로직 추가\n- 성공 로그인 시 이메일/비밀번호 해시를 최신 기준으로 자동 보정\n- /storage-debug 에 customers 수 표시 추가\n- 모바일 관리자 화면 상단에 고정형 빠른 이동 버튼 추가\n- 빠른 이동 관련 불필요한 안내 문구 제거\n

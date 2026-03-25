@@ -61,12 +61,13 @@ def get_data_dir() -> Path:
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
+    is_render_runtime = bool(os.environ.get("RENDER")) or "onrender" in os.environ.get("RENDER_EXTERNAL_URL", "") or "onrender" in os.environ.get("RENDER_SERVICE_NAME", "")
+
     render_persistent_candidates = [
-        Path("/data/mysticday"),
         Path("/var/data/mysticday"),
+        Path("/data/mysticday"),
         Path("/opt/render/project/.render_disk/mysticday"),
     ]
-    is_render_runtime = bool(os.environ.get("RENDER")) or "onrender" in os.environ.get("RENDER_EXTERNAL_URL", "") or "onrender" in os.environ.get("RENDER_SERVICE_NAME", "")
     if is_render_runtime:
         writable_candidate = _first_writable_dir(render_persistent_candidates)
         if writable_candidate:
@@ -407,7 +408,8 @@ def storage_debug(request: Request):
     status = get_storage_status()
     conn = get_db()
     user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE role IN ('admin','manager')").fetchone()[0]
+    admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE role IN (\'admin\',\'manager\')").fetchone()[0]
+    customer_count = conn.execute("SELECT COUNT(*) FROM users WHERE role NOT IN (\'admin\',\'manager\')").fetchone()[0]
     recent_users = conn.execute("SELECT email, role, created_at FROM users ORDER BY id DESC LIMIT 5").fetchall()
     conn.close()
     rows = "".join(
@@ -422,7 +424,7 @@ def storage_debug(request: Request):
     <p><strong>uses_persistent_disk:</strong> {status['uses_persistent_disk']}</p>
     <p><strong>is_render_runtime:</strong> {status['is_render_runtime']}</p>
     <p><strong>warning:</strong> {status['warning'] or '-'}</p>
-    <p><strong>users:</strong> {user_count} / <strong>admins:</strong> {admin_count}</p>
+    <p><strong>users:</strong> {user_count} / <strong>admins:</strong> {admin_count} / <strong>customers:</strong> {customer_count}</p>
     <div class='table-wrap'><table><thead><tr><th>email</th><th>role</th><th>created_at</th></tr></thead><tbody>{rows}</tbody></table></div>
     <div style='margin-top:14px;display:flex;gap:8px;flex-wrap:wrap'><a class='btn' href='/admin/login'>관리자 로그인</a><a class='btn' href='/login'>고객 로그인</a><a class='btn' href='/'>홈</a></div>
     </div></main></body></html>"""
@@ -641,6 +643,61 @@ PLAN_META = {
         "report_name": "Executive Fortune Briefing",
     },
 }
+
+
+
+def credential_hash_candidates(password: str | None) -> list[str]:
+    raw_password = password or ""
+    normalized_password = normalize_password_input(password)
+    candidates: list[str] = []
+    for candidate in [normalized_password, raw_password, raw_password.strip()]:
+        hashed = hash_password(candidate)
+        if hashed not in candidates:
+            candidates.append(hashed)
+    return candidates
+
+
+def find_user_by_credentials(conn: sqlite3.Connection, email: str | None, password: str | None, allowed_roles: tuple[str, ...] | None = None):
+    normalized_email = normalize_email(email)
+    email_candidates: list[str] = []
+    for candidate in [normalized_email, (email or "").strip().lower(), (email or "").strip()]:
+        if candidate and candidate not in email_candidates:
+            email_candidates.append(candidate)
+
+    hashes = credential_hash_candidates(password)
+    if not email_candidates or not hashes:
+        return None
+
+    clauses = []
+    params: list[str] = []
+    for candidate in email_candidates:
+        clauses.append("lower(email) = ?")
+        params.append(candidate.lower())
+    email_sql = " OR ".join(clauses)
+
+    role_sql = ""
+    if allowed_roles:
+        role_sql = " AND role IN (" + ",".join("?" for _ in allowed_roles) + ")"
+
+    query = f"SELECT * FROM users WHERE ({email_sql}) AND password_hash IN ({','.join('?' for _ in hashes)}){role_sql} ORDER BY id DESC LIMIT 1"
+    params.extend(hashes)
+    if allowed_roles:
+        params.extend(allowed_roles)
+    user = conn.execute(query, params).fetchone()
+
+    if user:
+        canonical_email = normalize_email(user["email"])
+        canonical_hash = hash_password(normalize_password_input(password))
+        update_needed = False
+        if user["email"] != canonical_email:
+            update_needed = True
+        if user["password_hash"] != canonical_hash:
+            update_needed = True
+        if update_needed:
+            conn.execute("UPDATE users SET email=?, password_hash=? WHERE id=?", (canonical_email, canonical_hash, user["id"]))
+            conn.commit()
+            user = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+    return user
 
 
 def get_db():
@@ -1837,11 +1894,7 @@ def login_page(request: Request):
 @app.post("/login", response_class=HTMLResponse)
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
     conn = get_db()
-    normalized_email = normalize_email(email)
-    user = conn.execute(
-        "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ?",
-        (normalized_email, hash_password(normalize_password_input(password))),
-    ).fetchone()
+    user = find_user_by_credentials(conn, email, password)
     conn.close()
     if not user:
         return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None})
@@ -2165,12 +2218,8 @@ def admin_login_page(request: Request):
 
 @app.post("/admin/login", response_class=HTMLResponse)
 def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
-    normalized_email = normalize_email(email)
     conn = get_db()
-    user = conn.execute(
-        "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ? AND role IN ('admin','manager')",
-        (normalized_email, hash_password(normalize_password_input(password))),
-    ).fetchone()
+    user = find_user_by_credentials(conn, email, password, allowed_roles=("admin", "manager"))
     conn.close()
     if not user:
         return render_view(request, "admin_login.html", {"error": "관리자 또는 매니저 계정이 올바르지 않습니다.", "user": None, "default_admin_email": DEFAULT_ADMIN_EMAIL})

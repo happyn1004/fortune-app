@@ -1707,3 +1707,38 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
     min-height: 40px;
   }
 }
+
+
+
+.admin-mobile-quickbar-fixed { display: none; }
+@media (max-width: 760px) {
+  body { padding-top: 72px; }
+  .admin-mobile-quickbar-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 120;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 6px;
+    padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+    background: rgba(14,10,28,.96);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    backdrop-filter: blur(14px);
+  }
+  .admin-mobile-quickbar-fixed .btn {
+    min-width: 0;
+    width: 100%;
+    padding: 10px 4px;
+    min-height: 40px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .admin-sticky-toolbar.admin-mobile-sticky-toolbar {
+    top: 70px !important;
+  }
+}
