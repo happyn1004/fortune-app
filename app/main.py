@@ -22,6 +22,7 @@ import tempfile
 import zipfile
 import base64
 import urllib.request
+from urllib.parse import quote_plus
 import urllib.error
 import unicodedata
 import time
@@ -2018,32 +2019,52 @@ def signup_page(request: Request):
 
 
 @app.post("/signup", response_class=HTMLResponse)
-def signup(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...), phone: str = Form("")):
-    conn = get_db()
+def signup(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    phone: str = Form(""),
+):
+    cleaned_name = normalize_text_input(name)
     normalized_email = normalize_email(email)
+    normalized_password = normalize_password_input(password)
+    normalized_password_confirm = normalize_password_input(password_confirm)
+    cleaned_phone = normalize_text_input(phone)
+
+    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone}
+    if not cleaned_name:
+        return render_view(request, "signup.html", {**base_context, "error": "이름을 입력해 주세요."})
+    if not normalized_email:
+        return render_view(request, "signup.html", {**base_context, "error": "이메일을 입력해 주세요."})
+    if len(normalized_password) < 4:
+        return render_view(request, "signup.html", {**base_context, "error": "비밀번호는 4자 이상으로 입력해 주세요."})
+    if normalized_password != normalized_password_confirm:
+        return render_view(request, "signup.html", {**base_context, "error": "비밀번호와 비밀번호 확인이 일치하지 않습니다."})
+
+    conn = get_db()
     try:
         conn.execute(
             "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
-            (name.strip(), normalized_email, hash_password(password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), phone.strip()),
+            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone),
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
     except sqlite3.IntegrityError:
         conn.close()
-        return render_view(request, "signup.html", {"error": "이미 가입된 이메일입니다.", "user": None})
-    user = conn.execute("SELECT * FROM users WHERE lower(email) = ?", (normalized_email,)).fetchone()
+        return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
     request.session.clear()
-    request.session["user_id"] = user["id"]
-    request.session["login_role"] = user["role"]
-    request.session["logged_in_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    record_login(user["id"])
-    return RedirectResponse(url="/profile", status_code=303)
+    return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
 
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return render_view(request, "login.html", {"error": None, "user": None})
+    signup_done = request.query_params.get("signup") == "1"
+    signup_email = normalize_email(request.query_params.get("email") or "")
+    success_message = "가입이 완료되었습니다. 방금 만든 비밀번호로 로그인해 주세요." if signup_done else None
+    return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email})
 
 
 @app.post("/login", response_class=HTMLResponse)
@@ -3093,6 +3114,39 @@ def admin_manage_user(
     conn.commit()
     create_db_backup_if_due("admin_vip", 15)
     conn.close()
+    referer = request.headers.get("referer") or "/admin"
+    redirect_url = referer.split("#")[0]
+    if "?" in redirect_url:
+        redirect_url += "&updated=1"
+    else:
+        redirect_url += "?updated=1"
+    return RedirectResponse(url=redirect_url, status_code=303)
+
+
+@app.post("/admin/user/{user_id}/delete")
+def admin_delete_user(user_id: int, request: Request, admin=Depends(require_admin)):
+    conn = get_db()
+    target_user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    if not target_user or target_user["role"] == "admin" or target_user["id"] == admin["id"]:
+        conn.close()
+        return RedirectResponse(url="/admin?updated=0", status_code=303)
+
+    try:
+        conn.execute("BEGIN")
+        conn.execute("DELETE FROM user_notifications WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM push_subscriptions WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM attendance_log WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM inquiries WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM payments WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+        conn.commit()
+        create_db_backup_if_due("admin_delete_user", 1)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
     referer = request.headers.get("referer") or "/admin"
     redirect_url = referer.split("#")[0]
     if "?" in redirect_url:

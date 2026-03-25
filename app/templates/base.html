@@ -189,6 +189,21 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   function isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   }
+  function isSecurePushContext() {
+    return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
+  }
+  function isLikelyInAppBrowser() {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    return ua.includes('kakaotalk') || ua.includes('naver') || ua.includes('instagram') || ua.includes('fbav') || ua.includes('line/');
+  }
+  function withTimeout(promise, ms, timeoutLabel) {
+    return Promise.race([
+      promise,
+      new Promise(function(_, reject){
+        window.setTimeout(function(){ reject(new Error(timeoutLabel || 'timeout')); }, ms);
+      })
+    ]);
+  }
   async function getEffectiveNotificationPermission() {
     let permission = (window.Notification && Notification.permission) ? Notification.permission : 'default';
     try {
@@ -205,7 +220,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     return permission;
   }
   function supportsWebPush() {
-    return ('Notification' in window) && ('serviceWorker' in navigator);
+    return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
   }
   function setStatus(message, tone) {
     if (!statusText) return;
@@ -216,6 +231,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     if (!btn) return;
     btn.dataset.state = state || '';
     btn.style.display = 'inline-flex';
+    btn.disabled = state === 'working';
     if (state === 'ready') btn.textContent = '알림 설정 완료';
     else if (state === 'working') btn.textContent = message || '확인 중...';
     else if (state === 'unsupported') btn.textContent = message || '알림 설정';
@@ -284,10 +300,24 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   async function enablePush() {
     if (!btn) return;
 
-    if (!('Notification' in window)) {
+    if (!supportsWebPush()) {
       updatePushButton('unsupported');
-      setStatus('이 기기에서는 알림 기능을 지원하지 않습니다.', 'warn');
-      alert('이 기기에서는 알림 기능을 지원하지 않습니다.');
+      setStatus('이 브라우저는 웹 푸시를 지원하지 않습니다. 크롬 또는 사파리 최신 버전에서 다시 시도해 주세요.', 'warn');
+      alert('이 브라우저는 웹 푸시를 지원하지 않습니다. 크롬 또는 사파리 최신 버전에서 다시 시도해 주세요.');
+      return;
+    }
+
+    if (!isSecurePushContext()) {
+      updatePushButton('', '알림 설정');
+      setStatus('정식 HTTPS 주소에서만 알림 설정이 가능합니다.', 'warn');
+      alert('정식 HTTPS 주소에서만 알림 설정이 가능합니다.');
+      return;
+    }
+
+    if (isLikelyInAppBrowser()) {
+      updatePushButton('', '알림 설정');
+      setStatus('카카오톡·네이버 같은 인앱브라우저에서는 알림 권한 창이 멈출 수 있습니다. 외부 브라우저에서 다시 열어 주세요.', 'warn');
+      alert('카카오톡·네이버 같은 인앱브라우저에서는 알림 권한 창이 멈출 수 있습니다. 외부 브라우저에서 다시 열어 주세요.');
       return;
     }
 
@@ -298,44 +328,47 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       return;
     }
 
-    updatePushButton('working', '권한 요청 중...');
+    updatePushButton('working', '권한 확인 중...');
     setStatus('브라우저 알림 권한을 확인하고 허용해 주세요.', 'info');
 
     let permission = await getEffectiveNotificationPermission();
-    if (permission === 'default') {
-      try {
-        permission = await Notification.requestPermission();
+    try {
+      if (permission === 'default') {
+        permission = await withTimeout(Notification.requestPermission(), 12000, 'permission_timeout');
         permission = await getEffectiveNotificationPermission();
-      } catch (e) {
-        console.error(e);
-        updatePushButton('', '알림 설정');
-        setStatus('알림 권한 창을 띄우지 못했습니다. 사이트 설정의 알림 권한을 확인해 주세요.', 'warn');
-        alert('알림 권한 창을 띄우지 못했습니다. 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 상태를 확인해 주세요.');
+      }
+
+      if (permission === 'denied') {
+        updatePushButton('denied');
+        showPermissionGuide('denied');
         return;
       }
-    }
 
-    if (permission === 'denied') {
-      updatePushButton('denied');
-      showPermissionGuide('denied');
-      return;
-    }
+      if (permission !== 'granted') {
+        updatePushButton('', '알림 설정');
+        showPermissionGuide(permission);
+        return;
+      }
 
-    if (permission !== 'granted') {
-      updatePushButton('', '알림 설정');
-      showPermissionGuide(permission);
-      return;
-    }
-
-    try {
-      await syncPushSubscription();
+      updatePushButton('working', '연결 준비 중...');
+      await withTimeout(syncPushSubscription(), 15000, 'subscribe_timeout');
+      updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
     } catch (e) {
       console.error(e);
       updatePushButton('', '알림 설정');
-      setStatus('알림 권한은 허용되었지만 연결 준비가 아직 완료되지 않았습니다. 임시 주소에서는 제한될 수 있으니 정식 HTTPS 주소에서 다시 확인해 주세요.', 'warn');
-      alert('알림 권한은 허용되었지만 연결 준비가 아직 완료되지 않았습니다. 임시 주소에서는 제한될 수 있으니 정식 HTTPS 주소에서 다시 확인해 주세요.');
+      const code = e && e.message ? e.message : '';
+      if (code === 'permission_timeout') {
+        setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
+        alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
+      } else if (code === 'subscribe_timeout') {
+        setStatus('알림 권한은 허용되었지만 서버 연결이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', 'warn');
+        alert('알림 권한은 허용되었지만 서버 연결이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
+        alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
+      }
     }
   }
   document.querySelectorAll('[data-guide-toggle]').forEach(function(toggle){

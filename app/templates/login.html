@@ -2,9 +2,10 @@
 {% block content %}
 <div class="card form-card narrow">
   <h2>고객 로그인</h2>
+  {% if success_message %}<div class="success">{{ success_message }}</div>{% endif %}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" class="form-grid auth-form-cleanup">
-    <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
+    <label>이메일<input type="email" name="email" required value="{{ prefill_email or '' }}" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
     <label>비밀번호<input type="password" name="password" required autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
     <button class="btn primary" type="submit">로그인</button>
   </form>
