@@ -329,7 +329,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     pushSyncAbortController = new AbortController();
     const timeoutId = setTimeout(function(){
       try { pushSyncAbortController.abort(); } catch (e) {}
-    }, (options && options.silent) ? 4500 : 6000);
+    }, (options && options.silent) ? 12000 : 20000);
     try {
       const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
         method: 'POST',
@@ -351,7 +351,17 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       try { localStorage.setItem(PUSH_LAST_SYNC_KEY, String(pushReadyCheckedAt)); } catch (e) {}
       return data;
     } catch (e) {
-      if (e && e.name === 'AbortError') throw new Error('subscribe_timeout');
+      if (e && e.name === 'AbortError') {
+        try {
+          const stored = endpoint ? await waitForServerSubscription(endpoint, 10) : false;
+          if (stored) {
+            lastSavedPushEndpoint = endpoint;
+            pushReadyCheckedAt = Date.now();
+            return { ok: true, stored: true, recovered_after_timeout: true };
+          }
+        } catch (_) {}
+        throw new Error('subscribe_timeout');
+      }
       throw e;
     } finally {
       clearTimeout(timeoutId);
@@ -467,7 +477,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 9000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true }), 22000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
