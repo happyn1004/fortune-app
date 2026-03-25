@@ -36,6 +36,8 @@
       <span>띠 {{ fortune['띠'] }}</span>
       <span>행운의 수 {{ fortune['행운의수'][0] }}, {{ fortune['행운의수'][1] }}</span>
       <span>좋은 방향 {{ fortune['오늘의좋은방향'] }}</span>
+      <span>{{ fortune['갱신기준'] }}</span>
+      <span>{{ fortune['생성일시'] }}</span>
       {% if active_plan != "Free" %}
       <span>행운색 {{ fortune['행운색'] }}</span>
       <span>행운시간 {{ fortune['행운시간'] }}</span>
@@ -99,8 +101,8 @@
 </section>
 
 <section class="card lotto-card">
-  <div class="panel-head"><h3>이번주 행운 로또 번호</h3><span class="panel-chip">{{ fortune['이번주로또']['week_key'] }}</span></div>
-  <p class="muted lotto-caption">관계운 티저 아래, 오늘의 핵심 리딩 위에 배치했습니다. {{ fortune["이번주로또"]["summary"] }}</p>
+  <div class="panel-head"><h3>오늘의 무료 로또 번호</h3><span class="panel-chip">{{ fortune['이번주로또']['week_key'] }}</span></div>
+  <p class="muted lotto-caption">{{ fortune["이번주로또"]["summary"] }} · {{ fortune["이번주로또"]["refresh_at"] }}</p>
   <div class="lotto-grid">
     {% for row in fortune['이번주로또']['sets'][:2 if active_plan == 'Free' else 5 if active_plan == 'VIP' else 3] %}
     <div class="lotto-set-card">
@@ -149,7 +151,7 @@
   <div class="card side-premium-card plan-cta-card">
     <div class="premium-header"><h3>플랜별 해석 범위</h3><p>원하는 해석의 깊이에 따라 열리는 리딩 범위를 안내합니다.</p></div>
     <div class="report-stage-list">
-      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 로또 2세트 공개</div>
+      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 오늘의 무료 로또 2세트 공개</div>
       <div class="report-stage-item"><strong>Basic</strong> : 행운시간, 이유 있는 로또 분석, 오늘의 코멘트 강화</div>
       <div class="report-stage-item"><strong>Premium</strong> : 사업운, 행동전략, 주의포인트, 실전형 해석</div>
       <div class="report-stage-item"><strong>VIP</strong> : 투자/계약/월간 인사이트 + 로또 5세트 + 전략 브리핑</div>
