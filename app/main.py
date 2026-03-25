@@ -647,10 +647,20 @@ def get_site_settings():
 
 
 
-def normalize_email(email: str | None) -> str:
-    if not email:
+def normalize_text_input(value: str | None) -> str:
+    if value is None:
         return ""
-    return email.strip().lower()
+    cleaned = unicodedata.normalize("NFKC", value)
+    cleaned = cleaned.replace("\u200b", "").replace("\ufeff", "")
+    return cleaned.strip()
+
+
+def normalize_email(email: str | None) -> str:
+    return normalize_text_input(email).lower()
+
+
+def normalize_password_input(password: str | None) -> str:
+    return normalize_text_input(password)
 
 
 def normalize_media_url(media_url: str | None) -> str:
@@ -1772,7 +1782,7 @@ def signup(request: Request, name: str = Form(...), email: str = Form(...), pass
     try:
         conn.execute(
             "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
-            (name.strip(), normalized_email, hash_password(password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), phone.strip()),
+            (name.strip(), normalized_email, hash_password(normalize_password_input(password)), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), phone.strip()),
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -1796,7 +1806,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     normalized_email = normalize_email(email)
     user = conn.execute(
         "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ?",
-        (normalized_email, hash_password(password)),
+        (normalized_email, hash_password(normalize_password_input(password))),
     ).fetchone()
     conn.close()
     if not user:
@@ -2125,7 +2135,7 @@ def admin_login(request: Request, email: str = Form(...), password: str = Form(.
     conn = get_db()
     user = conn.execute(
         "SELECT * FROM users WHERE lower(email) = ? AND password_hash = ? AND role IN ('admin','manager')",
-        (normalized_email, hash_password(password)),
+        (normalized_email, hash_password(normalize_password_input(password))),
     ).fetchone()
     conn.close()
     if not user:

@@ -5,8 +5,7 @@
   <div class="admin-sticky-toolbar admin-mobile-sticky-toolbar admin-sub-toolbar">
     <div class="admin-sticky-left">
       <strong>빠른 이동</strong>
-      <span class="muted">모바일에서도 위에 고정됩니다.</span>
-    </div>
+          </div>
     <div class="admin-sticky-actions">
       <a class="btn mini" href="/">고객 화면</a>
       <a class="btn mini" href="/login">고객 로그인</a>
@@ -18,12 +17,25 @@
   <div class="card form-card narrow">
     <h2>관리자 / 매니저 로그인</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <p class="muted" style="margin-bottom:14px;">최초 최고관리자 아이디는 <strong>{{ default_admin_email }}</strong> 입니다.</p><form method="post" class="form-grid">
-      <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="email" autocorrect="off" spellcheck="false" inputmode="email"></label>
-      <label>비밀번호<input type="password" name="password" required></label>
+    <p class="muted" style="margin-bottom:14px;">최초 최고관리자 아이디는 <strong>{{ default_admin_email }}</strong> 입니다.</p><form method="post" class="form-grid auth-form-cleanup">
+      <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
+      <label>비밀번호<input type="password" name="password" required autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
       <button class="btn primary" type="submit">관리자 로그인</button>
       <a class="btn" href="/">고객 메인으로</a>
     </form>
   </div>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.auth-form-cleanup').forEach(function(form) {
+    form.addEventListener('submit', function () {
+      var email = form.querySelector('input[name="email"]');
+      var password = form.querySelector('input[name="password"]');
+      if (email) email.value = email.value.trim().toLowerCase();
+      if (password) password.value = password.value.replace(/[\u200B\uFEFF]/g, '').trim();
+    });
+  });
+});
+</script>
 </body></html>
