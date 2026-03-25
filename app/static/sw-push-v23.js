@@ -1,4 +1,4 @@
-const CACHE_NAME = "mysticday-push-v22";
+const CACHE_NAME = "mysticday-push-v23";
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {

@@ -420,6 +420,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       if (!keyData.ok || !keyData.enabled || !keyData.public_key) throw new Error('push_not_ready');
       const reg = await ensureServiceWorkerReady();
       let subscription = await reg.pushManager.getSubscription();
+      if (subscription && options && options.recreate) {
+        try { await subscription.unsubscribe(); } catch (e) { console.debug('push_unsubscribe_skip', e); }
+        subscription = null;
+      }
       if (!subscription) {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -427,7 +431,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         });
       }
       savePendingPushSubscription(subscription);
-      setStatus('알림 연결 정보를 서버에 접수하는 중입니다.', 'info');
+      setStatus('기존 연결을 정리하고 새 알림 연결을 만드는 중입니다.', 'info');
       const saveResult = await notifyServerSubscribe(subscription, options || {});
       if (saveResult && saveResult.queued) {
         setStatus('알림 연결 저장을 다시 확인하는 중입니다.', 'info');
@@ -435,7 +439,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         const stored = endpoint ? await waitForServerSubscription(endpoint, 15) : false;
         if (!stored) schedulePushRetry(2500);
       }
-      setStatus('테스트 알림을 발송해 실제 수신 여부를 확인하는 중입니다.', 'info');
+      setStatus('새 연결로 테스트 알림을 발송해 실제 수신 여부를 확인하는 중입니다.', 'info');
       await sendSelfTestPush(subscription);
       clearPendingPushSubscription();
       updatePushButton('ready');
@@ -501,7 +505,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 및 테스트 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 30000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true, recreate: true }), 30000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정과 테스트 발송이 완료되었습니다. 지금 테스트 알림이 도착해야 정상입니다.', 'ok');
       alert('알림 설정과 테스트 발송이 완료되었습니다. 지금 테스트 알림이 도착하면 정상 연결입니다.');

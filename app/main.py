@@ -572,6 +572,8 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "fortune-secret-key-change-me"
 DEFAULT_ADMIN_EMAIL = os.environ.get("DEFAULT_ADMIN_EMAIL", "admin@unsejoa.kr").strip().lower()
 DEFAULT_ADMIN_PASSWORD = os.environ.get("DEFAULT_ADMIN_PASSWORD", "Unsejoa!Temp2026#1")
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:support@unsejoa.kr")
+VAPID_PRIVATE_KEY_FILE = DATA_DIR / "vapid_private_key.pem"
+VAPID_PUBLIC_KEY_FILE = DATA_DIR / "vapid_public_key.txt"
 
 
 def b64url_uint(data: bytes) -> str:
@@ -606,14 +608,53 @@ def set_site_setting_value(conn: sqlite3.Connection, key: str, value: str):
     )
 
 
+def _read_text_if_exists(path: Path) -> str:
+    try:
+        if path.exists():
+            return path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+    return ""
+
+
+def _write_text_safely(path: Path, value: str):
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(value, encoding="utf-8")
+        tmp.replace(path)
+    except Exception as e:
+        print(f"[vapid_file_write_failed] {path.name}: {e}")
+
+
 def ensure_vapid_keys(conn: sqlite3.Connection) -> tuple[str, str]:
-    private_pem = os.environ.get("VAPID_PRIVATE_KEY", "").strip() or get_site_setting_value(conn, "vapid_private_key")
-    public_key = os.environ.get("VAPID_PUBLIC_KEY", "").strip() or get_site_setting_value(conn, "vapid_public_key")
+    env_private = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+    env_public = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+    db_private = get_site_setting_value(conn, "vapid_private_key") or ""
+    db_public = get_site_setting_value(conn, "vapid_public_key") or ""
+    file_private = _read_text_if_exists(VAPID_PRIVATE_KEY_FILE)
+    file_public = _read_text_if_exists(VAPID_PUBLIC_KEY_FILE)
+
+    private_pem = env_private or db_private or file_private
+    public_key = env_public or db_public or file_public
+
     if private_pem and public_key:
+        if not env_private and private_pem != db_private:
+            set_site_setting_value(conn, "vapid_private_key", private_pem)
+        if not env_public and public_key != db_public:
+            set_site_setting_value(conn, "vapid_public_key", public_key)
+        if not file_private or file_private != private_pem:
+            _write_text_safely(VAPID_PRIVATE_KEY_FILE, private_pem)
+        if not file_public or file_public != public_key:
+            _write_text_safely(VAPID_PUBLIC_KEY_FILE, public_key)
         return private_pem, public_key
+
     private_pem, public_key = generate_vapid_keypair()
     set_site_setting_value(conn, "vapid_private_key", private_pem)
     set_site_setting_value(conn, "vapid_public_key", public_key)
+    _write_text_safely(VAPID_PRIVATE_KEY_FILE, private_pem)
+    _write_text_safely(VAPID_PUBLIC_KEY_FILE, public_key)
+    print("[vapid] generated_new_keypair")
     return private_pem, public_key
 
 
