@@ -1,0 +1,7 @@
+[build]
+  publish = "frontend_shell"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

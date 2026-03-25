@@ -79,6 +79,26 @@
     </div>
   </section>
 
+  <section class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>7일 유입 · 전환 분석</h3><p class="muted">방문 → 가입 → 로그인 → 플랜 확인 → 결제 진입 → 결제 완료 흐름을 한눈에 확인합니다.</p></div>
+    <div class="info-grid six compact-stats">
+      <div class="card stat-card"><div class="stat-label">홈 방문</div><div class="stat-value">{{ analytics.counts.get('home_view', 0) }}</div></div>
+      <div class="card stat-card"><div class="stat-label">가입 완료</div><div class="stat-value">{{ analytics.counts.get('signup_complete', 0) }}</div></div>
+      <div class="card stat-card"><div class="stat-label">로그인 성공</div><div class="stat-value">{{ analytics.counts.get('login_success', 0) }}</div></div>
+      <div class="card stat-card"><div class="stat-label">플랜 보기</div><div class="stat-value">{{ analytics.counts.get('plans_view', 0) }}</div></div>
+      <div class="card stat-card"><div class="stat-label">결제 진입</div><div class="stat-value">{{ analytics.counts.get('checkout_view', 0) }}</div></div>
+      <div class="card stat-card"><div class="stat-label">결제 완료</div><div class="stat-value">{{ analytics.counts.get('payment_paid', 0) }}</div></div>
+    </div>
+    <div class="info-grid five compact-stats" style="margin-top:14px;">
+      <div class="card stat-card"><div class="stat-label">방문→가입</div><div class="stat-value">{{ analytics.visit_to_signup }}%</div></div>
+      <div class="card stat-card"><div class="stat-label">가입→로그인</div><div class="stat-value">{{ analytics.signup_to_login }}%</div></div>
+      <div class="card stat-card"><div class="stat-label">플랜 관심률</div><div class="stat-value">{{ analytics.plan_interest_rate }}%</div></div>
+      <div class="card stat-card"><div class="stat-label">결제 진입률</div><div class="stat-value">{{ analytics.checkout_rate }}%</div></div>
+      <div class="card stat-card"><div class="stat-label">결제 완료율</div><div class="stat-value">{{ analytics.paid_conversion }}%</div></div>
+    </div>
+    <div class="preview-banner soft" style="margin-top:14px;">최근 이벤트 {{ analytics.days }}일 기준으로 자동 집계됩니다. 로그인 실패 수치는 알림설정/가입 UI를 개선할 때 함께 참고하세요.</div>
+  </section>
+
   <section id="staff-panel" class="card filter-card admin-settings-card">
     <div class="table-head-row"><h3>운영자 계정 관리</h3><p class="muted">최고관리자는 {{ default_admin_email }} 입니다. 일반 회원을 매니저로 올리면 관리자 화면과 고객 전체 기능을 함께 사용할 수 있고, 문제가 생기면 여기서 바로 박탈할 수 있습니다.</p></div>
     <div class="preview-banner soft" style="margin-bottom:14px;">
@@ -232,7 +252,7 @@
   <section class="card filter-card admin-data-card">
     <div class="table-head-row"><h3>데이터 백업 · 복원 · 내보내기</h3><p class="muted">GitHub 업로드나 Render 재배포 전에 먼저 백업 파일을 내려받고, 문제가 생기면 즉시 복원할 수 있습니다.</p></div>
     <div class="admin-data-grid">
-      <div class="admin-data-box"><h4>백업/내보내기</h4><div class="admin-action-stack"><a class="btn primary" href="/admin/backup/create">전체 백업 다운로드(.zip)</a><a class="btn" href="/admin/backup/download">원본 DB 다운로드(.db)</a><a class="btn" href="/admin/export/users.csv">회원 CSV 다운로드</a><a class="btn" href="/admin/export/payments.csv">결제 CSV 다운로드</a></div><p class="muted">전체 백업 ZIP에는 복원용 DB와 회원/결제 CSV가 함께 들어 있습니다. CSV는 엑셀에서 바로 열 수 있습니다.</p></div>
+      <div class="admin-data-box"><h4>백업/내보내기</h4><div class="admin-action-stack"><a class="btn primary" href="/admin/backup/create">운영 데이터 백업(.zip)</a><a class="btn" href="/admin/backup/project">프로젝트 전체 백업(.zip)</a><a class="btn" href="/admin/backup/download">원본 DB 다운로드(.db)</a><a class="btn" href="/admin/export/users.csv">회원 CSV 다운로드</a><a class="btn" href="/admin/export/payments.csv">결제 CSV 다운로드</a></div><p class="muted">운영 데이터 백업 ZIP에는 복원용 DB와 회원/결제 CSV가 함께 들어 있습니다. 프로젝트 전체 백업 ZIP에는 app 전체와 배포 설정, Netlify용 빠른 첫화면 쉘까지 포함되어 GitHub 업로드 직전 보관용으로 쓰기 좋습니다.</p></div>
       <div class="admin-data-box"><h4>백업 복원</h4><form method="post" action="/admin/restore" enctype="multipart/form-data" class="admin-restore-form"><input type="file" name="backup_file" accept=".db,.zip" required><button class="btn primary" type="submit">업로드 후 복원</button></form><p class="muted">복원 전 현재 DB는 자동으로 한 번 더 백업됩니다. .db 또는 전체 백업 .zip 모두 복원할 수 있습니다.</p><div class="preview-banner soft">권장 순서: 1 백업 다운로드 → 2 GitHub 수정 업로드 → 3 Render 자동배포 확인 → 4 필요시 여기서 복원</div></div>
       <div class="admin-data-box"><h4>최근 백업</h4><div class="backup-list">{% for item in backup_files %}<div class="backup-row"><div><strong>{{ item.filename }}</strong><div class="muted">{{ item.modified_at }} · {{ "{:,}".format(item.size) }} bytes</div></div><a class="btn mini" href="/admin/backup/file/{{ item.filename }}">다운로드</a></div>{% else %}<div class="muted">백업 파일이 아직 없습니다.</div>{% endfor %}</div></div>
     </div>

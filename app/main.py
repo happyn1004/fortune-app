@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, 
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import sqlite3
@@ -94,7 +95,15 @@ def get_data_dir_candidates() -> list[Path]:
 def get_data_dir() -> Path:
     candidates = get_data_dir_candidates()
     if is_render_runtime():
-        preferred_render = _first_writable_dir(candidates[:5])
+        explicit: list[Path] = []
+        explicit_data_dir = os.environ.get("DATA_DIR", "").strip()
+        render_disk_path = os.environ.get("RENDER_DISK_PATH", "").strip()
+        if explicit_data_dir:
+            explicit.append(Path(explicit_data_dir))
+        if render_disk_path:
+            explicit.append(Path(render_disk_path) / "mysticday")
+            explicit.append(Path(render_disk_path))
+        preferred_render = _first_writable_dir(explicit + candidates)
         if preferred_render:
             return preferred_render
     writable_candidate = _first_writable_dir(candidates)
@@ -105,10 +114,105 @@ def get_data_dir() -> Path:
     return fallback
 
 
+def get_data_mirror_dirs() -> list[Path]:
+    mirrors: list[Path] = []
+    try:
+        primary = get_data_dir().resolve()
+    except Exception:
+        primary = get_data_dir()
+    for candidate in get_data_dir_candidates():
+        try:
+            candidate = candidate.expanduser()
+            candidate.mkdir(parents=True, exist_ok=True)
+            resolved = candidate.resolve()
+            if resolved == primary:
+                continue
+            test_file = candidate / ".mirror_test"
+            test_file.write_text("ok", encoding="utf-8")
+            test_file.unlink(missing_ok=True)
+            mirrors.append(candidate)
+        except Exception:
+            continue
+    return mirrors
+
+
 def get_backup_dir() -> Path:
     backup_dir = get_data_dir() / "backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
     return backup_dir
+
+
+def sqlite_checkpoint(db_path: Path):
+    if not db_path.exists():
+        return
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=10)
+        conn.execute("PRAGMA wal_checkpoint(FULL)")
+        conn.close()
+    except Exception:
+        try:
+            if conn is not None:
+                conn.close()
+        except Exception:
+            pass
+
+
+def sqlite_backup_to_file(src_db_path: Path, dst_db_path: Path):
+    if not src_db_path.exists():
+        raise FileNotFoundError(src_db_path)
+    dst_db_path.parent.mkdir(parents=True, exist_ok=True)
+    sqlite_checkpoint(src_db_path)
+    src = sqlite3.connect(src_db_path, timeout=30)
+    dst = sqlite3.connect(dst_db_path, timeout=30)
+    try:
+        src.backup(dst)
+        dst.commit()
+    finally:
+        dst.close()
+        src.close()
+
+
+def collect_backup_db_infos(limit_per_dir: int = 40) -> list[dict]:
+    infos: list[dict] = []
+    seen: set[str] = set()
+    backup_dirs = [get_backup_dir()]
+    for mirror in get_data_mirror_dirs():
+        backup_dirs.append(mirror / "backups")
+    for backup_dir in backup_dirs:
+        try:
+            if not backup_dir.exists():
+                continue
+            for db_file in sorted(backup_dir.glob("*.db"), key=lambda x: x.stat().st_mtime, reverse=True)[:limit_per_dir]:
+                key = str(db_file)
+                if key in seen:
+                    continue
+                seen.add(key)
+                info = inspect_db_file(db_file)
+                if info:
+                    info["is_backup"] = True
+                    infos.append(info)
+        except Exception:
+            continue
+    return infos
+
+
+def sync_db_to_mirrors(reason: str = "sync"):
+    if not DB_PATH.exists():
+        return
+    sqlite_checkpoint(DB_PATH)
+    for mirror_dir in get_data_mirror_dirs():
+        try:
+            mirror_db = mirror_dir / "fortune.db"
+            sqlite_backup_to_file(DB_PATH, mirror_db)
+            marker = mirror_dir / "storage_marker.json"
+            marker.write_text(json.dumps({
+                "synced_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "reason": reason,
+                "db_path": str(mirror_db),
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            continue
 
 
 def inspect_db_file(db_path: Path) -> dict | None:
@@ -179,24 +283,42 @@ def resolve_db_path() -> Path:
         seen_paths.add(key)
         info = inspect_db_file(db_candidate)
         if info:
+            info["source_kind"] = "live"
             candidate_infos.append(info)
+
+    for info in collect_backup_db_infos():
+        key = str(info["path"])
+        if key in seen_paths:
+            continue
+        seen_paths.add(key)
+        info["source_kind"] = info.get("source_kind") or "backup"
+        candidate_infos.append(info)
 
     best_existing = pick_best_db_info(candidate_infos)
     target_info = inspect_db_file(target)
 
-    if best_existing and (not target.exists() or (is_minimal_default_db(target_info) and not is_minimal_default_db(best_existing))):
+    need_restore = False
+    if best_existing and not target.exists():
+        need_restore = True
+    elif best_existing and is_minimal_default_db(target_info) and not is_minimal_default_db(best_existing):
+        need_restore = True
+    elif best_existing and target_info and best_existing.get("users", 0) > target_info.get("users", 0):
+        if (best_existing.get("customers", 0) > target_info.get("customers", 0)) or (best_existing.get("users", 0) >= target_info.get("users", 0) + 2):
+            need_restore = True
+
+    if need_restore and best_existing:
+        if target.exists():
+            try:
+                broken_copy = data_dir / f"fortune_before_recover_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+                sqlite_backup_to_file(target, broken_copy)
+            except Exception:
+                pass
         if best_existing["path"] != target:
-            shutil.copy2(best_existing["path"], target)
-            wal_path = Path(str(best_existing["path"]) + "-wal")
-            shm_path = Path(str(best_existing["path"]) + "-shm")
-            if wal_path.exists():
-                shutil.copy2(wal_path, Path(str(target) + "-wal"))
-            if shm_path.exists():
-                shutil.copy2(shm_path, Path(str(target) + "-shm"))
+            sqlite_backup_to_file(best_existing["path"], target)
         return target
 
     if not target.exists() and packaged.exists():
-        shutil.copy2(packaged, target)
+        sqlite_backup_to_file(packaged, target)
     return target
 
 
@@ -207,10 +329,12 @@ def create_db_backup_if_due(reason: str = "auto", min_interval_seconds: int = 60
     global _LAST_BACKUP_TS
     now_ts = time.time()
     if now_ts - _LAST_BACKUP_TS < min_interval_seconds:
+        sync_db_to_mirrors(f"{reason}_mirror_only")
         return None
     backup = create_db_backup(reason)
     if backup:
         _LAST_BACKUP_TS = now_ts
+    sync_db_to_mirrors(reason)
     return backup
 
 
@@ -219,7 +343,7 @@ def create_db_backup(reason: str = "manual") -> Path | None:
         return None
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = get_backup_dir() / f"fortune_{reason}_{stamp}.db"
-    shutil.copy2(DB_PATH, backup_path)
+    sqlite_backup_to_file(DB_PATH, backup_path)
     backups = sorted(get_backup_dir().glob("*.db"), key=lambda x: x.stat().st_mtime, reverse=True)
     for old in backups[20:]:
         try:
@@ -260,6 +384,100 @@ def write_payments_csv(path: Path):
         writer.writerow(["order_id", "user_name", "user_email", "plan", "amount", "provider", "status", "depositor_name", "created_at", "paid_at", "fail_reason"])
         for row in rows:
             writer.writerow([row["order_id"], row["user_name"], row["user_email"], row["plan"], row["amount"], row["provider"], row["status"], row["depositor_name"], row["created_at"], row["paid_at"], row["fail_reason"]])
+
+
+def record_event(event_name: str, request: Request | None = None, user_id: int | None = None, metadata: dict | None = None):
+    try:
+        conn = get_db()
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        path = request.url.path if request else ""
+        referrer = request.headers.get("referer", "")[:300] if request else ""
+        user_agent = request.headers.get("user-agent", "")[:300] if request else ""
+        ip = ""
+        if request:
+            ip = ((request.headers.get("x-forwarded-for") or "").split(",")[0].strip() or (request.client.host if request.client else ""))[:80]
+        payload = json.dumps(metadata or {}, ensure_ascii=False)
+        conn.execute(
+            "INSERT INTO analytics_events (event_name, user_id, path, referrer, user_agent, ip_address, metadata, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (event_name, user_id, path, referrer, user_agent, ip, payload, now_ts),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def get_analytics_snapshot(days: int = 7) -> dict:
+    conn = get_db()
+    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = conn.execute(
+        "SELECT event_name, COUNT(*) AS cnt FROM analytics_events WHERE created_at >= ? GROUP BY event_name",
+        (since,),
+    ).fetchall()
+    counts = {row['event_name']: row['cnt'] for row in rows}
+    recent = conn.execute(
+        "SELECT event_name, path, metadata, created_at FROM analytics_events ORDER BY id DESC LIMIT 12"
+    ).fetchall()
+    conn.close()
+    visit = counts.get('home_view', 0)
+    signup_complete = counts.get('signup_complete', 0)
+    login_success = counts.get('login_success', 0)
+    plan_view = counts.get('plans_view', 0)
+    checkout_click = counts.get('checkout_view', 0)
+    paid = counts.get('payment_paid', 0)
+    return {
+        'days': days,
+        'counts': counts,
+        'visit_to_signup': round((signup_complete / visit) * 100, 1) if visit else 0.0,
+        'signup_to_login': round((login_success / signup_complete) * 100, 1) if signup_complete else 0.0,
+        'plan_interest_rate': round((plan_view / visit) * 100, 1) if visit else 0.0,
+        'checkout_rate': round((checkout_click / plan_view) * 100, 1) if plan_view else 0.0,
+        'paid_conversion': round((paid / checkout_click) * 100, 1) if checkout_click else 0.0,
+        'recent_events': [dict(row) for row in recent],
+    }
+
+
+def create_project_source_backup_bundle() -> Path:
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    bundle_path = get_backup_dir() / f"fortune_project_backup_{stamp}.zip"
+    root_files = [
+        '.env.example', '.gitignore', 'DEPLOY_PUBLIC.md', 'deploy_ubuntu.md', 'docker-compose.yml', 'Dockerfile',
+        'MOBILE_GUIDE.md', 'Procfile', 'railway.json', 'README.md', 'render.yaml', 'requirements.txt',
+        'run_production.bat', 'run_server.bat', 'start.sh', 'start_public.sh', 'netlify.toml'
+    ]
+    include_dirs = ['app', 'frontend_shell']
+    exclude_parts = {'__pycache__', '.git', '.venv', 'venv', 'node_modules'}
+    exclude_suffixes = {'.pyc', '.db', '.sqlite', '.sqlite3'}
+    with zipfile.ZipFile(bundle_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for rel in root_files:
+            path = BASE_DIR.parent / rel
+            if path.exists() and path.is_file():
+                zf.write(path, arcname=rel)
+        for dir_name in include_dirs:
+            base = BASE_DIR.parent / dir_name
+            if not base.exists():
+                continue
+            for file_path in base.rglob('*'):
+                if file_path.is_dir():
+                    continue
+                if any(part in exclude_parts for part in file_path.parts):
+                    continue
+                if file_path.suffix.lower() in exclude_suffixes:
+                    continue
+                arcname = str(file_path.relative_to(BASE_DIR.parent))
+                zf.write(file_path, arcname=arcname)
+        readme = (
+            'MysticDay 프로젝트 전체 백업\n'
+            '- app/: 서버/템플릿/정적파일 전체\n'
+            '- frontend_shell/: Netlify 등에 올릴 수 있는 빠른 첫화면 쉘\n'
+            '- render/netlify/도커 배포 설정 포함\n'
+            '- 실제 운영 데이터는 별도로 전체 백업 ZIP 또는 DB 백업을 함께 보관하세요.\n'
+        )
+        zf.writestr('PROJECT_BACKUP_README.txt', readme)
+    return bundle_path
 
 
 def create_full_backup_bundle() -> Path:
@@ -314,6 +532,7 @@ def get_storage_status() -> dict:
         "data_dir": data_dir_str,
         "db_path": str(data_dir / "fortune.db"),
         "backup_dir": str(get_backup_dir()),
+        "mirror_dirs": [str(p) for p in get_data_mirror_dirs()],
         "is_render_runtime": render_runtime_active,
         "uses_persistent_disk": uses_persistent_disk,
         "warning": None,
@@ -333,6 +552,14 @@ DB_PATH = resolve_db_path()
 print(f"[STORAGE] DATA_DIR={get_data_dir()} DB_PATH={DB_PATH}")
 
 app = FastAPI(title="Fortune Service")
+CORS_ALLOW_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",") if origin.strip()] or ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS if CORS_ALLOW_ORIGINS != ["*"] else ["*"],
+    allow_credentials=False if CORS_ALLOW_ORIGINS == ["*"] else True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fortune-secret-key-change-me")
 DEFAULT_ADMIN_EMAIL = os.environ.get("DEFAULT_ADMIN_EMAIL", "admin@unsejoa.kr").strip().lower()
 DEFAULT_ADMIN_PASSWORD = os.environ.get("DEFAULT_ADMIN_PASSWORD", "Unsejoa!Temp2026#1")
@@ -1151,6 +1378,18 @@ def init_db():
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS analytics_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_name TEXT NOT NULL,
+            user_id INTEGER,
+            path TEXT,
+            referrer TEXT,
+            user_agent TEXT,
+            ip_address TEXT,
+            metadata TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         """
     )
     ensure_column(conn, "users", "plan_expires_at", "plan_expires_at TEXT")
@@ -1241,6 +1480,7 @@ def init_db():
 
 init_db()
 create_db_backup("startup")
+sync_db_to_mirrors("startup")
 
 
 ZODIAC_MAP = {
@@ -1964,6 +2204,7 @@ def complete_payment(order_id: str, paid_at_override: str | None = None, provide
     payment = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
     user = conn.execute("SELECT * FROM users WHERE id=?", (payment["user_id"],)).fetchone()
     conn.close()
+    record_event("payment_paid", None, payment["user_id"], {"order_id": order_id, "plan": payment["plan"], "provider": payment["provider"]})
     return {"payment": payment, "user": user}
 
 
@@ -2000,9 +2241,15 @@ def get_payment_by_order_id(order_id: str):
     return payment
 
 
+@app.get("/api/ping")
+def api_ping(request: Request):
+    return JSONResponse({"ok": True, "service": "mysticday", "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "render_runtime": is_render_runtime()})
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     user = get_current_user(request)
+    record_event("home_view", request, user["id"] if user else None)
     quote, tip = get_quote_and_tip()
     crm = get_crm_snapshot()
     hero_stats = {
@@ -2051,10 +2298,12 @@ def signup(
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
+        user_id = conn.execute("SELECT id FROM users WHERE email=?", (normalized_email,)).fetchone()[0]
     except sqlite3.IntegrityError:
         conn.close()
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
+    record_event("signup_complete", request, user_id, {"email": normalized_email})
     request.session.clear()
     return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
 
@@ -2069,14 +2318,17 @@ def login_page(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    user = authenticate_user(email, password, {"customer"})
+    normalized_email = normalize_email(email)
+    user = authenticate_user(normalized_email, password, {"customer"})
     if not user:
+        record_event("login_failure", request, None, {"email": normalized_email, "password_length": len((password or '').strip())})
         return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None})
     request.session.clear()
     request.session["user_id"] = user["id"]
     request.session["login_role"] = user["role"]
     request.session["logged_in_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     record_login(user["id"])
+    record_event("login_success", request, user["id"], {"plan": user["plan"]})
     return RedirectResponse(url=redirect_for_user_role(user), status_code=303)
 
 
@@ -2134,6 +2386,8 @@ def profile_save(
 @app.get("/fortune", response_class=HTMLResponse)
 def fortune_page(request: Request):
     user = get_current_user(request)
+    if user:
+        record_event("fortune_view", request, user["id"], {"plan": user["plan"]})
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     record_fortune_view(user["id"])
@@ -2169,6 +2423,8 @@ def automation_studio_page(request: Request):
 @app.get("/plans", response_class=HTMLResponse)
 def plans_page(request: Request):
     user = get_current_user(request)
+    record_event("plans_view", request, user["id"] if user else None)
+    record_event("plans_view", request, user["id"] if user else None)
     active_preview = request.query_params.get("preview")
     if not (user and user["role"] == "admin" and active_preview in PLAN_LEVELS):
         active_preview = None
@@ -2195,6 +2451,7 @@ def checkout_page(order_id: str, request: Request):
     payment = get_payment_by_order_id(order_id)
     if not payment or payment["user_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="결제 정보를 찾을 수 없습니다")
+    record_event("checkout_view", request, user["id"], {"plan": payment["plan"], "provider": payment["provider"]})
     return render_view(request, "checkout.html", {"user": user, "payment": payment, "bank_account": BANK_ACCOUNT, "nicepay": get_nicepay_config(request)})
 
 
@@ -2510,6 +2767,7 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         row["status_meta"] = build_campaign_status(row)
     staff_rows = conn.execute("SELECT id, name, email, role, created_at, last_login_at, must_change_password FROM users WHERE role IN ('admin','manager') ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id ASC").fetchall()
     conn.close()
+    analytics = get_analytics_snapshot(7)
     return render_view(request, "admin_dashboard.html", {
         "admin": admin,
         "users": users,
@@ -2540,6 +2798,7 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         "is_super_admin": admin["role"] == "admin",
         "staff_rows": staff_rows,
         "default_admin_email": DEFAULT_ADMIN_EMAIL,
+        "analytics": analytics,
     })
 
 
@@ -2580,6 +2839,7 @@ def admin_confirm_bank_payment(order_id: str, request: Request, admin=Depends(re
     if not payment:
         raise HTTPException(status_code=404, detail="결제 정보를 찾을 수 없습니다")
     complete_payment(order_id)
+    record_event("payment_paid", request, payment["user_id"], {"order_id": order_id, "plan": payment["plan"], "provider": payment["provider"]})
     return RedirectResponse(url="/admin?bank_confirmed=1", status_code=303)
 
 
@@ -2601,6 +2861,12 @@ def admin_create_backup(request: Request, admin=Depends(require_admin)):
 @app.post("/admin/backup/create")
 def admin_create_backup_post(request: Request, admin=Depends(require_admin)):
     return admin_create_backup(request, admin)
+
+
+@app.get("/admin/backup/project")
+def admin_create_project_backup(request: Request, admin=Depends(require_admin)):
+    bundle_path = create_project_source_backup_bundle()
+    return FileResponse(path=str(bundle_path), media_type="application/zip", filename=bundle_path.name)
 
 
 @app.get("/admin/backup/download")
@@ -2640,7 +2906,7 @@ async def admin_restore_backup(request: Request, backup_file: UploadFile = File(
     create_db_backup("before_restore")
     tmp_path = get_data_dir() / "fortune_restore_tmp.db"
     tmp_path.write_bytes(db_bytes)
-    shutil.copy2(tmp_path, DB_PATH)
+    sqlite_backup_to_file(tmp_path, DB_PATH)
     try:
         tmp_path.unlink()
     except Exception:
@@ -2939,6 +3205,7 @@ async def api_push_subscribe(request: Request):
         conn.commit()
     finally:
         conn.close()
+    record_event("push_subscribe", request, user["id"], {"plan": user["plan"]})
     return JSONResponse({'ok': True})
 
 

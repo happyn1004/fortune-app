@@ -1,0 +1,12 @@
+body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#120f2d,#22144a);color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.shell-wrap{width:min(92vw,880px);padding:24px}
+.shell-card{background:rgba(255,255,255,.08);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);border-radius:28px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.badge{display:inline-flex;padding:8px 12px;border-radius:999px;background:#ff7a00;color:#fff;font-weight:700;font-size:14px}
+h1{margin:18px 0 10px;font-size:44px}
+.lead{font-size:18px;line-height:1.6;color:#ece7ff}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:14px 18px;border-radius:14px;text-decoration:none;border:none;cursor:pointer;font-weight:700;background:#fff;color:#22144a}
+.btn.primary{background:#ff7a00;color:#fff}
+.status-box{display:grid;gap:10px;background:rgba(0,0,0,.18);padding:16px;border-radius:18px}
+.ok{color:#66f0a3}.warn{color:#ffd66b}.guide{margin-top:18px;color:#d7d0ff;line-height:1.6}
+code{background:rgba(255,255,255,.12);padding:3px 6px;border-radius:8px}

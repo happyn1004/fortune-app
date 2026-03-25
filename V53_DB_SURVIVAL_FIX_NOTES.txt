@@ -1,0 +1,14 @@
+V53 DB SURVIVAL FIX
+
+핵심 보강
+1. SQLite WAL 체크포인트 + backup API 기반 백업/복원으로 변경
+2. DB를 여러 후보 저장소(/data, /var/data, .render_disk, DATA_DIR, RENDER_DISK_PATH)로 미러 동기화
+3. 시작 시 라이브 DB + 백업 DB 후보를 함께 비교해서 가장 건강한 DB 자동 복구
+4. 최소 관리자만 남은 축소 DB 패턴을 감지하면 더 큰 사용자 DB 또는 백업본으로 자동 복원
+5. backup/restore가 단순 파일복사가 아니라 SQLite 논리백업 방식으로 동작
+6. Storage Debug에 mirror_dirs 표시 추가
+
+중요
+- 이 수정은 코드 차원의 생존성을 크게 높여줍니다.
+- 하지만 Render 대시보드에서 실제 Disk mountPath 와 DATA_DIR/RENDER_DISK_PATH 가 완전히 다른 경우에는 운영 설정도 함께 맞춰야 합니다.
+- 가장 권장되는 값은 mountPath=/data, DATA_DIR=/data/mysticday 입니다.
