@@ -2172,9 +2172,21 @@ def get_week_key(today: date | None = None) -> str:
     return f"{year}-W{week_num:02d}"
 
 
-def generate_weekly_lotto_numbers(today: date | None = None):
+def get_personal_seed_key(user=None) -> str:
+    if user:
+        for field in ("id", "email", "phone", "name"):
+            try:
+                value = user[field]
+            except Exception:
+                value = None
+            if value:
+                return str(value).strip()
+    return "guest"
+
+
+def generate_weekly_lotto_numbers(today: date | None = None, user=None):
     today = today or today_kst()
-    key = get_week_key(today)
+    key = f"{get_week_key(today)}::{get_personal_seed_key(user)}"
     seed = int(hashlib.sha256(key.encode('utf-8')).hexdigest()[:12], 16)
     sets = []
     strategy_labels = ['안정형', '균형형', '분산형', '역발상형', '공격형']
@@ -2422,7 +2434,8 @@ def generate_fortune(user, active_plan: str):
     energy_cycle = ["안정 회복", "관계 정리", "실행 가속", "선택 집중", "리스크 관리"]
     direction_cycle = ["동쪽", "남동쪽", "남쪽", "서남쪽", "서쪽", "북서쪽", "북쪽", "북동쪽"]
     surname_cycle = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오"]
-    user_seed_source = f"{user['email'] if user else 'guest'}-{today.date().isoformat()}-{active_plan}"
+    personal_key = get_personal_seed_key(user)
+    user_seed_source = f"{personal_key}-{today.date().isoformat()}-{active_plan}"
     user_seed = int(hashlib.sha256(user_seed_source.encode('utf-8')).hexdigest()[:8], 16)
     idx = user_seed % len(color_cycle)
     tone_idx = user_seed % 4
@@ -2505,14 +2518,17 @@ def generate_fortune(user, active_plan: str):
             "금전운에는 아끼는 것보다 방향을 바꾸는 포인트가 숨어 있습니다",
             "관계운은 말보다 타이밍이 더 중요하게 작동하는 날입니다",
         ],
-        "행운의수": [((today.day * 2) % 9) + 1, ((today.day * 3 + 2) % 9) + 1],
+        "행운의수": [
+            ((user_seed % 9) + 1),
+            (((user_seed // 7) % 9) + 1),
+        ],
         "위험지수": 41 + (today.day % 9),
         "기회지수": 63 + (today.day % 11),
     }
 
     access = build_plan_access(active_plan)
     meta = PLAN_META[active_plan]
-    lotto = generate_weekly_lotto_numbers(today.date())
+    lotto = generate_weekly_lotto_numbers(today.date(), user=user)
     interest_text = (user['interests'] or '').strip() if user and 'interests' in user.keys() else ''
     if interest_text:
         base_fortune['맞춤초점'] = f"관심사 '{interest_text}' 기준으로 보면 오늘은 준비된 영역에서 실행할수록 성과가 잘 붙습니다."
