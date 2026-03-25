@@ -1,6 +1,30 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>관리자 대시보드</title><link rel="stylesheet" href="/static/style.css"></head>
 <body>
+<header class="topbar admin-page-topbar" id="adminTopbar">
+  <div class="wrap admin-wrap nav">
+    <a class="logo" href="/admin">관리자 센터</a>
+    <nav class="nav-links">
+      <a href="/">고객 화면</a>
+      <a href="/admin">대시보드</a>
+      <a href="/automation-studio">자동화</a>
+      <a href="#promo-panel">광고/프로모션</a>
+      <a href="#push-panel">푸시</a>
+      <a href="#inquiry-panel">문의</a>
+      <a class="admin-link-chip" href="/logout">로그아웃</a>
+    </nav>
+  </div>
+  <nav class="mobile-top-tabs mobile-only" aria-label="관리자 메뉴">
+    <a href="/admin" data-path="/admin"><span class="icon">📊</span><span>대시</span></a>
+    <a href="#promo-panel"><span class="icon">📣</span><span>광고</span></a>
+    <a href="#push-panel"><span class="icon">🔔</span><span>푸시</span></a>
+    <a href="/automation-studio" data-path="/automation-studio"><span class="icon">⚙️</span><span>자동화</span></a>
+    <a href="#inquiry-panel"><span class="icon">💬</span><span>문의</span></a>
+    <a href="/"><span class="icon">🏠</span><span>고객</span></a>
+    <a href="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
+  </nav>
+</header>
+<div class="admin-toolbar-spacer"></div>
 <main class="wrap admin-wrap admin-compact-ui">
   <div class="admin-sticky-toolbar admin-mobile-sticky-toolbar">
     <div class="admin-sticky-left">
@@ -329,7 +353,6 @@
     el.addEventListener('input', function(){ syncEditable(el); });
     el.addEventListener('blur', function(){ syncEditable(el); });
   });
-
   window.setPromoVisibility = function(isVisible){
     var input = document.getElementById('promo_enabled_input');
     var showBtn = document.getElementById('promoShowToggle');
@@ -421,6 +444,27 @@
       }
     }
   };
+})();
+(function(){
+  const adminTopbar = document.getElementById('adminTopbar');
+  if (!adminTopbar || window.innerWidth > 900) return;
+  let lastY = window.scrollY || 0;
+  let ticking = false;
+  function applyAdminTopbarMotion(){
+    const currentY = window.scrollY || 0;
+    const scrollingDown = currentY > lastY;
+    if (currentY > 90 && scrollingDown) adminTopbar.classList.add('topbar-hidden');
+    else adminTopbar.classList.remove('topbar-hidden');
+    lastY = currentY;
+    ticking = false;
+  }
+  window.addEventListener('scroll', function(){
+    if (!ticking) {
+      window.requestAnimationFrame(applyAdminTopbarMotion);
+      ticking = true;
+    }
+  }, { passive: true });
+  window.addEventListener('touchstart', function(){ adminTopbar.classList.remove('topbar-hidden'); }, { passive: true });
 })();
 </script>
 </body></html>
