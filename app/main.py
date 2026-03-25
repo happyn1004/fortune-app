@@ -1041,6 +1041,16 @@ def get_db():
     return conn
 
 
+def get_fast_write_db():
+    conn = sqlite3.connect(DB_PATH, timeout=1.2, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=1200")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
 def _pbkdf2_hash(password: str, salt_hex: str, iterations: int = PASSWORD_PBKDF2_ITERATIONS) -> str:
     derived = hashlib.pbkdf2_hmac(
         "sha256",
@@ -3201,9 +3211,8 @@ async def api_push_subscribe(request: Request):
 
     now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     user_agent = request.headers.get('user-agent', '')[:250]
-    conn = get_db()
+    conn = get_fast_write_db()
     try:
-        conn.execute("BEGIN IMMEDIATE")
         conn.execute(
             """
             INSERT INTO push_subscriptions (user_id, endpoint, p256dh_key, auth_key, user_agent, plan_snapshot, is_active, created_at, updated_at)
@@ -3220,22 +3229,24 @@ async def api_push_subscribe(request: Request):
             """,
             (user['id'], endpoint, p256dh_key, auth_key, user_agent, user['plan'], 1, now_ts, now_ts),
         )
-        conn.commit()
     except sqlite3.OperationalError as e:
         try:
-            conn.rollback()
+            conn.close()
         except Exception:
             pass
-        return JSONResponse({'ok': False, 'message': '저장소가 잠시 바쁩니다. 잠시 후 다시 시도해 주세요.', 'error': 'db_busy'}, status_code=503)
+        return JSONResponse({'ok': False, 'message': '서버 저장소가 잠시 바쁩니다. 자동으로 다시 연결을 시도합니다.', 'error': 'db_busy'}, status_code=503)
     except Exception as e:
         try:
-            conn.rollback()
+            conn.close()
         except Exception:
             pass
         print(f"[push_subscribe] failed: {e}")
         return JSONResponse({'ok': False, 'message': '알림 연결 저장 중 오류가 발생했습니다.', 'error': 'subscribe_failed'}, status_code=500)
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
     try:
         threading.Thread(

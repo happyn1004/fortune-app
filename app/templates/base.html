@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar" id="siteTopbar">
     <div class="wrap nav">
       <a class="logo" href="/">{{ site_settings.brand_name if site_settings else "Mystic Day" }}</a>
       <nav class="nav-links">
@@ -138,6 +138,8 @@
   </footer>
 <script>
 const PUSH_SW_URL = "/static/sw-push-v22.js";
+const PUSH_PENDING_STORAGE_KEY = 'pushPendingSubscriptionV1';
+const PUSH_LAST_SYNC_KEY = 'pushLastSyncAtV1';
 const PUSH_API_BASE = window.location.origin;
 function buildPushApiUrl(path) {
   return `${PUSH_API_BASE}${path}`;
@@ -230,6 +232,49 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   let pushSyncAbortController = null;
   let lastSavedPushEndpoint = '';
   let pushReadyCheckedAt = 0;
+  let pushRetryTimer = null;
+  function savePendingPushSubscription(subscription) {
+    try {
+      if (!subscription || !subscription.endpoint) return;
+      localStorage.setItem(PUSH_PENDING_STORAGE_KEY, JSON.stringify({
+        subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+        savedAt: Date.now()
+      }));
+    } catch (e) { console.debug('savePendingPushSubscription_skip', e); }
+  }
+  function clearPendingPushSubscription() {
+    try { localStorage.removeItem(PUSH_PENDING_STORAGE_KEY); } catch (e) {}
+  }
+  function readPendingPushSubscription() {
+    try {
+      const raw = localStorage.getItem(PUSH_PENDING_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.subscription ? parsed.subscription : null;
+    } catch (e) { return null; }
+  }
+  function schedulePushRetry(delayMs) {
+    if (pushRetryTimer) window.clearTimeout(pushRetryTimer);
+    pushRetryTimer = window.setTimeout(function(){
+      pushRetryTimer = null;
+      retryPendingPushSubscription();
+    }, Math.max(1500, delayMs || 4000));
+  }
+  async function retryPendingPushSubscription() {
+    const pending = readPendingPushSubscription();
+    if (!pending) return false;
+    try {
+      await notifyServerSubscribe(pending, { force: true, silent: true });
+      clearPendingPushSubscription();
+      updatePushButton('ready');
+      setStatus('알림 연결이 복구되었습니다. 이제 시스템 알림으로 받아볼 수 있습니다.', 'ok');
+      return true;
+    } catch (e) {
+      schedulePushRetry(10000);
+      return false;
+    }
+  }
+
   function setStatus(message, tone) {
     if (!statusText) return;
     statusText.textContent = message || '';
@@ -275,26 +320,25 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     return await navigator.serviceWorker.ready;
   }
   async function notifyServerSubscribe(subscription, options) {
-    const endpoint = subscription && subscription.endpoint ? subscription.endpoint : '';
+    const subJson = subscription && subscription.toJSON ? subscription.toJSON() : subscription;
+    const endpoint = subJson && subJson.endpoint ? subJson.endpoint : '';
     if (!endpoint) throw new Error('subscription_missing');
     if (!(options && options.force) && endpoint === lastSavedPushEndpoint && (Date.now() - pushReadyCheckedAt) < 180000) {
       return { ok: true, skipped: true };
     }
-    if (pushSyncAbortController) {
-      try { pushSyncAbortController.abort(); } catch (e) {}
-    }
     pushSyncAbortController = new AbortController();
     const timeoutId = setTimeout(function(){
       try { pushSyncAbortController.abort(); } catch (e) {}
-    }, 12000);
+    }, (options && options.silent) ? 5000 : 7000);
     try {
       const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: subscription.toJSON() }),
+        body: JSON.stringify({ subscription: subJson }),
         signal: pushSyncAbortController.signal,
-        cache: 'no-store'
+        cache: 'no-store',
+        keepalive: true
       });
       let data = {};
       try { data = await response.json(); } catch (e) {}
@@ -304,6 +348,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
       lastSavedPushEndpoint = endpoint;
       pushReadyCheckedAt = Date.now();
+      try { localStorage.setItem(PUSH_LAST_SYNC_KEY, String(pushReadyCheckedAt)); } catch (e) {}
       return data;
     } catch (e) {
       if (e && e.name === 'AbortError') throw new Error('subscribe_timeout');
@@ -321,7 +366,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         updatePushButton('ios-install');
         return false;
       }
-      const keyRes = await fetch(buildPushApiUrl('/api/push/public-key'), { credentials: 'same-origin', cache: 'no-store' });
+      const keyRes = await fetch(buildPushApiUrl('/api/push/public-key'), { credentials: 'include', cache: 'no-store' });
       if (!keyRes.ok) throw new Error('public_key_failed');
       const keyData = await keyRes.json();
       if (!keyData.ok || !keyData.enabled || !keyData.public_key) throw new Error('push_not_ready');
@@ -333,8 +378,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
           applicationServerKey: urlBase64ToUint8Array(keyData.public_key)
         });
       }
+      savePendingPushSubscription(subscription);
       setStatus('서버에 알림 연결을 저장하는 중입니다.', 'info');
       await notifyServerSubscribe(subscription, options || {});
+      clearPendingPushSubscription();
       updatePushButton('ready');
       return true;
     })();
@@ -398,7 +445,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 18000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true }), 9000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
@@ -409,9 +456,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       if (code === 'permission_timeout') {
         setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
-      } else if (code === 'subscribe_timeout') {
-        setStatus('서버에 알림 연결 저장이 지연되고 있습니다. 잠시 후 자동으로 다시 확인하거나, 10초 뒤 한 번만 다시 눌러 주세요.', 'warn');
-        alert('서버에 알림 연결 저장이 지연되고 있습니다. 잠시 후 자동으로 다시 확인하거나, 10초 뒤 한 번만 다시 눌러 주세요.');
+      } else if (code === 'subscribe_timeout' || code === 'db_busy') {
+        schedulePushRetry(6000);
+        setStatus('알림 권한은 연결되었습니다. 서버 동기화가 잠시 지연되어 자동으로 다시 연결을 시도합니다.', 'warn');
+        alert('알림 권한은 연결되었습니다. 서버 동기화가 잠시 지연되어 자동으로 다시 연결을 시도합니다. 10초 정도 후 다시 확인해 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
@@ -483,6 +531,38 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     });
   }
 })();
+  window.addEventListener('load', function(){
+    try {
+      if (readPendingPushSubscription()) {
+        schedulePushRetry(2500);
+      }
+    } catch (e) {}
+  });
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && readPendingPushSubscription()) schedulePushRetry(1200);
+  });
+
+  (function(){
+    const topbar = document.getElementById('siteTopbar');
+    if (!topbar || window.innerWidth > 900) return;
+    let lastY = window.scrollY || 0;
+    let ticking = false;
+    function applyTopbarMotion(){
+      const currentY = window.scrollY || 0;
+      const scrollingDown = currentY > lastY;
+      if (currentY > 90 && scrollingDown) topbar.classList.add('topbar-hidden');
+      else topbar.classList.remove('topbar-hidden');
+      lastY = currentY;
+      ticking = false;
+    }
+    window.addEventListener('scroll', function(){
+      if (!ticking) {
+        window.requestAnimationFrame(applyTopbarMotion);
+        ticking = true;
+      }
+    }, { passive: true });
+    window.addEventListener('touchstart', function(){ topbar.classList.remove('topbar-hidden'); }, { passive: true });
+  })();
 </script>
 </body>
 </html>
