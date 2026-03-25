@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mysticday
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: DATA_DIR
+        value: /data/mysticday
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    disk:
+      name: mysticday-data
+      mountPath: /data
+      sizeGB: 1

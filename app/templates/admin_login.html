@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>관리자 로그인</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<main class="wrap admin-wrap">
+  <div class="card form-card narrow">
+    <h2>관리자 / 매니저 로그인</h2>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <p class="muted" style="margin-bottom:14px;">최초 최고관리자 아이디는 <strong>{{ default_admin_email }}</strong> 입니다.</p><form method="post" class="form-grid">
+      <label>이메일<input type="email" name="email" required></label>
+      <label>비밀번호<input type="password" name="password" required></label>
+      <button class="btn primary" type="submit">관리자 로그인</button>
+      <a class="btn" href="/">고객 메인으로</a>
+    </form>
+  </div>
+</main>
+</body></html>
