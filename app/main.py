@@ -11,6 +11,7 @@ import os
 import shutil
 import re
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 import json
 import hashlib
@@ -45,6 +46,21 @@ PUSH_SUBSCRIBE_QUEUE_LOCK = threading.Lock()
 PUSH_SUBSCRIBE_WAKE_EVENT = threading.Event()
 PUSH_SUBSCRIBE_WORKER_STARTED = False
 PUSH_SUBSCRIPTIONS_STORE_FILE = None
+
+
+KST = ZoneInfo("Asia/Seoul")
+
+
+def now_kst() -> datetime:
+    return datetime.now(KST)
+
+
+def today_kst() -> date:
+    return now_kst().date()
+
+
+def current_kst_date_str() -> str:
+    return today_kst().isoformat()
 
 
 def _first_writable_dir(candidates: list[Path]) -> Path | None:
@@ -717,7 +733,7 @@ def send_web_push_to_subscription(conn: sqlite3.Connection, subscription_row, pa
             vapid_private_key=private_pem,
             vapid_claims=vapid_claims,
         )
-        now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now_ts = now_kst().strftime('%Y-%m-%d %H:%M:%S')
         if subscription_id:
             conn.execute(
                 "UPDATE push_subscriptions SET last_success_at=?, failure_reason=NULL, is_active=1, updated_at=? WHERE id=?",
@@ -2147,17 +2163,17 @@ def redirect_for_staff_role(user):
 
 
 def get_quote_and_tip():
-    idx = datetime.now().toordinal() % len(QUOTES)
+    idx = now_kst().toordinal() % len(QUOTES)
     return QUOTES[idx], LIFE_TIPS[idx]
 
 def get_week_key(today: date | None = None) -> str:
-    today = today or date.today()
+    today = today or today_kst()
     year, week_num, _ = today.isocalendar()
     return f"{year}-W{week_num:02d}"
 
 
 def generate_weekly_lotto_numbers(today: date | None = None):
-    today = today or date.today()
+    today = today or today_kst()
     key = get_week_key(today)
     seed = int(hashlib.sha256(key.encode('utf-8')).hexdigest()[:12], 16)
     sets = []
@@ -2314,7 +2330,7 @@ def mark_all_notifications_read(user):
 def record_attendance(user):
     if not user_can_use_member_features(user):
         return None
-    today = date.today().isoformat()
+    today = current_kst_date_str()
     now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn = get_db()
     existing = conn.execute('SELECT * FROM attendance_log WHERE user_id=? AND attend_date=?', (user['id'], today)).fetchone()
@@ -2327,7 +2343,7 @@ def record_attendance(user):
     if prev['last_attendance_date']:
         try:
             prev_date = datetime.strptime(prev['last_attendance_date'], '%Y-%m-%d').date()
-            if (date.today() - prev_date).days > 1:
+            if (today_kst() - prev_date).days > 1:
                 streak = 1
         except Exception:
             streak = 1
@@ -2355,7 +2371,7 @@ def get_attendance_status(user):
         'last_attendance_date': row['last_attendance_date'],
         'latest_reward_type': latest['reward_type'] if latest else None,
         'latest_reward_value': latest['reward_value'] if latest else None,
-        'checked_today': bool(row['last_attendance_date'] == date.today().isoformat()),
+        'checked_today': bool(row['last_attendance_date'] == current_kst_date_str()),
     }
 
 
@@ -2391,7 +2407,7 @@ def build_plan_access(plan: str):
 
 
 def generate_fortune(user, active_plan: str):
-    today = datetime.now()
+    today = now_kst()
     quote, tip = get_quote_and_tip()
     if user and user["birth_date"]:
         year = int(user["birth_date"].split("-")[0])
@@ -2510,7 +2526,7 @@ def generate_fortune(user, active_plan: str):
 
 def record_login(user_id: int):
     conn = get_db()
-    conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_id))
+    conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now_kst().strftime("%Y-%m-%d %H:%M:%S"), user_id))
     conn.commit()
     conn.close()
 
@@ -2519,14 +2535,14 @@ def record_fortune_view(user_id: int):
     conn = get_db()
     conn.execute(
         "UPDATE users SET fortune_views = COALESCE(fortune_views,0) + 1, last_fortune_at=? WHERE id=?",
-        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_id),
+        (now_kst().strftime("%Y-%m-%d %H:%M:%S"), user_id),
     )
     conn.commit()
     conn.close()
 
 
 def generate_vip_report(user):
-    today = date.today()
+    today = today_kst()
     zodiac = user["zodiac"] or "미정"
     month_label = f"{today.year}년 {today.month}월"
     base = (today.month * 7 + today.day) % 10
@@ -2564,7 +2580,7 @@ def generate_vip_report(user):
 
 
 def generate_automation_pack(user):
-    today = date.today()
+    today = today_kst()
     zodiac = user["zodiac"] or "전체"
     vip_days = []
     for i in range(30):
@@ -3982,7 +3998,7 @@ def admin_adjust_user_vip(user_id: int, request: Request, mode: str = Form(...),
     if not target_user:
         conn.close()
         return RedirectResponse(url="/admin?updated=0", status_code=303)
-    today = date.today()
+    today = today_kst()
     current_exp = parse_date_value(target_user["plan_expires_at"])
     base_date = today
     if current_exp and current_exp >= today:

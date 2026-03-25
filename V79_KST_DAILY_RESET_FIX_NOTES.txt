@@ -1,0 +1,12 @@
+V79 KST DAILY RESET FIX
+
+핵심 수정
+- 운세/명언/로또/월간/자동화 생성 기준 날짜를 한국시간(Asia/Seoul)으로 통일
+- 날짜 계산 helper 추가: now_kst(), today_kst(), current_kst_date_str()
+- generate_fortune()가 서버 로컬시간이 아닌 KST 날짜로 seed를 만들도록 수정
+- 주간 로또, VIP 리포트, 자동화 팩도 KST 기준으로 생성되도록 정리
+- fortune_view / last_login_at 기록도 KST 기준 문자열로 저장되도록 보완
+
+기대 효과
+- 한국시간 00:00가 지나면 같은 사용자라도 전날과 다른 운세가 생성됨
+- Render/UTC 환경에서도 어제 내용이 오늘까지 그대로 보이는 문제 완화
