@@ -40,11 +40,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 BASE_DIR = Path(__file__).resolve().parent
 
-PUSH_SUBSCRIBE_QUEUE_FILE = None
-PUSH_SUBSCRIBE_QUEUE_LOCK = threading.Lock()
-PUSH_SUBSCRIBE_WAKE_EVENT = threading.Event()
-PUSH_SUBSCRIBE_WORKER_STARTED = False
-
 
 def _first_writable_dir(candidates: list[Path]) -> Path | None:
     for candidate in candidates:
@@ -887,6 +882,7 @@ DEFAULT_SITE_SETTINGS = {
     "promo_title": "오늘의 흐름과 어울리는 추천 콘텐츠",
     "promo_subtitle": "관리자에서 제목, 소제목, 이미지, 설명을 바꾸면 이 영역에 그대로 반영됩니다.",
     "promo_cta_text": "전체 보기",
+    "promo_enabled": "0",
 }
 
 
@@ -1047,11 +1043,11 @@ def get_db():
 
 
 def get_fast_write_db():
-    conn = sqlite3.connect(DB_PATH, timeout=1.2, isolation_level=None)
+    conn = sqlite3.connect(DB_PATH, timeout=10, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA busy_timeout=1200")
+    conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
@@ -1151,6 +1147,7 @@ def get_site_settings():
         data["refund_full_text"] = build_refund_full_text(data)
     if not data.get("support_full_text"):
         data["support_full_text"] = build_support_full_text(data)
+    data["promo_enabled"] = "1" if str(data.get("promo_enabled", "0")).strip().lower() in ("1", "true", "yes", "on") else "0"
     return data
 
 
@@ -1279,9 +1276,13 @@ def render_view(request: Request, template_name: str, context: dict):
     context["site_settings"] = get_site_settings()
     context["bank_account"] = BANK_ACCOUNT
     context["payment_provider_meta"] = PAYMENT_PROVIDER_META
-    context["active_ads"] = get_active_ads()
-    if not context["active_ads"]:
-        context["active_ads"] = get_default_ads()
+    promo_enabled = str(context["site_settings"].get("promo_enabled", "0")) == "1"
+    if promo_enabled:
+        context["active_ads"] = get_active_ads()
+        if not context["active_ads"]:
+            context["active_ads"] = get_default_ads()
+    else:
+        context["active_ads"] = []
     context["active_ad"] = context["active_ads"][0] if context["active_ads"] else None
     if user_can_use_member_features(context.get("user")):
         context["attendance_status"] = get_attendance_status(context["user"])
@@ -1518,134 +1519,9 @@ def init_db():
     conn.close()
 
 
-def _append_push_subscription_queue(record: dict):
-    global PUSH_SUBSCRIBE_QUEUE_FILE
-    if PUSH_SUBSCRIBE_QUEUE_FILE is None:
-        PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / "push_subscribe_queue.jsonl"
-    PUSH_SUBSCRIBE_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(record, ensure_ascii=False) + "\n"
-    with PUSH_SUBSCRIBE_QUEUE_LOCK:
-        with PUSH_SUBSCRIBE_QUEUE_FILE.open('a', encoding='utf-8') as f:
-            f.write(line)
-    PUSH_SUBSCRIBE_WAKE_EVENT.set()
-
-
-def _store_push_subscription_db(record: dict):
-    now_ts = record.get('queued_at') or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = get_db()
-    try:
-        conn.execute(
-            """
-            INSERT INTO push_subscriptions (user_id, endpoint, p256dh_key, auth_key, user_agent, plan_snapshot, is_active, created_at, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(endpoint) DO UPDATE SET
-                user_id=excluded.user_id,
-                p256dh_key=excluded.p256dh_key,
-                auth_key=excluded.auth_key,
-                user_agent=excluded.user_agent,
-                plan_snapshot=excluded.plan_snapshot,
-                is_active=1,
-                updated_at=excluded.updated_at,
-                failure_reason=NULL
-            """,
-            (
-                record['user_id'],
-                record['endpoint'],
-                record['p256dh_key'],
-                record['auth_key'],
-                (record.get('user_agent') or '')[:250],
-                record.get('plan_snapshot') or 'Free',
-                1,
-                now_ts,
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _process_push_subscription_queue_once():
-    global PUSH_SUBSCRIBE_QUEUE_FILE
-    if PUSH_SUBSCRIBE_QUEUE_FILE is None:
-        PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / "push_subscribe_queue.jsonl"
-    queue_file = PUSH_SUBSCRIBE_QUEUE_FILE
-    if not queue_file.exists() or queue_file.stat().st_size <= 0:
-        return 0
-
-    processing_file = queue_file.with_suffix('.processing')
-    with PUSH_SUBSCRIBE_QUEUE_LOCK:
-        if processing_file.exists():
-            try:
-                processing_file.unlink()
-            except Exception:
-                pass
-        try:
-            queue_file.replace(processing_file)
-        except FileNotFoundError:
-            return 0
-
-    retry_records = []
-    processed = 0
-    try:
-        lines = processing_file.read_text(encoding='utf-8').splitlines()
-    except Exception:
-        lines = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-        except Exception:
-            continue
-        try:
-            _store_push_subscription_db(record)
-            processed += 1
-        except sqlite3.OperationalError:
-            retry_records.append(record)
-        except Exception:
-            retry_records.append(record)
-    try:
-        processing_file.unlink(missing_ok=True)
-    except Exception:
-        pass
-    if retry_records:
-        with PUSH_SUBSCRIBE_QUEUE_LOCK:
-            with queue_file.open('a', encoding='utf-8') as f:
-                for item in retry_records:
-                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        PUSH_SUBSCRIBE_WAKE_EVENT.set()
-    return processed
-
-
-def _push_subscription_worker_loop():
-    backoff = 1.5
-    while True:
-        try:
-            PUSH_SUBSCRIBE_WAKE_EVENT.wait(timeout=backoff)
-            PUSH_SUBSCRIBE_WAKE_EVENT.clear()
-            processed = _process_push_subscription_queue_once()
-            backoff = 1.0 if processed else min(6.0, backoff + 0.5)
-        except Exception as e:
-            print(f"[push_queue_worker] {e}")
-            time.sleep(2.0)
-
-
-def start_push_subscription_worker():
-    global PUSH_SUBSCRIBE_WORKER_STARTED, PUSH_SUBSCRIBE_QUEUE_FILE
-    if PUSH_SUBSCRIBE_WORKER_STARTED:
-        return
-    PUSH_SUBSCRIBE_WORKER_STARTED = True
-    PUSH_SUBSCRIBE_QUEUE_FILE = DATA_DIR / "push_subscribe_queue.jsonl"
-    threading.Thread(target=_push_subscription_worker_loop, daemon=True, name='push-subscription-worker').start()
-
-
-
 init_db()
 create_db_backup("startup")
 sync_db_to_mirrors("startup")
-start_push_subscription_worker()
 
 
 ZODIAC_MAP = {
@@ -3138,6 +3014,7 @@ def admin_update_settings(
     promo_title: str = Form(""),
     promo_subtitle: str = Form(""),
     promo_cta_text: str = Form(""),
+    promo_enabled: str = Form("0"),
     admin=Depends(require_admin),
 ):
     conn = get_db()
@@ -3185,6 +3062,7 @@ def admin_update_settings(
         "promo_title": promo_title.strip(),
         "promo_subtitle": promo_subtitle.strip(),
         "promo_cta_text": promo_cta_text.strip(),
+        "promo_enabled": "1" if promo_enabled.strip() in ("1", "true", "on", "yes") else "0",
     })
     payload = selective_sync_legal_texts(payload, current)
     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3339,49 +3217,54 @@ async def api_push_subscribe(request: Request):
     if not endpoint or not p256dh_key or not auth_key:
         return JSONResponse({'ok': False, 'message': '구독 정보가 올바르지 않습니다.'}, status_code=400)
 
-    record = {
-        'user_id': user['id'],
-        'endpoint': endpoint,
-        'p256dh_key': p256dh_key,
-        'auth_key': auth_key,
-        'user_agent': request.headers.get('user-agent', '')[:250],
-        'plan_snapshot': user['plan'],
-        'queued_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    }
+    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    user_agent = request.headers.get('user-agent', '')[:250]
+    conn = get_fast_write_db()
     try:
-        _append_push_subscription_queue(record)
+        conn.execute(
+            """
+            INSERT INTO push_subscriptions (user_id, endpoint, p256dh_key, auth_key, user_agent, plan_snapshot, is_active, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(endpoint) DO UPDATE SET
+                user_id=excluded.user_id,
+                p256dh_key=excluded.p256dh_key,
+                auth_key=excluded.auth_key,
+                user_agent=excluded.user_agent,
+                plan_snapshot=excluded.plan_snapshot,
+                is_active=1,
+                updated_at=excluded.updated_at,
+                failure_reason=NULL
+            """,
+            (user['id'], endpoint, p256dh_key, auth_key, user_agent, user['plan'], 1, now_ts, now_ts),
+        )
+    except sqlite3.OperationalError as e:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({'ok': False, 'message': '서버 저장소가 잠시 바쁩니다. 자동으로 다시 연결을 시도합니다.', 'error': 'db_busy'}, status_code=503)
     except Exception as e:
-        print(f"[push_subscribe_enqueue] failed: {e}")
-        return JSONResponse({'ok': False, 'message': '알림 연결 저장 대기열에 넣지 못했습니다.', 'error': 'queue_failed'}, status_code=500)
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print(f"[push_subscribe] failed: {e}")
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장 중 오류가 발생했습니다.', 'error': 'subscribe_failed'}, status_code=500)
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
     try:
         threading.Thread(
             target=record_event,
-            args=("push_subscribe_queue", request, user["id"], {"plan": user["plan"]}),
+            args=("push_subscribe", request, user["id"], {"plan": user["plan"]}),
             daemon=True,
         ).start()
     except Exception:
         pass
-    return JSONResponse({'ok': True, 'queued': True, 'message': '알림 연결 저장이 접수되었습니다.'})
-
-
-@app.get("/api/push/subscription-status")
-def api_push_subscription_status(request: Request, endpoint: str = ""):
-    user = get_current_user(request)
-    if not user:
-        return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
-    endpoint = (endpoint or '').strip()
-    if not endpoint:
-        return JSONResponse({'ok': False, 'stored': False, 'message': 'endpoint가 필요합니다.'}, status_code=400)
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT id, is_active, updated_at FROM push_subscriptions WHERE endpoint=? AND user_id=? LIMIT 1",
-            (endpoint, user['id'])
-        ).fetchone()
-    finally:
-        conn.close()
-    return JSONResponse({'ok': True, 'stored': bool(row and row['is_active']), 'updated_at': row['updated_at'] if row else None})
+    return JSONResponse({'ok': True, 'message': '알림 구독이 저장되었습니다.'})
 
 
 @app.post("/api/push/unsubscribe")

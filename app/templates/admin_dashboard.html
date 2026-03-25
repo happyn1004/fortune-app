@@ -134,7 +134,14 @@
       <input type="hidden" name="promo_title" id="promo_title_input" value="{{ site_settings.promo_title }}">
       <input type="hidden" name="promo_subtitle" id="promo_subtitle_input" value="{{ site_settings.promo_subtitle }}">
       <input type="hidden" name="promo_cta_text" id="promo_cta_text_input" value="{{ site_settings.promo_cta_text }}">
+      <input type="hidden" name="promo_enabled" id="promo_enabled_input" value="{{ site_settings.promo_enabled if site_settings.promo_enabled else '0' }}">
     </form>
+
+    <div class="promo-visibility-toolbar" role="group" aria-label="광고 노출 설정">
+      <button type="button" class="promo-visibility-toggle is-show {{ 'is-active' if site_settings.promo_enabled == '1' else '' }}" id="promoShowToggle" onclick="setPromoVisibility(true)">광고 노출</button>
+      <button type="button" class="promo-visibility-toggle is-hide {{ 'is-active' if site_settings.promo_enabled != '1' else '' }}" id="promoHideToggle" onclick="setPromoVisibility(false)">광고 숨김</button>
+      <span class="promo-visibility-state" id="promoVisibilityState">{{ '현재 고객 화면에 노출 중' if site_settings.promo_enabled == '1' else '현재 고객 화면에서 숨김 상태' }}</span>
+    </div>
 
     <section class="wrap footer-ad-wrap admin-promo-twin-wrap" style="padding:0; max-width:none; width:100%;">
       <section class="card footer-ad-banner footer-ad-gallery-card">
@@ -322,6 +329,18 @@
     el.addEventListener('input', function(){ syncEditable(el); });
     el.addEventListener('blur', function(){ syncEditable(el); });
   });
+
+  window.setPromoVisibility = function(isVisible){
+    var input = document.getElementById('promo_enabled_input');
+    var showBtn = document.getElementById('promoShowToggle');
+    var hideBtn = document.getElementById('promoHideToggle');
+    var state = document.getElementById('promoVisibilityState');
+    if (!input || !showBtn || !hideBtn || !state) return;
+    input.value = isVisible ? '1' : '0';
+    showBtn.classList.toggle('is-active', !!isVisible);
+    hideBtn.classList.toggle('is-active', !isVisible);
+    state.textContent = isVisible ? '현재 고객 화면에 노출 중' : '현재 고객 화면에서 숨김 상태';
+  };
   window.triggerPromoMedia = function(slotNumber){
     var input = document.getElementById('ad_media_' + slotNumber);
     if(input) input.click();
