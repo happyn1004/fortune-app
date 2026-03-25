@@ -1,0 +1,8 @@
+V56 PUSH SUBSCRIBE LITE FIX
+- /api/push/subscribe 를 초경량 저장 전용으로 정리
+- 저장 후 analytics 기록은 백그라운드 스레드로 분리
+- DB busy 시 503(db_busy)로 빠르게 응답
+- 프론트에 subscribe 중복 요청 방지(in-flight guard) 추가
+- 저장 완료된 endpoint 는 3분간 중복 저장 생략
+- subscribe fetch 에 AbortController(12초) 적용
+- 초기 자동 동기화와 수동 클릭의 충돌을 줄이도록 조정

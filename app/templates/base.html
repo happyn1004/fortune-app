@@ -226,6 +226,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   function supportsWebPush() {
     return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
   }
+  let pushSyncPromise = null;
+  let pushSyncAbortController = null;
+  let lastSavedPushEndpoint = '';
+  let pushReadyCheckedAt = 0;
   function setStatus(message, tone) {
     if (!statusText) return;
     statusText.textContent = message || '';
@@ -270,37 +274,75 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     }
     return await navigator.serviceWorker.ready;
   }
-  async function notifyServerSubscribe(subscription) {
-    const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subscription.toJSON() })
-    });
-    if (!response.ok) throw new Error('subscribe_failed');
-  }
-  async function syncPushSubscription() {
-    if (!btn || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
-    if (isIos() && !isStandalone()) {
-      updatePushButton('ios-install');
-      return false;
+  async function notifyServerSubscribe(subscription, options) {
+    const endpoint = subscription && subscription.endpoint ? subscription.endpoint : '';
+    if (!endpoint) throw new Error('subscription_missing');
+    if (!(options && options.force) && endpoint === lastSavedPushEndpoint && (Date.now() - pushReadyCheckedAt) < 180000) {
+      return { ok: true, skipped: true };
     }
-    const keyRes = await fetch(buildPushApiUrl('/api/push/public-key'), { credentials: 'same-origin', cache: 'no-store' });
-    if (!keyRes.ok) throw new Error('public_key_failed');
-    const keyData = await keyRes.json();
-    if (!keyData.ok || !keyData.enabled || !keyData.public_key) throw new Error('push_not_ready');
-    const reg = await ensureServiceWorkerReady();
-    let subscription = await reg.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(keyData.public_key)
+    if (pushSyncAbortController) {
+      try { pushSyncAbortController.abort(); } catch (e) {}
+    }
+    pushSyncAbortController = new AbortController();
+    const timeoutId = setTimeout(function(){
+      try { pushSyncAbortController.abort(); } catch (e) {}
+    }, 12000);
+    try {
+      const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: subscription.toJSON() }),
+        signal: pushSyncAbortController.signal,
+        cache: 'no-store'
       });
+      let data = {};
+      try { data = await response.json(); } catch (e) {}
+      if (!response.ok || !data.ok) {
+        const code = data && data.error ? data.error : (response.status === 503 ? 'db_busy' : 'subscribe_failed');
+        throw new Error(code);
+      }
+      lastSavedPushEndpoint = endpoint;
+      pushReadyCheckedAt = Date.now();
+      return data;
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw new Error('subscribe_timeout');
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+      pushSyncAbortController = null;
     }
-    setStatus('서버에 알림 연결을 저장하는 중입니다.', 'info');
-    await notifyServerSubscribe(subscription);
-    updatePushButton('ready');
-    return true;
+  }
+  async function syncPushSubscription(options) {
+    if (pushSyncPromise) return pushSyncPromise;
+    pushSyncPromise = (async function(){
+      if (!btn || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
+      if (isIos() && !isStandalone()) {
+        updatePushButton('ios-install');
+        return false;
+      }
+      const keyRes = await fetch(buildPushApiUrl('/api/push/public-key'), { credentials: 'same-origin', cache: 'no-store' });
+      if (!keyRes.ok) throw new Error('public_key_failed');
+      const keyData = await keyRes.json();
+      if (!keyData.ok || !keyData.enabled || !keyData.public_key) throw new Error('push_not_ready');
+      const reg = await ensureServiceWorkerReady();
+      let subscription = await reg.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(keyData.public_key)
+        });
+      }
+      setStatus('서버에 알림 연결을 저장하는 중입니다.', 'info');
+      await notifyServerSubscribe(subscription, options || {});
+      updatePushButton('ready');
+      return true;
+    })();
+    try {
+      return await pushSyncPromise;
+    } finally {
+      pushSyncPromise = null;
+    }
   }
   async function enablePush() {
     if (!btn) return;
@@ -356,7 +398,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription(), 30000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription({ force: true }), 18000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
@@ -368,8 +410,8 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout') {
-        setStatus('서버에 알림 연결을 저장하는 시간이 길어지고 있습니다. 잠시 후 한 번만 더 눌러 주세요.', 'warn');
-        alert('서버에 알림 연결을 저장하는 시간이 길어지고 있습니다. 잠시 후 한 번만 더 눌러 주세요.');
+        setStatus('서버에 알림 연결 저장이 지연되고 있습니다. 잠시 후 자동으로 다시 확인하거나, 10초 뒤 한 번만 다시 눌러 주세요.', 'warn');
+        alert('서버에 알림 연결 저장이 지연되고 있습니다. 잠시 후 자동으로 다시 확인하거나, 10초 뒤 한 번만 다시 눌러 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
@@ -422,10 +464,12 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       if (permission === 'granted') {
         updatePushButton('ready');
         setStatus('알림이 이미 허용되어 있습니다. 홈 화면에 설치하면 더 앱처럼 사용할 수 있습니다.', 'ok');
-        syncPushSubscription().catch(function(){
-          updatePushButton('', '알림 다시 설정');
-          setStatus('알림 권한은 허용되었지만 연결을 다시 확인해 주세요.', 'warn');
-        });
+        setTimeout(function(){
+          syncPushSubscription({ force: false }).catch(function(){
+            updatePushButton('', '알림 다시 설정');
+            setStatus('알림 권한은 허용되었지만 연결을 다시 확인해 주세요.', 'warn');
+          });
+        }, 1200);
       } else if (permission === 'denied') {
         updatePushButton('denied');
         setStatus('브라우저가 현재 알림 차단 상태로 인식하고 있습니다. 사이트 설정에서 다시 확인해 주세요.', 'warn');

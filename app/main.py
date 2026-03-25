@@ -27,6 +27,7 @@ from urllib.parse import quote_plus
 import urllib.error
 import unicodedata
 import time
+import threading
 
 try:
     from pywebpush import webpush, WebPushException
@@ -3186,7 +3187,10 @@ async def api_push_subscribe(request: Request):
     user = get_current_user(request)
     if not user:
         return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({'ok': False, 'message': '요청 형식이 올바르지 않습니다.'}, status_code=400)
     subscription = payload.get('subscription') or {}
     endpoint = (subscription.get('endpoint') or '').strip()
     keys = subscription.get('keys') or {}
@@ -3194,9 +3198,12 @@ async def api_push_subscribe(request: Request):
     auth_key = (keys.get('auth') or '').strip()
     if not endpoint or not p256dh_key or not auth_key:
         return JSONResponse({'ok': False, 'message': '구독 정보가 올바르지 않습니다.'}, status_code=400)
+
     now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    user_agent = request.headers.get('user-agent', '')[:250]
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         conn.execute(
             """
             INSERT INTO push_subscriptions (user_id, endpoint, p256dh_key, auth_key, user_agent, plan_snapshot, is_active, created_at, updated_at)
@@ -3211,12 +3218,33 @@ async def api_push_subscribe(request: Request):
                 updated_at=excluded.updated_at,
                 failure_reason=NULL
             """,
-            (user['id'], endpoint, p256dh_key, auth_key, request.headers.get('user-agent', '')[:250], user['plan'], 1, now_ts, now_ts),
+            (user['id'], endpoint, p256dh_key, auth_key, user_agent, user['plan'], 1, now_ts, now_ts),
         )
         conn.commit()
+    except sqlite3.OperationalError as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return JSONResponse({'ok': False, 'message': '저장소가 잠시 바쁩니다. 잠시 후 다시 시도해 주세요.', 'error': 'db_busy'}, status_code=503)
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        print(f"[push_subscribe] failed: {e}")
+        return JSONResponse({'ok': False, 'message': '알림 연결 저장 중 오류가 발생했습니다.', 'error': 'subscribe_failed'}, status_code=500)
     finally:
         conn.close()
-    record_event("push_subscribe", request, user["id"], {"plan": user["plan"]})
+
+    try:
+        threading.Thread(
+            target=record_event,
+            args=("push_subscribe", request, user["id"], {"plan": user["plan"]}),
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
     return JSONResponse({'ok': True, 'message': '알림 구독이 저장되었습니다.'})
 
 
