@@ -647,6 +647,12 @@ def get_site_settings():
 
 
 
+def normalize_email(email: str | None) -> str:
+    if not email:
+        return ""
+    return email.strip().lower()
+
+
 def normalize_media_url(media_url: str | None) -> str:
     if not media_url:
         return "/static/default-ad.svg"

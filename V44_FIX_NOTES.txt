@@ -1,0 +1,1 @@
+수정 내용\n- 관리자 로그인 Internal Server Error 원인 수정\n- app/main.py 에 누락된 normalize_email() 함수 추가\n- /admin/login, /login, /signup 에서 호출되는 이메일 정규화 함수 NameError 해결\n
