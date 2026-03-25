@@ -1,0 +1,1 @@
+핵심 수정\n- Render 영구저장 경로를 /data/mysticday 우선 사용하도록 조정\n- render.yaml 에 DATA_DIR, SESSION_SECRET, RENDER 추가\n- /storage-debug 진단 페이지 추가\n- 모바일 관리자 상단에서 문구 제거, 버튼 2열 고정 표시\n\n중요\n- Render 대시보드에서 실제 Disk가 /data 로 연결되어 있어야 데이터가 유지됩니다.\n- Disk가 없거나 다른 서비스로 배포하면 기존 가입 DB는 복구되지 않습니다.\n

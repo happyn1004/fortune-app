@@ -1,0 +1,34 @@
+V49 DB 영구저장/자동복구 보강
+
+핵심 수정
+1) DB 경로 자동 탐색 강화
+- /data/mysticday
+- /var/data/mysticday
+- /opt/render/project/.render_disk/mysticday
+- DATA_DIR / RENDER_DISK_PATH
+등 여러 후보를 동시에 탐색합니다.
+
+2) 가장 건강한 DB 자동 선택
+- users/customer/admin 수
+- 파일 크기
+- 수정 시각
+기준으로 가장 정상적인 DB를 골라 현재 실행 경로로 자동 복사합니다.
+
+3) 최소 관리자 1명만 남은 비정상 DB 감지
+- users=1, admin>=1, customer=0 형태를 초기화/축소된 DB로 판단합니다.
+- 다른 경로에 더 정상적인 DB가 있으면 자동 복구합니다.
+
+4) 중요 변경 시 자동 백업 추가
+- 회원가입
+- 프로필 저장
+- 결제 완료
+- 관리자 비밀번호 변경
+- 관리자 회원 수정/VIP 조정
+시점에 DB 백업을 남깁니다.
+
+5) Render 경로 혼선 완화
+- 기존에 /data 와 /var/data 가 섞여도 더 정상적인 DB를 우선 사용하도록 보강했습니다.
+
+권장 확인
+- Render 환경변수 DATA_DIR 이 하나만 남도록 정리
+- Disk mountPath 와 DATA_DIR 가 서로 다른 값으로 중복되지 않도록 확인

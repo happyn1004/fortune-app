@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card form-card narrow">
+  <h2>고객 회원가입</h2>
+  <p class="muted">가입 후 사주 프로필을 입력하면 오늘의 운세를 볼 수 있습니다.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" class="form-grid auth-form-cleanup">
+    <label>이름<input type="text" name="name" required></label>
+    <label>이메일<input type="email" name="email" required autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
+    <label>연락처(핸드폰번호)<input type="text" name="phone" inputmode="tel" placeholder="010-1234-5678" required></label>
+    <label>비밀번호<input type="password" name="password" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+    <button class="btn primary" type="submit">가입하고 시작하기</button>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.auth-form-cleanup').forEach(function(form) {
+    form.addEventListener('submit', function () {
+      var email = form.querySelector('input[name="email"]');
+      var password = form.querySelector('input[name="password"]');
+      if (email) email.value = email.value.trim().toLowerCase();
+      if (password) password.value = password.value.replace(/[\u200B\uFEFF]/g, '').trim();
+    });
+  });
+});
+</script>
+
+{% endblock %}
