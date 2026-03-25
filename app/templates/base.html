@@ -329,7 +329,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     pushSyncAbortController = new AbortController();
     const timeoutId = setTimeout(function(){
       try { pushSyncAbortController.abort(); } catch (e) {}
-    }, (options && options.silent) ? 5000 : 7000);
+    }, (options && options.silent) ? 4500 : 6000);
     try {
       const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
         method: 'POST',
@@ -358,6 +358,22 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       pushSyncAbortController = null;
     }
   }
+  async function waitForServerSubscription(endpoint, tries) {
+    const maxTries = Math.max(3, tries || 8);
+    for (let i = 0; i < maxTries; i += 1) {
+      try {
+        const res = await fetch(buildPushApiUrl('/api/push/subscription-status?endpoint=' + encodeURIComponent(endpoint)), {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        const data = await res.json();
+        if (res.ok && data && data.ok && data.stored) return true;
+      } catch (e) {}
+      await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+    return false;
+  }
+
   async function syncPushSubscription(options) {
     if (pushSyncPromise) return pushSyncPromise;
     pushSyncPromise = (async function(){
@@ -379,8 +395,14 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         });
       }
       savePendingPushSubscription(subscription);
-      setStatus('서버에 알림 연결을 저장하는 중입니다.', 'info');
-      await notifyServerSubscribe(subscription, options || {});
+      setStatus('알림 연결 정보를 서버에 접수하는 중입니다.', 'info');
+      const saveResult = await notifyServerSubscribe(subscription, options || {});
+      if (saveResult && saveResult.queued) {
+        setStatus('알림 연결 요청이 접수되었습니다. 몇 초 안에 자동으로 마무리됩니다.', 'info');
+        const endpoint = subscription && subscription.endpoint ? subscription.endpoint : ((subscription.toJSON ? subscription.toJSON() : subscription) || {}).endpoint;
+        const stored = endpoint ? await waitForServerSubscription(endpoint, 8) : false;
+        if (!stored) throw new Error('subscribe_queue_pending');
+      }
       clearPendingPushSubscription();
       updatePushButton('ready');
       return true;
@@ -456,10 +478,11 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       if (code === 'permission_timeout') {
         setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
-      } else if (code === 'subscribe_timeout' || code === 'db_busy') {
-        schedulePushRetry(6000);
-        setStatus('알림 권한은 연결되었습니다. 서버 동기화가 잠시 지연되어 자동으로 다시 연결을 시도합니다.', 'warn');
-        alert('알림 권한은 연결되었습니다. 서버 동기화가 잠시 지연되어 자동으로 다시 연결을 시도합니다. 10초 정도 후 다시 확인해 주세요.');
+      } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
+        schedulePushRetry(5000);
+        updatePushButton('ready');
+        setStatus('알림 연결 요청은 접수되었습니다. 서버가 백그라운드에서 자동 마무리 중입니다.', 'info');
+        alert('알림 연결 요청은 접수되었습니다. 서버가 백그라운드에서 자동 마무리 중입니다. 잠시 후 자동으로 연결 상태를 다시 확인합니다.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
@@ -515,7 +538,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setTimeout(function(){
           syncPushSubscription({ force: false }).catch(function(){
             updatePushButton('', '알림 다시 설정');
-            setStatus('알림 권한은 허용되었지만 연결을 다시 확인해 주세요.', 'warn');
+            setStatus('알림 권한은 허용되었습니다. 서버 연결은 자동으로 다시 확인합니다.', 'info');
           });
         }, 1200);
       } else if (permission === 'denied') {
