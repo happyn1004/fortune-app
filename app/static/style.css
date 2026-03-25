@@ -1735,3 +1735,8 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 .checkbox-row{display:flex;align-items:center;gap:8px;}
 .member-action-stack{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;}
 .btn.danger{background:rgba(255,80,80,.18);border:1px solid rgba(255,120,120,.35);color:#ffe0e0;}
+
+
+/* v72 beta push hidden */
+.beta-install-actions{justify-content:center;}
+#pushEnableBtn,#pushStatusText,.push-enable-btn,.push-status-text,.admin-push,.push-admin-panel,#push-panel{display:none !important;}

@@ -9,7 +9,6 @@
       <a href="/admin">대시보드</a>
       <a href="/automation-studio">자동화</a>
       <a href="#promo-panel">광고/프로모션</a>
-      <a href="#push-panel">푸시</a>
       <a href="#inquiry-panel">문의</a>
       <a class="admin-link-chip" href="/logout">로그아웃</a>
     </nav>
@@ -17,7 +16,6 @@
   <nav class="mobile-top-tabs mobile-only" aria-label="관리자 메뉴">
     <a href="/admin" data-path="/admin"><span class="icon">📊</span><span>대시</span></a>
     <a href="#promo-panel"><span class="icon">📣</span><span>광고</span></a>
-    <a href="#push-panel"><span class="icon">🔔</span><span>푸시</span></a>
     <a href="/automation-studio" data-path="/automation-studio"><span class="icon">⚙️</span><span>자동화</span></a>
     <a href="#inquiry-panel"><span class="icon">💬</span><span>문의</span></a>
     <a href="/"><span class="icon">🏠</span><span>고객</span></a>
@@ -35,7 +33,6 @@
       <a class="btn mini" href="#staff-panel">운영자 계정</a>
       <a class="btn mini" href="#member-panel">회원 목록</a>
       <a class="btn mini" href="#promo-panel">광고/프로모션</a>
-      <a class="btn mini" href="#push-panel">푸시/자동캠페인</a>
       <a class="btn mini" href="#payment-panel">결제</a>
       <a class="btn mini" href="#inquiry-panel">문의</a>
       <a class="btn mini" href="/">고객 화면 보기</a>
@@ -45,8 +42,8 @@
   <section class="hero-grid admin-head-grid">
     <div class="card hero-card">
       <div class="badge">관리자 센터</div>
-      <h1>회원 · 결제 · 광고 · 푸시 · CRM을<br><span>구역별로 분리 운영</span></h1>
-      <p class="subtext">광고/프로모션 편집과 푸시/자동 캠페인을 분리해, 화면에 보이는 영역 그대로 수정하고 저장할 수 있게 재정리했습니다.</p>
+      <h1>회원 · 결제 · 광고 · CRM을<br><span>구역별로 분리 운영</span></h1>
+      <p class="subtext">광고/프로모션과 회원 관리, CRM 운영에 집중할 수 있도록 베타 운영 기준으로 화면을 다시 정리했습니다.</p>
       {% if updated %}<div class="success" style="margin-top:16px;">회원 정보가 저장되었습니다.</div>{% endif %}{% if password_changed %}<div class="success" style="margin-top:16px;">새 관리자 비밀번호가 저장되었습니다.</div>{% endif %}{% if bank_confirmed %}<div class="success" style="margin-top:16px;">입금 확인이 완료되어 등급이 반영되었습니다.</div>{% endif %}{% if bank_rejected %}<div class="error" style="margin-top:16px;">입금 요청이 반려 처리되었습니다.</div>{% endif %}{% if settings_updated %}<div class="success" style="margin-top:16px;">설정이 저장되었습니다.</div>{% endif %}{% if backup_created %}<div class="success" style="margin-top:16px;">전체 백업 파일이 다운로드되었습니다.</div>{% endif %}{% if restore_done %}<div class="success" style="margin-top:16px;">DB 복원이 완료되었습니다.</div>{% endif %}{% if restore_error %}<div class="error" style="margin-top:16px;">복원 파일 형식이 올바르지 않거나 비어 있습니다.</div>{% endif %}
     </div>
     <div class="card score-card">
@@ -234,51 +231,7 @@
     </div>
   </section>
 
-  <section id="push-panel" class="card filter-card admin-settings-card">
-    <div class="table-head-row"><h3>푸시 / 자동 캠페인</h3><p class="muted">광고/프로모션과 분리된 알림 전용 구역입니다. 즉시 푸시 발송과 자동/대기 캠페인을 여기서만 관리하세요.</p></div>
-
-    <div class="admin-marketing-grid lower-grid">
-      <div class="marketing-box template-fullwidth-box recent-push-top-box">
-        <h4>최근 푸시</h4>
-        <div class="marketing-list">
-          {% for row in pushes %}
-          <div class="marketing-row">
-            <div>
-              <strong>{{ row.title }}</strong>
-              <div class="muted">{{ row.audience_plan }} · {{ row.created_at }}</div>
-              <div class="muted">{{ row.message }}</div>
-            </div>
-          </div>
-          {% else %}
-          <div class="muted">아직 푸시 발송 내역이 없습니다.</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <form method="post" action="/admin/push" class="marketing-box">
-        <h4>즉시 푸시</h4>
-        <label>알림 제목<input type="text" name="title" required></label>
-        <label>알림 내용<textarea name="message" rows="5" required></textarea></label>
-        <label>이동 링크<input type="text" name="target_url" placeholder="/fortune 또는 https://..."></label>
-        <label>대상 등급<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
-        <button class="btn primary" type="submit">즉시 발송</button>
-      </form>
-
-      <form method="post" action="/admin/push-campaigns" class="marketing-box">
-        <h4>자동/대기 푸시 템플릿</h4>
-        <label>캠페인명<input type="text" name="title" required></label>
-        <label>메시지<textarea name="message" rows="5" required></textarea></label>
-        <label>이동 링크<input type="text" name="target_url" value="/fortune"></label>
-        <label>대상 등급<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
-        <label>운영 방식<select name="schedule_type"><option value="MORNING">매일 아침 자동</option><option value="MANUAL">수동 템플릿 저장</option></select></label>
-        <button class="btn primary" type="submit">템플릿 저장</button>
-      </form>
-    </div>
-
-    <div class="admin-marketing-grid lower-grid" style="margin-top:16px;">
-      <div class="marketing-box template-fullwidth-box"><h4>자동/대기 템플릿</h4><div class="marketing-list template-card-grid">{% for row in campaigns %}<div class="marketing-row campaign-status-row template-card-item"><div><strong>{{ row.title }}</strong><div class="muted">{{ '아침 자동' if row.schedule_type == 'MORNING' else '수동 템플릿' }} · {{ row.audience_plan }}</div><div class="muted">{{ row.message }}</div><div class="campaign-status-line"><span class="status-pill {{ row.status_meta.class_name }}">{{ row.status_meta.label }}</span><span class="muted">{{ row.status_meta.description }}</span></div></div><div class="marketing-actions stacked-marketing-actions"><form method="post" action="/admin/push-campaigns/{{ row.id }}/send-now"><button class="btn mini primary" type="submit">즉시 발송</button></form><form method="post" action="/admin/push-campaigns/{{ row.id }}/toggle"><button class="btn mini" type="submit">{{ '중지' if row.is_active else '진행' }}</button></form><form method="post" action="/admin/push-campaigns/{{ row.id }}/delete"><button class="btn mini" type="submit">삭제</button></form></div></div>{% else %}<div class="muted">아직 저장된 푸시 템플릿이 없습니다.</div>{% endfor %}</div><div class="preview-banner soft campaign-pin-box"><strong>기본 아침 푸시 고정</strong><span>매일 오전에 “오늘 당신의 운세를 확인해보세요” 알림만 자동으로 유지합니다. 이벤트/추가유입 푸시는 템플릿으로 저장해두고 필요할 때만 즉시 발송하세요.</span></div></div>
-    </div>
-  </section>
+  <!-- push panel hidden during beta -->
 
   <section class="card filter-card admin-data-card">
     <div class="table-head-row"><h3>데이터 백업 · 복원 · 내보내기</h3><p class="muted">GitHub 업로드나 Render 재배포 전에 먼저 백업 파일을 내려받고, 문제가 생기면 즉시 복원할 수 있습니다.</p></div>
