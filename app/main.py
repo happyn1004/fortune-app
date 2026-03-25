@@ -2477,6 +2477,22 @@ def generate_fortune(user, active_plan: str):
     ]
     summary = summary_options[tone_idx]
 
+
+    lucky_number_counts = {
+        'Free': 2,
+        'Basic': 3,
+        'Premium': 4,
+        'VIP': 5,
+    }
+    lucky_count = lucky_number_counts.get(active_plan, 2)
+    lucky_numbers = []
+    lucky_cursor = user_seed
+    while len(lucky_numbers) < lucky_count:
+        candidate = ((lucky_cursor % 9) + 1)
+        if candidate not in lucky_numbers:
+            lucky_numbers.append(candidate)
+        lucky_cursor = lucky_cursor // 7 if lucky_cursor > 9 else lucky_cursor + 17 + len(lucky_numbers)
+
     base_fortune = {
         "총운": total_options[tone_idx],
         "금전운": money_options[(tone_idx + 1) % len(money_options)],
@@ -2518,10 +2534,7 @@ def generate_fortune(user, active_plan: str):
             "금전운에는 아끼는 것보다 방향을 바꾸는 포인트가 숨어 있습니다",
             "관계운은 말보다 타이밍이 더 중요하게 작동하는 날입니다",
         ],
-        "행운의수": [
-            ((user_seed % 9) + 1),
-            (((user_seed // 7) % 9) + 1),
-        ],
+        "행운의수": lucky_numbers,
         "위험지수": 41 + (today.day % 9),
         "기회지수": 63 + (today.day % 11),
     }

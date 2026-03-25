@@ -34,7 +34,7 @@
     <p class="fortune-summary">{{ fortune['티저요약'] if active_plan == "Free" else fortune['요약'] }}</p>
     <div class="fortune-tags">
       <span>띠 {{ fortune['띠'] }}</span>
-      <span>행운의 수 {{ fortune['행운의수'][0] }}, {{ fortune['행운의수'][1] }}</span>
+      <span>행운의 수 {{ fortune['행운의수'] | join(', ') }}</span>
       <span>좋은 방향 {{ fortune['오늘의좋은방향'] }}</span>
       {% if active_plan != "Free" %}
       <span>행운색 {{ fortune['행운색'] }}</span>
@@ -125,7 +125,7 @@
     <div class="report-stage-list">
       {% if active_plan == "Free" %}
       <div class="report-stage-item">오늘은 방향만 먼저 공개됩니다. 돈의 흐름과 타이밍 포인트는 Basic부터 더 선명하게 확인할 수 있습니다.</div>
-      <div class="report-stage-item">행운의 수는 <strong>{{ fortune['행운의수'][0] }}</strong>, <strong>{{ fortune['행운의수'][1] }}</strong> 입니다.</div>
+      <div class="report-stage-item">행운의 수는 <strong>{{ fortune['행운의수'] | join('</strong>, <strong>') | safe }}</strong> 입니다.</div>
       <div class="report-stage-item">오늘의 좋은 방향은 <strong>{{ fortune['오늘의좋은방향'] }}</strong>, 오늘의 길한 성씨는 <strong>{{ fortune['오늘의길인성씨'] }}</strong> 입니다.</div>
       <div class="report-stage-item">오늘의 결정 타이밍과 실전형 행동 포인트는 Basic부터 열립니다.</div>
       {% else %}
@@ -134,7 +134,7 @@
     </div>
     {% if fortune.access.basic %}
     <dl class="fortune-list upgraded">
-      <dt>행운의 수</dt><dd>{{ fortune['행운의수'][0] }}, {{ fortune['행운의수'][1] }}</dd>
+      <dt>행운의 수</dt><dd>{{ fortune['행운의수'] | join(', ') }}</dd>
       <dt>행운색</dt><dd>{{ fortune['행운색'] }}</dd>
       <dt>행운시간</dt><dd>{{ fortune['행운시간'] }}</dd>
       <dt>행운아이템</dt><dd>{{ fortune['행운아이템'] }}</dd>
@@ -149,10 +149,10 @@
   <div class="card side-premium-card plan-cta-card">
     <div class="premium-header"><h3>플랜별 해석 범위</h3><p>원하는 해석의 깊이에 따라 열리는 리딩 범위를 안내합니다.</p></div>
     <div class="report-stage-list">
-      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 로또 2세트 공개</div>
-      <div class="report-stage-item"><strong>Basic</strong> : 행운시간, 이유 있는 로또 분석, 오늘의 코멘트 강화</div>
-      <div class="report-stage-item"><strong>Premium</strong> : 사업운, 행동전략, 주의포인트, 실전형 해석</div>
-      <div class="report-stage-item"><strong>VIP</strong> : 투자/계약/월간 인사이트 + 로또 5세트 + 전략 브리핑</div>
+      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 행운의 수 2개 + 로또 2세트 공개</div>
+      <div class="report-stage-item"><strong>Basic</strong> : 행운의 수 3개 + 행운시간 + 이유 있는 로또 분석</div>
+      <div class="report-stage-item"><strong>Premium</strong> : 행운의 수 4개 + 사업운 + 행동전략 + 실전형 해석</div>
+      <div class="report-stage-item"><strong>VIP</strong> : 행운의 수 5개 + 로또 5세트 + 전략 브리핑</div>
     </div>
     <div class="actions" style="margin-top:22px;"><a class="btn primary" href="/plans">플랜 보기</a><a class="btn" href="/contact">문의하기</a></div>
   </div>

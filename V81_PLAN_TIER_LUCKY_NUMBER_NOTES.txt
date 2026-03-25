@@ -1,0 +1,8 @@
+V81 PLAN TIER LUCKY NUMBER UPDATE
+
+- Free: 행운의 수 2개
+- Basic: 행운의 수 3개
+- Premium: 행운의 수 4개
+- VIP: 행운의 수 5개
+- 로또 세트 노출 정책은 기존 구조 유지 (Free 2 / Basic·Premium 3 / VIP 5)
+- 행운의 수 표시는 화면 전반에서 동적으로 join 처리
