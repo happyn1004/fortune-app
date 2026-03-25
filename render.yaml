@@ -14,8 +14,6 @@ services:
         generateValue: true
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: REQUIRE_PERSISTENT_STORAGE
-        value: "true"
     disk:
       name: mysticday-data
       mountPath: /data

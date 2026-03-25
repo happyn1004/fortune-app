@@ -739,6 +739,30 @@ def create_push_notification(title: str, message: str, target_url: str = "", aud
     return notification_id
 
 STAFF_ROLES = {"admin", "manager"}
+
+CORS_ALLOW_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ALLOW_ORIGINS", "").split(",") if origin.strip()]
+if not CORS_ALLOW_ORIGINS:
+    default_origin = os.environ.get("RENDER_EXTERNAL_URL", "").strip()
+    if default_origin:
+        CORS_ALLOW_ORIGINS.append(default_origin.rstrip("/"))
+    CORS_ALLOW_ORIGINS.extend([
+        "https://unsejoa.com",
+        "https://www.unsejoa.com",
+        "https://unsejoa.kr",
+        "https://www.unsejoa.kr",
+        "https://unsejoa.co.kr",
+        "https://www.unsejoa.co.kr",
+    ])
+CORS_ALLOW_ORIGINS = list(dict.fromkeys(CORS_ALLOW_ORIGINS))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
@@ -3189,24 +3213,11 @@ async def api_push_subscribe(request: Request):
             """,
             (user['id'], endpoint, p256dh_key, auth_key, request.headers.get('user-agent', '')[:250], user['plan'], 1, now_ts, now_ts),
         )
-        row = conn.execute(
-            "SELECT ps.*, u.plan AS current_plan FROM push_subscriptions ps LEFT JOIN users u ON u.id = ps.user_id WHERE ps.endpoint=?",
-            (endpoint,),
-        ).fetchone()
-        if row:
-            send_web_push_to_subscription(conn, row, {
-                'title': '알림 설정 완료',
-                'message': '이제 휴대폰에서도 오늘의 운세 알림을 받을 수 있습니다.',
-                'target_url': '/fortune',
-                'notification_id': 0,
-                'icon': '/static/icon-192.png',
-                'badge': '/static/icon-192.png',
-            })
         conn.commit()
     finally:
         conn.close()
     record_event("push_subscribe", request, user["id"], {"plan": user["plan"]})
-    return JSONResponse({'ok': True})
+    return JSONResponse({'ok': True, 'message': '알림 구독이 저장되었습니다.'})
 
 
 @app.post("/api/push/unsubscribe")

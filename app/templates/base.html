@@ -138,6 +138,10 @@
   </footer>
 <script>
 const PUSH_SW_URL = "/static/sw-push-v22.js";
+const PUSH_API_BASE = window.location.origin;
+function buildPushApiUrl(path) {
+  return `${PUSH_API_BASE}${path}`;
+}
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async function(){
     try {
@@ -267,7 +271,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     return await navigator.serviceWorker.ready;
   }
   async function notifyServerSubscribe(subscription) {
-    const response = await fetch('/api/push/subscribe', {
+    const response = await fetch(buildPushApiUrl('/api/push/subscribe'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -281,7 +285,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       updatePushButton('ios-install');
       return false;
     }
-    const keyRes = await fetch('/api/push/public-key', { credentials: 'same-origin', cache: 'no-store' });
+    const keyRes = await fetch(buildPushApiUrl('/api/push/public-key'), { credentials: 'same-origin', cache: 'no-store' });
     if (!keyRes.ok) throw new Error('public_key_failed');
     const keyData = await keyRes.json();
     if (!keyData.ok || !keyData.enabled || !keyData.public_key) throw new Error('push_not_ready');
@@ -293,6 +297,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         applicationServerKey: urlBase64ToUint8Array(keyData.public_key)
       });
     }
+    setStatus('서버에 알림 연결을 저장하는 중입니다.', 'info');
     await notifyServerSubscribe(subscription);
     updatePushButton('ready');
     return true;
@@ -351,7 +356,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription(), 15000, 'subscribe_timeout');
+      await withTimeout(syncPushSubscription(), 30000, 'subscribe_timeout');
       updatePushButton('ready');
       setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
       alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
@@ -363,8 +368,8 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setStatus('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.', 'warn');
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout') {
-        setStatus('알림 권한은 허용되었지만 서버 연결이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', 'warn');
-        alert('알림 권한은 허용되었지만 서버 연결이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
+        setStatus('서버에 알림 연결을 저장하는 시간이 길어지고 있습니다. 잠시 후 한 번만 더 눌러 주세요.', 'warn');
+        alert('서버에 알림 연결을 저장하는 시간이 길어지고 있습니다. 잠시 후 한 번만 더 눌러 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');
