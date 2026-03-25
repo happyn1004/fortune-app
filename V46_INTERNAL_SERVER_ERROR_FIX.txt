@@ -1,7 +1,0 @@
-원인
-- V45에서 normalize_text_input()가 unicodedata.normalize(...)를 호출하지만
-- app/main.py 상단에 import unicodedata 가 누락되어 로그인 시 500 에러 발생
-
-수정
-- app/main.py 상단에 import unicodedata 추가
-- 모바일/PC 로그인 안정화 로직은 유지
