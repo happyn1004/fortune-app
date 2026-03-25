@@ -137,7 +137,7 @@
     </div>
   </footer>
 <script>
-const PUSH_SW_URL = "/static/sw-push-v22.js";
+const PUSH_SW_URL = "/static/sw-push-v23.js";
 const PUSH_PENDING_STORAGE_KEY = 'pushPendingSubscriptionV1';
 const PUSH_LAST_SYNC_KEY = 'pushLastSyncAtV1';
 const PUSH_API_BASE = window.location.origin;
@@ -154,7 +154,7 @@ if ("serviceWorker" in navigator) {
         const waitingUrl = reg.waiting && reg.waiting.scriptURL ? reg.waiting.scriptURL : '';
         const installingUrl = reg.installing && reg.installing.scriptURL ? reg.installing.scriptURL : '';
         const urls = [activeUrl, waitingUrl, installingUrl].join(' ');
-        if (urls.indexOf('sw-push-v22.js') !== -1) {
+        if (urls.indexOf('sw-push-v23.js') !== -1) {
           hasDesired = true;
           try { await reg.update(); } catch(e) {}
         }
@@ -383,6 +383,28 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     }
     return false;
   }
+  async function sendSelfTestPush(subscription) {
+    const subJson = subscription && subscription.toJSON ? subscription.toJSON() : subscription;
+    const endpoint = subJson && subJson.endpoint ? subJson.endpoint : '';
+    const response = await fetch(buildPushApiUrl('/api/push/test-self'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: endpoint,
+        subscription: subJson,
+        title: '알림 연결 테스트',
+        message: '푸시 연결 테스트가 정상 동작했습니다. 이제 실제 알림도 받을 수 있습니다.'
+      }),
+      cache: 'no-store'
+    });
+    let data = {};
+    try { data = await response.json(); } catch (e) {}
+    if (!response.ok || !data.ok) {
+      throw new Error((data && data.reason) || 'test_push_failed');
+    }
+    return data;
+  }
 
   async function syncPushSubscription(options) {
     if (pushSyncPromise) return pushSyncPromise;
@@ -413,6 +435,8 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         const stored = endpoint ? await waitForServerSubscription(endpoint, 15) : false;
         if (!stored) schedulePushRetry(2500);
       }
+      setStatus('테스트 알림을 발송해 실제 수신 여부를 확인하는 중입니다.', 'info');
+      await sendSelfTestPush(subscription);
       clearPendingPushSubscription();
       updatePushButton('ready');
       return true;
@@ -476,11 +500,11 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         return;
       }
 
-      updatePushButton('working', '연결 준비 중...');
-      await withTimeout(syncPushSubscription({ force: true }), 22000, 'subscribe_timeout');
+      updatePushButton('working', '연결 및 테스트 중...');
+      await withTimeout(syncPushSubscription({ force: true }), 30000, 'subscribe_timeout');
       updatePushButton('ready');
-      setStatus('알림 설정이 완료되었습니다. 이제 앱을 열어두지 않아도 알림을 받을 수 있습니다.', 'ok');
-      alert('알림 설정이 완료되었습니다. 이제 사이트를 열어두지 않아도 시스템 알림으로 도착할 수 있습니다.');
+      setStatus('알림 설정과 테스트 발송이 완료되었습니다. 지금 테스트 알림이 도착해야 정상입니다.', 'ok');
+      alert('알림 설정과 테스트 발송이 완료되었습니다. 지금 테스트 알림이 도착하면 정상 연결입니다.');
     } catch (e) {
       console.error(e);
       updatePushButton('', '알림 설정');
@@ -490,9 +514,13 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
         schedulePushRetry(2500);
-        updatePushButton('ready');
-        setStatus('알림 권한은 연결되었습니다. 서버 동기화는 백그라운드에서 자동으로 마무리됩니다.', 'ok');
-        alert('알림 설정이 완료되었습니다. 서버 동기화는 자동으로 마무리됩니다.');
+        updatePushButton('', '알림 다시 설정');
+        setStatus('알림 권한은 허용되었지만 서버 저장 또는 테스트 발송 확인이 끝나지 않았습니다. 다시 한 번 눌러 실제 테스트 알림까지 확인해 주세요.', 'warn');
+        alert('알림 권한은 허용되었지만 서버 저장 또는 테스트 발송 확인이 끝나지 않았습니다. 다시 한 번 눌러 실제 테스트 알림이 오는지 확인해 주세요.');
+      } else if (code === 'subscription_not_found' || code === 'send_failed' || code === 'test_push_failed' || code === 'webpush_not_ready' || code === 'subscription_invalid') {
+        updatePushButton('', '알림 다시 설정');
+        setStatus('테스트 알림 발송에 실패했습니다. 서버 푸시 연결을 다시 확인한 뒤 다시 시도해 주세요.', 'warn');
+        alert('테스트 알림 발송에 실패했습니다. 서버 푸시 연결을 다시 확인한 뒤 다시 시도해 주세요.');
       } else {
         setStatus('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('알림 설정 중 오류가 발생했습니다. 브라우저 설정을 확인한 뒤 다시 시도해 주세요.');

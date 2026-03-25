@@ -736,6 +736,72 @@ def send_web_push_for_notification(notification_id: int):
         conn.close()
 
 
+def send_test_web_push_to_user_subscription(user_id: int, subscription: dict | None = None, endpoint: str = "", title: str = "알림 연결 테스트", message: str = "푸시 알림 연결 테스트가 정상 동작했습니다.", target_url: str = "/fortune") -> tuple[bool, str]:
+    endpoint = (endpoint or '').strip()
+    conn = get_db()
+    try:
+        if not webpush_is_ready():
+            return False, 'webpush_not_ready'
+
+        target_row = None
+        if subscription:
+            keys = subscription.get('keys') or {}
+            direct_endpoint = (subscription.get('endpoint') or endpoint or '').strip()
+            p256dh_key = (keys.get('p256dh') or '').strip()
+            auth_key = (keys.get('auth') or '').strip()
+            if not direct_endpoint or not p256dh_key or not auth_key:
+                return False, 'subscription_invalid'
+            user_row = conn.execute('SELECT plan FROM users WHERE id=? LIMIT 1', (user_id,)).fetchone()
+            current_plan = user_row['plan'] if user_row else None
+            target_row = {
+                'id': None,
+                'user_id': int(user_id or 0),
+                'endpoint': direct_endpoint,
+                'p256dh_key': p256dh_key,
+                'auth_key': auth_key,
+                'user_agent': '',
+                'plan_snapshot': current_plan or 'Free',
+                'is_active': 1,
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'last_success_at': None,
+                'last_failure_at': None,
+                'failure_reason': None,
+                'current_plan': current_plan,
+                '_source': 'direct',
+            }
+            endpoint = direct_endpoint
+        else:
+            rows = _get_all_active_push_subscriptions(conn)
+            for row in rows:
+                row_endpoint = (row['endpoint'] if hasattr(row, '__getitem__') else row.get('endpoint') or '').strip()
+                row_user_id = int((row['user_id'] if hasattr(row, '__getitem__') else row.get('user_id')) or 0)
+                if row_user_id != int(user_id or 0):
+                    continue
+                if endpoint and row_endpoint != endpoint:
+                    continue
+                target_row = row
+                endpoint = row_endpoint
+                break
+
+        if not target_row:
+            return False, 'subscription_not_found'
+
+        payload = {
+            'title': title or '알림 연결 테스트',
+            'message': message or '푸시 알림 연결 테스트가 정상 동작했습니다.',
+            'target_url': target_url or '/fortune',
+            'notification_id': f'test-{int(time.time())}',
+            'icon': '/static/icon-192.png',
+            'badge': '/static/icon-192.png',
+        }
+        ok = send_web_push_to_subscription(conn, target_row, payload)
+        conn.commit()
+        return (True, 'sent') if ok else (False, 'send_failed')
+    finally:
+        conn.close()
+
+
 def create_push_notification(title: str, message: str, target_url: str = "", audience_plan: str = "ALL", auto_campaign_key: str | None = None, is_active: int = 1) -> int:
     audience_plan = audience_plan if audience_plan in ["ALL", *PLAN_LEVELS] else "ALL"
     target_url = (target_url or "/fortune").strip() or "/fortune"
@@ -791,7 +857,7 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
     content_type = (response.headers.get("content-type") or "").lower()
-    if "text/html" in content_type or path.endswith("sw.js") or path.endswith("sw-push-v22.js") or path.endswith("manifest.webmanifest"):
+    if "text/html" in content_type or path.endswith("sw.js") or (path.endswith("sw-push-v22.js") or path.endswith("sw-push-v23.js")) or path.endswith("manifest.webmanifest"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -3655,6 +3721,31 @@ def api_push_subscription_status(request: Request, endpoint: str = ""):
     stored = bool((row and row['is_active']) or (file_row and file_row.get('is_active')))
     updated_at = row['updated_at'] if row else (file_row.get('updated_at') if file_row else None)
     return JSONResponse({'ok': True, 'stored': stored, 'queued': queued, 'updated_at': updated_at, 'stored_in_file': bool(file_row and file_row.get('is_active'))})
+
+
+@app.post("/api/push/test-self")
+async def api_push_test_self(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({'ok': False, 'message': '로그인이 필요합니다.'}, status_code=401)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    subscription = (payload or {}).get('subscription') or None
+    endpoint = ((payload or {}).get('endpoint') or '').strip()
+    title = ((payload or {}).get('title') or '알림 연결 테스트').strip()
+    message = ((payload or {}).get('message') or '푸시 알림 연결 테스트가 정상 동작했습니다.').strip()
+    ok, reason = send_test_web_push_to_user_subscription(
+        int(user['id']),
+        subscription=subscription,
+        endpoint=endpoint,
+        title=title[:80] or '알림 연결 테스트',
+        message=message[:180] or '푸시 알림 연결 테스트가 정상 동작했습니다.',
+        target_url='/fortune',
+    )
+    status = 200 if ok else 400
+    return JSONResponse({'ok': ok, 'reason': reason, 'message': '테스트 알림을 발송했습니다.' if ok else '테스트 알림 발송에 실패했습니다.'}, status_code=status)
 
 
 @app.post("/api/push/unsubscribe")
