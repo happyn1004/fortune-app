@@ -1673,3 +1673,12 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 @media (max-width: 980px){
   .recent-push-top-box .marketing-list{grid-template-columns:1fr;}
 }
+
+
+.admin-mobile-quick{display:none}
+@media (max-width: 720px){
+  .admin-mobile-quick{display:flex; gap:8px; overflow:auto; padding:0 0 12px; margin-bottom:12px; -ms-overflow-style:none; scrollbar-width:none;}
+  .admin-mobile-quick::-webkit-scrollbar{display:none;}
+  .admin-mobile-quick a{display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; min-height:42px; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background:rgba(18,14,34,.92); color:#fff; text-decoration:none; font-size:12px; font-weight:700; box-shadow:0 8px 18px rgba(0,0,0,.18);}
+  .admin-mobile-quick a:active{transform:translateY(1px);}
+}

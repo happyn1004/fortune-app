@@ -1,0 +1,10 @@
+수정 내용
+1) /switch-account 추가: 기존 세션을 지우고 고객/관리자 로그인 전환 가능
+2) /login, /admin/login 에 switch=1 지원: 이미 로그인된 상태에서도 다른 계정 전환 가능
+3) 모바일 관리자 빠른 메뉴 추가: 관리자 홈 / 고객 화면 / 운세 / 프로필 / 계정 전환 / 로그아웃
+4) base 상단 메뉴에 관리자 홈, 계정 전환 추가
+
+Render 확인
+- Environment의 SESSION_SECRET 값은 고정
+- DATA_DIR=/data/mysticday 또는 실제 Disk 경로 사용
+- 재배포 후 PC/모바일 모두 같은 HTTPS 주소 사용
