@@ -940,7 +940,7 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v98-mobile-render-final").strip() or "v98-mobile-render-final"
+STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v100-core-reading-polish").strip() or "v100-core-reading-polish"
 
 @app.get("/storage-debug", response_class=HTMLResponse)
 def storage_debug(request: Request):

@@ -15,7 +15,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: RELEASE_VERSION
-        value: "v98-mobile-render-final"
+        value: "v100-core-reading-polish"
     disk:
       name: mysticday-data
       mountPath: /data
