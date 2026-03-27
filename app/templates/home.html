@@ -1,109 +1,75 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="hero-grid commercial-hero-grid v89-landing-grid">
-  <div class="card hero-card v89-hero-card">
-    <div class="v89-topline-row">
-      <div class="badge badge-lux">지금 바로 무료 확인</div>
-      <div class="v89-mini-proof">매일 업데이트 · 무료 4종목 제공</div>
-    </div>
-
-    <div class="v89-copy-block">
-      <div class="v89-kicker">운세와 종목 리딩을 한 번에</div>
-      <h1>오늘 꼭 챙겨볼 정보만 <span>고급스럽게 담았습니다</span></h1>
-      <p class="v89-subtext">띠별운세, 행운 정보, 로또번호 5개, 단타 2종목과 스윙 2종목까지. 필요한 정보만 품격 있게 바로 확인하실 수 있습니다.</p>
-    </div>
-
-    <div class="v89-pill-group" aria-label="무료 제공 정보">
-      <span class="v89-pill tone-main">띠별운세</span>
-      <span class="v89-pill tone-soft">오늘의 코멘트</span>
-      <span class="v89-pill tone-main">총운</span>
-      <span class="v89-pill tone-soft">금전운</span>
-      <span class="v89-pill tone-main">관계운</span>
-      <span class="v89-pill tone-gold">로또번호 5개</span>
-      <span class="v89-pill tone-soft">행운의 수</span>
-      <span class="v89-pill tone-main">행운색</span>
-      <span class="v89-pill tone-soft">행운시간</span>
-      <span class="v89-pill tone-main">행운아이템</span>
-      <span class="v89-pill tone-soft">행운방향</span>
-      <span class="v89-pill tone-main">오늘의 길인 성씨</span>
-      <span class="v89-pill tone-hot">🔥 단타 2종목</span>
-      <span class="v89-pill tone-swing">💎 스윙 2종목</span>
-    </div>
-
-    <div class="actions hero-primary-actions v89-hero-actions">
-      <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">지금 무료로 확인하기</a>
-      <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
-    </div>
-
-    <div class="v89-stat-row">
-      <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 확인한 사람들</span></div>
-      <div><strong>14가지+</strong><span>무료 제공 정보</span></div>
-      <div><strong>4개</strong><span>매일 무료 종목</span></div>
-    </div>
+<section class="card hero-card v95-merged-hero">
+  <div class="v95-top-row">
+    <div class="badge badge-lux">오늘 무료 제공</div>
+    <div class="v95-proof">매일 업데이트 · 주식 4종목 무료</div>
   </div>
 
-  <div class="card v89-preview-card">
-    <div class="sidecard-badge">무료 미리보기</div>
-    <h2>오늘 받을 내용을 먼저 보여드립니다</h2>
+  <div class="v95-copy-block">
+    <div class="v95-kicker">운세와 종목 리딩을 한 번에</div>
+    <h1>오늘 꼭 챙겨야 할 정보만 <span>한눈에 보여드립니다</span></h1>
+    <p class="v95-subtext desktop-only">띠별운세, 오늘의 코멘트, 총운·금전운·관계운, 로또번호 5개, 행운 정보, 길인 성씨, 단타 2종목과 스윙 2종목까지 한 번에 확인해보세요.</p>
+    <div class="home-mobile-summary mobile-only">띠별운세 · 로또 5개 · 행운 정보 · 길인 성씨 · 주식 4종목</div>
+  </div>
 
-    <div class="v89-preview-stack">
-      <div class="v89-preview-box fortune-box">
-        <div class="v89-preview-head">
-          <strong>오늘의 운세 리포트</strong>
-          <span>가볍게 보고 바로 이해</span>
-        </div>
-        <div class="v89-button-grid">
-          <div class="v89-preview-btn classic">띠별운세</div>
-          <div class="v89-preview-btn muted">오늘의 코멘트</div>
-          <div class="v89-preview-btn classic">총운 · 금전운 · 관계운</div>
-          <div class="v89-preview-btn gold">로또번호 5개</div>
-          <div class="v89-preview-btn muted">행운의 수 · 색 · 시간</div>
-          <div class="v89-preview-btn classic">행운아이템 · 방향 · 길인 성씨</div>
-        </div>
+  <div class="v95-pill-group" aria-label="무료 제공 정보">
+    <span class="v95-pill tone-main">띠별운세</span>
+    <span class="v95-pill tone-soft">오늘의 코멘트</span>
+    <span class="v95-pill tone-main">총운 · 금전운 · 관계운</span>
+    <span class="v95-pill tone-gold">로또번호 5개</span>
+    <span class="v95-pill tone-soft">행운의 수 · 색 · 시간</span>
+    <span class="v95-pill tone-main">행운아이템 · 방향</span>
+    <span class="v95-pill tone-main">오늘의 길인 성씨</span>
+    <span class="v95-pill tone-hot">🔥 단타 2종목</span>
+    <span class="v95-pill tone-swing">💎 스윙 2종목</span>
+  </div>
+
+  <div class="actions hero-primary-actions v95-hero-actions">
+    <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">지금 무료로 확인하기</a>
+    <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
+  </div>
+
+  <div class="v95-stat-row">
+    <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 확인한 사람들</span></div>
+    <div><strong>15가지+</strong><span>무료 제공 정보</span></div>
+    <div><strong>4개</strong><span>매일 무료 종목</span></div>
+  </div>
+
+  <div class="v95-preview-shell">
+    <div class="v95-preview-box fortune-box">
+      <div class="v95-preview-head">
+        <strong>오늘의 운세 리포트</strong>
+        <span>보고 싶은 내용이 바로 보이게</span>
       </div>
-
-      <div class="v89-preview-box stock-box">
-        <div class="v89-preview-head">
-          <strong>오늘의 주식 리딩</strong>
-          <span>단타 2종목 · 스윙 2종목</span>
-        </div>
-        <div class="v89-stock-button-grid">
-          <div class="v89-stock-btn hot">🔥 단타 추천 2종목</div>
-          <div class="v89-stock-btn swing">💎 스윙 추천 2종목</div>
-        </div>
+      <div class="v95-button-grid">
+        <div class="v95-preview-btn classic">띠별운세</div>
+        <div class="v95-preview-btn muted">오늘의 코멘트</div>
+        <div class="v95-preview-btn classic">총운 · 금전운 · 관계운</div>
+        <div class="v95-preview-btn gold">로또번호 5개</div>
+        <div class="v95-preview-btn muted">행운의 수 · 색 · 시간</div>
+        <div class="v95-preview-btn classic">행운아이템 · 방향 · 길인 성씨</div>
       </div>
     </div>
 
-    <div class="v89-preview-note">오늘 필요한 정보만 간결하고 품격 있게 정리했습니다.</div>
-  </div>
-</section>
-
-<section class="card v89-compact-benefit-card">
-  <div class="section-head compact">
-    <h2>처음부터 핵심 정보가 넉넉하게 제공됩니다</h2>
-    <p>길게 읽지 않아도 어떤 정보를 받을지 바로 이해되도록 구성했습니다.</p>
-  </div>
-  <div class="v89-mini-benefit-grid">
-    <div class="v89-mini-benefit emphasis">
-      <strong>운세 리포트</strong>
-      <span>띠별운세 · 오늘의 코멘트 · 총운 · 금전운 · 관계운</span>
-    </div>
-    <div class="v89-mini-benefit">
-      <strong>행운 정보</strong>
-      <span>로또번호 5개 · 행운의 수 · 색 · 시간 · 아이템 · 방향 · 길인 성씨</span>
-    </div>
-    <div class="v89-mini-benefit stock-tone">
-      <strong>주식 4종목</strong>
-      <span>단타 2종목 · 스윙 2종목 무료 제공</span>
+    <div class="v95-preview-box stock-box">
+      <div class="v95-preview-head">
+        <strong>오늘의 핫 주식 추천</strong>
+        <span>단타 2종목 · 스윙 2종목</span>
+      </div>
+      <div class="v95-stock-button-grid">
+        <div class="v95-stock-btn hot">🔥 단타 추천 2종목</div>
+        <div class="v95-stock-btn swing">💎 스윙 추천 2종목</div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="card compare-teaser home-plan-section v89-plan-section">
+<section class="card compare-teaser home-plan-section v95-plan-section">
   <div class="section-head compact">
     <h2>플랜별 해석 범위</h2>
-    <p>Free로 먼저 충분히 확인하고, 필요할 때만 더 넓은 해석을 선택하실 수 있습니다.</p>
+    <p>Free로 먼저 충분히 보고, 필요할 때만 더 넓은 해석을 선택하실 수 있습니다.</p>
   </div>
   <div class="plan-compare-mini wide-compare-grid">
     {% for level in ['Free', 'Basic', 'Premium', 'VIP'] %}

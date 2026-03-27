@@ -2168,7 +2168,22 @@ def is_admin(user) -> bool:
     return bool(user and user["role"] == "admin")
 
 
+def get_user_field(user, field: str, default=None):
+    if user is None:
+        return default
+    try:
+        return user[field]
+    except Exception:
+        pass
+    try:
+        return getattr(user, field)
+    except Exception:
+        return default
+
+
 def redirect_for_user_role(user):
+    if get_user_field(user, "birth_date"):
+        return "/fortune"
     return "/profile"
 
 
@@ -3339,6 +3354,8 @@ def profile_page(request: Request):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
+    if get_user_field(user, "birth_date") and request.query_params.get("edit") != "1":
+        return RedirectResponse(url="/fortune", status_code=303)
     return render_view(request, "profile.html", {"user": user})
 
 
