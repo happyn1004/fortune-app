@@ -32,17 +32,20 @@
     <div class="badge">{{ fortune.plan_meta.label }} · {{ fortune.plan_meta.report_name }}</div>
     <h1>{{ user.name }}님의 오늘 운세</h1>
     <p class="fortune-summary">{{ fortune['티저요약'] if active_plan == "Free" else fortune['요약'] }}</p>
-    <div class="fortune-tags fortune-tags-rich">
+    <div class="fortune-tags fortune-tags-rich desktop-only">
       <span>띠 {{ fortune['띠'] }}</span>
-      <span>오늘의 코멘트 {{ fortune['오늘의코멘트'] }}</span>
       <span>행운의 수 {{ fortune['행운의수'] | join(', ') }}</span>
       <span>행운색 {{ fortune['행운색'] }}</span>
       <span>행운시간 {{ fortune['행운시간'] }}</span>
       <span>행운아이템 {{ fortune['행운아이템'] }}</span>
       <span>좋은 방향 {{ fortune['오늘의좋은방향'] }}</span>
       <span>길인 성씨 {{ fortune['오늘의길인성씨'] }}</span>
-      <span>로또번호 {{ fortune['이번주로또']['sets'][0]['numbers'] | join(', ') }}</span>
-      <span>주식 단타 2 · 스윙 2 제공</span>
+      <span>맞춤 초점 {{ fortune['맞춤초점'] }}</span>
+    </div>
+    <div class="fortune-hero-mobile-pills mobile-only">
+      <span>띠 {{ fortune['띠'] }}</span>
+      <span>행운의 수 {{ fortune['행운의수'] | join(', ') }}</span>
+      <span>길인 성씨 {{ fortune['오늘의길인성씨'] }}</span>
     </div>
     {% if user.role == 'admin' %}
     <div class="preview-switch left-margin">
@@ -56,30 +59,47 @@
     {% endif %}
     {% endif %}
   </div>
-  <div class="fortune-score-panel tier-{{ active_plan|lower }}">
-    <div class="fortune-score-ring">
-      <div class="score-mini-label">TODAY SCORE</div>
-      <div class="fortune-score-number">{{ fortune['점수'] }}</div>
-      <div class="fortune-score-text">{{ fortune.plan_meta.headline }}</div>
+</section>
+
+<section class="card fortune-score-showcase">
+  <div class="fortune-score-showcase-head">
+    <div>
+      <div class="fortune-score-kicker">TODAY SCORE</div>
+      <h2>오늘의 운세 스코어</h2>
     </div>
-    <p class="fortune-one-line">{{ fortune['오늘의한줄'] }}</p>
+    <span class="panel-chip score-chip">{{ active_plan }} 점수 해석</span>
+  </div>
+  <div class="fortune-score-showcase-body tier-{{ active_plan|lower }}">
+    <div class="fortune-score-panel tier-{{ active_plan|lower }} fortune-score-panel-inline">
+      <div class="fortune-score-ring">
+        <div class="score-mini-label">TODAY SCORE</div>
+        <div class="fortune-score-number">{{ fortune['점수'] }}</div>
+        <div class="fortune-score-text">{{ fortune.plan_meta.headline }}</div>
+      </div>
+    </div>
+    <div class="fortune-score-story">
+      <div class="fortune-score-story-line">오늘은 <strong>{{ fortune['점수'] }}점 흐름</strong>으로, {{ fortune['오늘의한줄'] }}</div>
+      <p class="fortune-score-story-desc">{{ fortune['오늘의코멘트'] }} 지금은 넓게 벌리기보다 <strong>핵심 한 가지를 또렷하게 밀고 가는 방식</strong>이 더 잘 맞습니다.</p>
+      <div class="fortune-score-story-chips">
+        <span>맞춤 초점 {{ fortune['맞춤초점'] }}</span>
+        <span>행운시간 {{ fortune['행운시간'] }}</span>
+        <span>좋은 방향 {{ fortune['오늘의좋은방향'] }}</span>
+      </div>
+    </div>
   </div>
 </section>
 
 <section class="card fortune-mobile-overview mobile-only">
   <div class="fortune-mobile-overview-head">
-    <div>
-      <div class="fortune-mobile-kicker">MOBILE SIGNATURE</div>
-      <h3>모바일에서도 핵심 흐름이 한눈에 보이도록 정리했습니다</h3>
-    </div>
+    <div class="fortune-mobile-kicker">MOBILE SIGNATURE</div>
     <span class="panel-chip">{{ active_plan }} 리포트</span>
   </div>
   <div class="fortune-mobile-overview-grid">
-    <div class="fortune-mobile-overview-card">
+    <div class="fortune-mobile-overview-card accent">
       <span>오늘의 코멘트</span>
       <strong>{{ fortune['오늘의코멘트'] }}</strong>
     </div>
-    <div class="fortune-mobile-overview-card accent">
+    <div class="fortune-mobile-overview-card">
       <span>맞춤 초점</span>
       <strong>{{ fortune['맞춤초점'] }}</strong>
     </div>
@@ -92,16 +112,6 @@
       <strong>{{ fortune['행운의수'] | join(', ') }}</strong>
     </div>
   </div>
-  <div class="fortune-mobile-signal-strip">
-    <div class="fortune-mobile-signal-box lotto">
-      <span>이번주 대표 로또</span>
-      <strong>{{ fortune['이번주로또']['sets'][0]['numbers'] | join(' · ') }}</strong>
-    </div>
-    <div class="fortune-mobile-signal-box stock">
-      <span>오늘의 핫 주식</span>
-      <strong>단타 2종목 · 스윙 2종목</strong>
-    </div>
-  </div>
 </section>
 
 <section class="info-grid three fortune-kpis reordered-kpis">
@@ -112,6 +122,12 @@
 
 <section class="card lead-reading-card">
   <div class="panel-head lead-reading-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip lead-chip">{{ active_plan }} 핵심</span></div>
+  <div class="lead-reading-spotlight">
+    <div class="lead-spotlight-item highlight"><span>띠</span><strong>{{ fortune['띠'] }}</strong></div>
+    <div class="lead-spotlight-item"><span>오늘의 코멘트</span><strong>{{ fortune['오늘의코멘트'] }}</strong></div>
+    <div class="lead-spotlight-item"><span>맞춤 초점</span><strong>{{ fortune['맞춤초점'] }}</strong></div>
+    <div class="lead-spotlight-item accent"><span>길인 성씨</span><strong>{{ fortune['오늘의길인성씨'] }}</strong></div>
+  </div>
   <div class="lead-reading-shell">
     <div class="lead-reading-hero">
       <div class="lead-reading-label">TODAY LEADING</div>

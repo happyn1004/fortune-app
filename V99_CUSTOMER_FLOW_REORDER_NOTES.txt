@@ -1,0 +1,8 @@
+V99 customer fortune page reorder
+- score section moved directly under today's fortune header section
+- score explanation placed below with stronger flow text
+- removed mobile duplicate line "모바일에서도 핵심 흐름이 한눈에..."
+- reorganized hero chips to reduce clutter
+- moved zodiac/comment/focus/surname emphasis into core reading spotlight
+- kept section order: score -> total/finance/relationship -> core reading -> lotto -> hot stock -> premium -> vip -> plan scope
+- bumped static asset version default to v99-customer-flow-final
