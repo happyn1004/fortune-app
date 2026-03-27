@@ -66,6 +66,44 @@
   </div>
 </section>
 
+<section class="card fortune-mobile-overview mobile-only">
+  <div class="fortune-mobile-overview-head">
+    <div>
+      <div class="fortune-mobile-kicker">MOBILE SIGNATURE</div>
+      <h3>모바일에서도 핵심 흐름이 한눈에 보이도록 정리했습니다</h3>
+    </div>
+    <span class="panel-chip">{{ active_plan }} 리포트</span>
+  </div>
+  <div class="fortune-mobile-overview-grid">
+    <div class="fortune-mobile-overview-card">
+      <span>오늘의 코멘트</span>
+      <strong>{{ fortune['오늘의코멘트'] }}</strong>
+    </div>
+    <div class="fortune-mobile-overview-card accent">
+      <span>맞춤 초점</span>
+      <strong>{{ fortune['맞춤초점'] }}</strong>
+    </div>
+    <div class="fortune-mobile-overview-card soft">
+      <span>길인 성씨</span>
+      <strong>{{ fortune['오늘의길인성씨'] }}</strong>
+    </div>
+    <div class="fortune-mobile-overview-card soft">
+      <span>행운의 수</span>
+      <strong>{{ fortune['행운의수'] | join(', ') }}</strong>
+    </div>
+  </div>
+  <div class="fortune-mobile-signal-strip">
+    <div class="fortune-mobile-signal-box lotto">
+      <span>이번주 대표 로또</span>
+      <strong>{{ fortune['이번주로또']['sets'][0]['numbers'] | join(' · ') }}</strong>
+    </div>
+    <div class="fortune-mobile-signal-box stock">
+      <span>오늘의 핫 주식</span>
+      <strong>단타 2종목 · 스윙 2종목</strong>
+    </div>
+  </div>
+</section>
+
 <section class="info-grid three fortune-kpis reordered-kpis">
   <div class="card metric-card"><div class="metric-title">총운</div><div class="metric-icon">🌙</div><p>{{ fortune['총운'] }}</p></div>
   <div class="card metric-card"><div class="metric-title">금전운</div><div class="metric-icon">💰</div><p>{{ fortune['금전운'] }}</p></div>
@@ -73,7 +111,7 @@
 </section>
 
 <section class="card lead-reading-card">
-  <div class="panel-head lead-reading-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip lead-chip">{{ active_plan }} View</span></div>
+  <div class="panel-head lead-reading-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip lead-chip">{{ active_plan }} 핵심</span></div>
   <div class="lead-reading-shell">
     <div class="lead-reading-hero">
       <div class="lead-reading-label">TODAY LEADING</div>
