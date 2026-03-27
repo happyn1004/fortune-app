@@ -6,3 +6,4 @@ itsdangerous==2.2.0
 
 pywebpush==2.3.0
 cryptography>=42.0.0
+tzdata>=2025.2

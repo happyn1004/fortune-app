@@ -10,8 +10,14 @@ from pathlib import Path
 import os
 import shutil
 import re
-from datetime import datetime, date, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime, date, timedelta, timezone
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except Exception:
+    ZoneInfo = None
+    class ZoneInfoNotFoundError(Exception):
+        pass
+
 from urllib.parse import urlparse
 import json
 import hashlib
@@ -29,6 +35,7 @@ import urllib.error
 import unicodedata
 import time
 import threading
+import math
 
 try:
     from pywebpush import webpush, WebPushException
@@ -48,7 +55,18 @@ PUSH_SUBSCRIBE_WORKER_STARTED = False
 PUSH_SUBSCRIPTIONS_STORE_FILE = None
 
 
-KST = ZoneInfo("Asia/Seoul")
+def get_kst_timezone():
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo("Asia/Seoul")
+        except ZoneInfoNotFoundError:
+            pass
+        except Exception:
+            pass
+    return timezone(timedelta(hours=9), name="Asia/Seoul")
+
+
+KST = get_kst_timezone()
 
 
 def now_kst() -> datetime:
@@ -2184,6 +2202,427 @@ def get_personal_seed_key(user=None) -> str:
     return "guest"
 
 
+
+
+STOCK_RECOMMENDATION_CACHE_TTL_SECONDS = 1800
+STOCK_RECOMMENDATION_CACHE_FILE = None
+
+HOT_STOCK_UNIVERSE = [
+    {"symbol": "005930", "ticker": "005930.KS", "name": "삼성전자", "style": "swing", "theme": "반도체 대장주", "risk": "중", "market": "KOSPI"},
+    {"symbol": "000660", "ticker": "000660.KS", "name": "SK하이닉스", "style": "both", "theme": "HBM·AI 메모리", "risk": "중", "market": "KOSPI"},
+    {"symbol": "042700", "ticker": "042700.KS", "name": "한미반도체", "style": "both", "theme": "반도체 장비", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "058470", "ticker": "058470.KQ", "name": "리노공업", "style": "short", "theme": "반도체 테스트", "risk": "중상", "market": "KOSDAQ"},
+    {"symbol": "036930", "ticker": "036930.KS", "name": "주성엔지니어링", "style": "short", "theme": "반도체 공정", "risk": "중상", "market": "KOSDAQ"},
+    {"symbol": "272210", "ticker": "272210.KS", "name": "한화시스템", "style": "both", "theme": "방산·우주", "risk": "중", "market": "KOSPI"},
+    {"symbol": "012450", "ticker": "012450.KS", "name": "한화에어로스페이스", "style": "swing", "theme": "방산 대장", "risk": "중", "market": "KOSPI"},
+    {"symbol": "064350", "ticker": "064350.KS", "name": "현대로템", "style": "both", "theme": "방산·철도", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "079550", "ticker": "079550.KS", "name": "LIG넥스원", "style": "both", "theme": "정밀유도무기", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "042660", "ticker": "042660.KS", "name": "한화오션", "style": "swing", "theme": "조선·방산", "risk": "중", "market": "KOSPI"},
+    {"symbol": "329180", "ticker": "329180.KS", "name": "HD현대중공업", "style": "swing", "theme": "조선·대형수주", "risk": "중", "market": "KOSPI"},
+    {"symbol": "010140", "ticker": "010140.KS", "name": "삼성중공업", "style": "short", "theme": "조선·수주 모멘텀", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "298040", "ticker": "298040.KS", "name": "효성중공업", "style": "swing", "theme": "전력기기", "risk": "중", "market": "KOSPI"},
+    {"symbol": "267260", "ticker": "267260.KS", "name": "HD현대일렉트릭", "style": "both", "theme": "전력기기·AI 전력", "risk": "중", "market": "KOSPI"},
+    {"symbol": "010120", "ticker": "010120.KS", "name": "LS ELECTRIC", "style": "both", "theme": "전력·스마트그리드", "risk": "중", "market": "KOSPI"},
+    {"symbol": "034020", "ticker": "034020.KS", "name": "두산에너빌리티", "style": "both", "theme": "원전·발전설비", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "247540", "ticker": "247540.KQ", "name": "에코프로비엠", "style": "both", "theme": "2차전지 소재", "risk": "상", "market": "KOSDAQ"},
+    {"symbol": "086520", "ticker": "086520.KQ", "name": "에코프로", "style": "both", "theme": "2차전지", "risk": "상", "market": "KOSDAQ"},
+    {"symbol": "003670", "ticker": "003670.KS", "name": "포스코퓨처엠", "style": "swing", "theme": "소재·전기차", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "078600", "ticker": "078600.KQ", "name": "대주전자재료", "style": "short", "theme": "실리콘음극재", "risk": "상", "market": "KOSDAQ"},
+    {"symbol": "196170", "ticker": "196170.KQ", "name": "알테오젠", "style": "both", "theme": "바이오 플랫폼", "risk": "상", "market": "KOSDAQ"},
+    {"symbol": "068270", "ticker": "068270.KS", "name": "셀트리온", "style": "swing", "theme": "바이오 대형주", "risk": "중", "market": "KOSPI"},
+    {"symbol": "195940", "ticker": "195940.KQ", "name": "HK이노엔", "style": "swing", "theme": "제약·헬스케어", "risk": "중", "market": "KOSDAQ"},
+    {"symbol": "214150", "ticker": "214150.KQ", "name": "클래시스", "style": "swing", "theme": "미용의료", "risk": "중", "market": "KOSDAQ"},
+    {"symbol": "214450", "ticker": "214450.KQ", "name": "파마리서치", "style": "swing", "theme": "리쥬란·바이오", "risk": "중", "market": "KOSDAQ"},
+    {"symbol": "035420", "ticker": "035420.KS", "name": "NAVER", "style": "swing", "theme": "플랫폼·AI", "risk": "중", "market": "KOSPI"},
+    {"symbol": "035720", "ticker": "035720.KS", "name": "카카오", "style": "short", "theme": "플랫폼 반등", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "251270", "ticker": "251270.KS", "name": "넷마블", "style": "short", "theme": "게임·모멘텀", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "263750", "ticker": "263750.KS", "name": "펄어비스", "style": "short", "theme": "게임·신작 기대", "risk": "상", "market": "KOSPI"},
+    {"symbol": "112040", "ticker": "112040.KQ", "name": "위메이드", "style": "short", "theme": "게임·변동성", "risk": "상", "market": "KOSDAQ"},
+    {"symbol": "161890", "ticker": "161890.KS", "name": "한국콜마", "style": "swing", "theme": "화장품 ODM", "risk": "중", "market": "KOSPI"},
+    {"symbol": "005380", "ticker": "005380.KS", "name": "현대차", "style": "swing", "theme": "자동차·주주환원", "risk": "중", "market": "KOSPI"},
+    {"symbol": "003230", "ticker": "003230.KS", "name": "삼양식품", "style": "both", "theme": "소비재·실적 모멘텀", "risk": "중", "market": "KOSPI"},
+    {"symbol": "005940", "ticker": "005940.KS", "name": "NH투자증권", "style": "swing", "theme": "증권·유동성", "risk": "중", "market": "KOSPI"},
+    {"symbol": "006800", "ticker": "006800.KS", "name": "미래에셋증권", "style": "short", "theme": "증권·거래대금", "risk": "중상", "market": "KOSPI"},
+    {"symbol": "454910", "ticker": "454910.KS", "name": "두산로보틱스", "style": "both", "theme": "로봇·자동화", "risk": "상", "market": "KOSPI"},
+]
+
+SECTOR_ROTATION_MAP = {
+    0: ["반도체 대장주", "HBM·AI 메모리", "반도체 장비", "반도체 테스트", "반도체 공정"],
+    1: ["방산 대장", "방산·우주", "정밀유도무기", "조선·방산", "조선·대형수주"],
+    2: ["전력기기", "전력기기·AI 전력", "전력·스마트그리드", "원전·발전설비"],
+    3: ["2차전지", "2차전지 소재", "소재·전기차", "실리콘음극재"],
+    4: ["바이오 플랫폼", "바이오 대형주", "제약·헬스케어", "미용의료", "리쥬란·바이오"],
+    5: ["플랫폼·AI", "게임·모멘텀", "게임·신작 기대", "게임·변동성", "로봇·자동화"],
+    6: ["소비재·실적 모멘텀", "화장품 ODM", "자동차·주주환원", "증권·유동성", "증권·거래대금"],
+}
+
+
+def get_stock_cache_file() -> Path:
+    global STOCK_RECOMMENDATION_CACHE_FILE
+    if STOCK_RECOMMENDATION_CACHE_FILE is None:
+        STOCK_RECOMMENDATION_CACHE_FILE = get_data_dir() / "stock_recommendation_cache.json"
+    return STOCK_RECOMMENDATION_CACHE_FILE
+
+
+def load_stock_cache() -> dict:
+    path = get_stock_cache_file()
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_stock_cache(data: dict):
+    path = get_stock_cache_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _float_or_none(value):
+    try:
+        if value is None:
+            return None
+        v = float(value)
+        if math.isnan(v) or math.isinf(v):
+            return None
+        return v
+    except Exception:
+        return None
+
+
+def _mean(values: list[float]) -> float | None:
+    clean = [float(v) for v in values if v is not None]
+    if not clean:
+        return None
+    return sum(clean) / len(clean)
+
+
+def _pct_change(now_value: float | None, prev_value: float | None) -> float | None:
+    if now_value in (None, 0) or prev_value in (None, 0):
+        return None
+    try:
+        return ((now_value / prev_value) - 1.0) * 100.0
+    except Exception:
+        return None
+
+
+def _safe_ratio(a: float | None, b: float | None) -> float | None:
+    if a is None or b in (None, 0):
+        return None
+    try:
+        return a / b
+    except Exception:
+        return None
+
+
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def _normalise(value: float | None, low: float, high: float, default: float = 0.0) -> float:
+    if value is None or high == low:
+        return default
+    return _clamp((value - low) / (high - low), 0.0, 1.0)
+
+
+def _fetch_json(url: str, timeout: int = 6):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 MysticDay/1.0", "Accept": "application/json,text/plain,*/*"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def fetch_stock_history(entry: dict) -> dict | None:
+    cache_key = f"{entry['ticker']}::1d::3mo"
+    now_ts = time.time()
+    cache = load_stock_cache()
+    cached = cache.get(cache_key)
+    if cached and (now_ts - cached.get("fetched_at", 0)) < STOCK_RECOMMENDATION_CACHE_TTL_SECONDS:
+        return cached.get("payload")
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{entry['ticker']}?range=3mo&interval=1d&includePrePost=false&events=div%2Csplits&corsDomain=finance.yahoo.com"
+    try:
+        payload = _fetch_json(url)
+        chart = ((payload or {}).get("chart") or {})
+        result = (chart.get("result") or [None])[0]
+        if not result:
+            return None
+        timestamps = result.get("timestamp") or []
+        quote = (((result.get("indicators") or {}).get("quote") or [{}])[0])
+        closes = quote.get("close") or []
+        highs = quote.get("high") or []
+        lows = quote.get("low") or []
+        opens = quote.get("open") or []
+        volumes = quote.get("volume") or []
+        rows = []
+        for idx, ts in enumerate(timestamps):
+            close = _float_or_none(closes[idx] if idx < len(closes) else None)
+            high = _float_or_none(highs[idx] if idx < len(highs) else None)
+            low = _float_or_none(lows[idx] if idx < len(lows) else None)
+            open_ = _float_or_none(opens[idx] if idx < len(opens) else None)
+            volume = _float_or_none(volumes[idx] if idx < len(volumes) else None)
+            if close is None:
+                continue
+            rows.append({
+                "date": datetime.fromtimestamp(ts, KST).strftime("%Y-%m-%d"),
+                "open": open_, "high": high, "low": low, "close": close, "volume": volume or 0,
+            })
+        if len(rows) < 25:
+            return None
+        latest = rows[-1]
+        response = {"rows": rows, "meta": result.get("meta") or {}, "price": latest["close"], "as_of": latest["date"]}
+        cache[cache_key] = {"fetched_at": now_ts, "payload": response}
+        save_stock_cache(cache)
+        return response
+    except Exception:
+        return cached.get("payload") if cached else None
+
+
+def build_stock_metrics(history: dict) -> dict:
+    rows = history.get("rows") or []
+    closes = [r["close"] for r in rows if r.get("close") is not None]
+    volumes = [r.get("volume", 0) for r in rows]
+    latest = rows[-1]
+    price = latest["close"]
+    ma5 = _mean(closes[-5:])
+    ma20 = _mean(closes[-20:])
+    ma60 = _mean(closes[-60:])
+    ma20_prev = _mean(closes[-21:-1]) if len(closes) >= 21 else ma20
+    ma60_prev = _mean(closes[-61:-1]) if len(closes) >= 61 else ma60
+    avg_vol5 = _mean(volumes[-5:])
+    avg_vol20 = _mean(volumes[-20:])
+    ret_1 = _pct_change(price, closes[-2] if len(closes) >= 2 else None)
+    ret_5 = _pct_change(price, closes[-6] if len(closes) >= 6 else None)
+    ret_20 = _pct_change(price, closes[-21] if len(closes) >= 21 else None)
+    high_20 = max(closes[-20:]) if len(closes) >= 20 else max(closes)
+    low_20 = min(closes[-20:]) if len(closes) >= 20 else min(closes)
+    high_60 = max(closes[-60:]) if len(closes) >= 60 else max(closes)
+    low_60 = min(closes[-60:]) if len(closes) >= 60 else min(closes)
+    range_pos_20 = _safe_ratio(price - low_20, (high_20 - low_20) or None)
+    range_pos_60 = _safe_ratio(price - low_60, (high_60 - low_60) or None)
+    breakout_gap = _pct_change(price, high_20)
+    breakout_gap_60 = _pct_change(price, high_60)
+    vol_ratio = _safe_ratio(latest.get("volume", 0), avg_vol20)
+    vol_ratio_5 = _safe_ratio(avg_vol5, avg_vol20)
+    daily_vols = []
+    up_days = 0
+    for prev, cur in zip(closes[:-1], closes[1:]):
+        pct = _pct_change(cur, prev)
+        if pct is not None:
+            daily_vols.append(abs(pct))
+            if pct > 0:
+                up_days += 1
+    volatility_20 = _mean(daily_vols[-20:]) or 0
+    trend_alignment = sum(1 for pair in [(price, ma5), (ma5, ma20), (ma20, ma60)] if pair[0] is not None and pair[1] is not None and pair[0] >= pair[1])
+    pullback_from_20h = _pct_change(price, high_20) or 0
+    drawdown_20 = _pct_change(price, low_20) or 0
+    ma20_slope = _pct_change(ma20, ma20_prev) or 0
+    ma60_slope = _pct_change(ma60, ma60_prev) or 0
+    up_ratio_10 = sum(1 for prev, cur in zip(closes[-11:-1], closes[-10:]) if cur > prev) / max(1, min(10, len(closes) - 1)) if len(closes) >= 3 else 0
+    return {
+        "price": price,
+        "ma5": ma5,
+        "ma20": ma20,
+        "ma60": ma60,
+        "ret_1": ret_1 or 0,
+        "ret_5": ret_5 or 0,
+        "ret_20": ret_20 or 0,
+        "vol_ratio": vol_ratio or 0,
+        "vol_ratio_5": vol_ratio_5 or 0,
+        "volatility_20": volatility_20,
+        "range_pos_20": range_pos_20 or 0,
+        "range_pos_60": range_pos_60 or 0,
+        "breakout_gap": breakout_gap or 0,
+        "breakout_gap_60": breakout_gap_60 or 0,
+        "trend_alignment": trend_alignment,
+        "pullback_from_20h": pullback_from_20h,
+        "drawdown_20": drawdown_20,
+        "high_20": high_20,
+        "low_20": low_20,
+        "high_60": high_60,
+        "low_60": low_60,
+        "ma20_slope": ma20_slope,
+        "ma60_slope": ma60_slope,
+        "up_ratio_10": up_ratio_10,
+        "as_of": latest["date"],
+    }
+
+
+def get_rotation_themes(today: date | None = None) -> list[str]:
+    today = today or today_kst()
+    bucket = today.toordinal() % len(SECTOR_ROTATION_MAP)
+    return SECTOR_ROTATION_MAP.get(bucket, [])
+
+
+def build_stock_recommendation(entry: dict, metrics: dict, user_seed: int, fortune_score: int, mode: str, live: bool = True) -> dict:
+    price = metrics.get("price") or 0
+    ma20 = metrics.get("ma20") or price
+    ret_1 = metrics.get("ret_1") or 0
+    ret_5 = metrics.get("ret_5") or 0
+    ret_20 = metrics.get("ret_20") or 0
+    vol_ratio = metrics.get("vol_ratio") or 0
+    vol_ratio_5 = metrics.get("vol_ratio_5") or 0
+    volatility = metrics.get("volatility_20") or 0
+    range_pos_20 = metrics.get("range_pos_20") or 0
+    range_pos_60 = metrics.get("range_pos_60") or 0
+    breakout_gap = metrics.get("breakout_gap") or 0
+    breakout_gap_60 = metrics.get("breakout_gap_60") or 0
+    trend = metrics.get("trend_alignment") or 0
+    ma20_slope = metrics.get("ma20_slope") or 0
+    ma60_slope = metrics.get("ma60_slope") or 0
+    up_ratio_10 = metrics.get("up_ratio_10") or 0
+    drawdown_20 = metrics.get("drawdown_20") or 0
+    rotation_bonus = 8 if entry.get("theme") in get_rotation_themes() else 0
+    live_bonus = 3 if live else 0
+    personal_bias = ((user_seed + int(price or 0) + len(entry['name']) * 13) % 11) / 10.0
+    fortune_bias = max(0, (fortune_score - 72) / 9.0)
+
+    momentum_fast = 22 * _normalise(ret_1, -4, 5) + 26 * _normalise(ret_5, -7, 13)
+    momentum_swing = 18 * _normalise(ret_5, -6, 12) + 24 * _normalise(ret_20, -14, 28)
+    volume_component = 18 * _normalise(vol_ratio, 0.7, 4.2) + 8 * _normalise(vol_ratio_5, 0.8, 2.5)
+    trend_component = 16 * _normalise(trend, 0, 3) + 10 * _normalise(ma20_slope, -3, 4) + 8 * _normalise(ma60_slope, -2, 3)
+    structure_component = 12 * _normalise(range_pos_20, 0.15, 1.0) + 8 * _normalise(range_pos_60, 0.10, 1.0)
+    breakout_component = 12 * _normalise(breakout_gap, -6.0, 1.0) + 8 * _normalise(breakout_gap_60, -12.0, 2.0)
+    stability_penalty = 9 * _normalise(volatility, 1.2, 7.5)
+    overheat_penalty = 8 * _normalise(ret_5, 9, 22) + 7 * _normalise(range_pos_20, 0.92, 1.0)
+    weak_penalty = 7 * _normalise(-drawdown_20, -24, -2) if drawdown_20 < 0 else 0
+
+    if mode == "short":
+        breakout_readiness = 14 * _normalise(up_ratio_10, 0.3, 0.9)
+        base_score = 41 + momentum_fast + volume_component + breakout_component + trend_component * 0.7 + breakout_readiness + structure_component * 0.5
+        risk_penalty = stability_penalty * 0.55 + overheat_penalty * 0.8
+        style_fit = 10 if entry.get("style") in ("short", "both") else -10
+        horizon = "단타"
+        setup = "거래대금 재점화형" if vol_ratio >= 1.35 and ret_1 >= 0 else "눌림 후 재돌파형" if breakout_gap >= -3 else "저항선 회복형"
+        timing = "시가·전일고점 동시 회복 확인 시" if ret_1 >= 0 else "초반 눌림 후 5일선 지지 재확인 시"
+        action = f"{metrics.get('high_20', price):,.0f}원 단기 박스 상단 재돌파 또는 5일선 눌림 반등 확인"
+        stop = f"전일 종가 이탈 또는 단기 박스 하단 이탈 시 속도 체크"
+        headline = f"{entry['theme']} 흐름에서 단기 수급이 다시 붙는 자리로 계산된 후보" if live else "실시간 데이터 부재 시 단타 보조 추천 알고리즘 후보"
+    else:
+        leadership_component = 14 * _normalise(up_ratio_10, 0.35, 0.9)
+        base_score = 44 + momentum_swing + trend_component + structure_component + volume_component * 0.7 + leadership_component + breakout_component * 0.6
+        risk_penalty = stability_penalty * 0.35 + weak_penalty * 0.4
+        style_fit = 10 if entry.get("style") in ("swing", "both") else -10
+        horizon = "스윙"
+        setup = "추세 지속형" if trend >= 2 and ma20_slope >= 0 else "이익 성장 추적형" if ret_20 >= 0 else "저점 회복 관찰형"
+        timing = "20일선 지지와 거래량 유지 확인 후 분할 접근" if price >= ma20 else "20일선 회복 캔들 확인 후 접근"
+        action = f"20일선 {ma20:,.0f}원 부근 지지 또는 60일 박스 상단 돌파 지속 여부 확인"
+        stop = f"20일선 종가 이탈 또는 최근 추세선 훼손 시 비중 축소"
+        headline = f"{entry['theme']} 주도력과 중기 추세가 함께 살아있는 후보" if live else "실시간 데이터 부재 시 스윙 보조 추천 알고리즘 후보"
+
+    total_score = round(base_score + rotation_bonus + personal_bias + fortune_bias + live_bonus - risk_penalty + style_fit, 1)
+    confidence = "상" if total_score >= 88 else "중상" if total_score >= 81 else "중"
+    reasons = [
+        f"1일 {ret_1:+.1f}% · 5일 {ret_5:+.1f}% · 20일 {ret_20:+.1f}%",
+        f"거래량 {vol_ratio:.2f}배 · 5일 평균 거래량 {vol_ratio_5:.2f}배 · 추세정렬 {trend}/3",
+        f"20일 박스 위치 {range_pos_20*100:.0f}% · 60일 박스 위치 {range_pos_60*100:.0f}% · 변동성 {volatility:.1f}%",
+    ]
+    return {
+        "symbol": entry["symbol"],
+        "name": entry["name"],
+        "theme": entry["theme"],
+        "market": entry["market"],
+        "risk": entry["risk"],
+        "mode": horizon,
+        "style": setup,
+        "score": total_score,
+        "confidence": confidence,
+        "price": price,
+        "as_of": metrics.get("as_of"),
+        "headline": headline,
+        "reasons": reasons,
+        "timing": timing,
+        "action": action,
+        "stop": stop,
+        "live": live,
+    }
+
+
+def build_fallback_stock_recommendations(user=None, fortune_score: int = 80) -> dict:
+    seed_key = f"fallback::{today_kst().isoformat()}::{get_personal_seed_key(user)}"
+    seed = int(hashlib.sha256(seed_key.encode("utf-8")).hexdigest()[:12], 16)
+    rotation_themes = get_rotation_themes()
+    short_candidates = []
+    swing_candidates = []
+    for idx, entry in enumerate(HOT_STOCK_UNIVERSE):
+        base = 70 + ((seed >> (idx % 8)) % 17)
+        if entry.get("theme") in rotation_themes:
+            base += 5
+        metrics = {
+            "price": 10000 + ((seed + idx * 1777) % 90000),
+            "ma20": 9800 + ((seed + idx * 991) % 85000),
+            "ret_5": -2 + ((seed + idx * 17) % 90) / 10.0,
+            "ret_20": -5 + ((seed + idx * 29) % 180) / 10.0,
+            "vol_ratio": 0.9 + ((seed + idx * 11) % 20) / 10.0,
+            "volatility_20": 1.5 + ((seed + idx * 7) % 45) / 10.0,
+            "range_pos_20": ((seed + idx * 19) % 100) / 100.0,
+            "breakout_gap": -4 + ((seed + idx * 13) % 60) / 10.0,
+            "trend_alignment": (seed + idx) % 4,
+            "high_20": 11000 + ((seed + idx * 31) % 95000),
+            "as_of": current_kst_date_str(),
+        }
+        if entry.get("style") in ("short", "both"):
+            short_candidates.append(build_stock_recommendation(entry, metrics, seed, fortune_score, "short", live=False))
+        if entry.get("style") in ("swing", "both"):
+            swing_candidates.append(build_stock_recommendation(entry, metrics, seed, fortune_score, "swing", live=False))
+    short_candidates.sort(key=lambda x: x["score"], reverse=True)
+    swing_candidates.sort(key=lambda x: x["score"], reverse=True)
+    return {
+        "generated_at": now_kst().strftime("%Y-%m-%d %H:%M"),
+        "mode": "fallback",
+        "short": short_candidates[:2],
+        "swing": swing_candidates[:2],
+        "rotation_themes": rotation_themes,
+        "disclaimer": "본 정보는 참고용이며 투자 판단과 책임은 이용자 본인에게 있습니다. 본 서비스는 투자 자문 또는 권유를 목적으로 하지 않습니다.",
+    }
+
+
+def generate_hot_stock_recommendations(user=None, fortune_score: int = 80) -> dict:
+    seed_key = f"live::{today_kst().isoformat()}::{get_personal_seed_key(user)}"
+    user_seed = int(hashlib.sha256(seed_key.encode("utf-8")).hexdigest()[:12], 16)
+    short_candidates = []
+    swing_candidates = []
+    live_count = 0
+    for entry in HOT_STOCK_UNIVERSE:
+        history = fetch_stock_history(entry)
+        if not history:
+            continue
+        metrics = build_stock_metrics(history)
+        if entry.get("style") in ("short", "both"):
+            short_candidates.append(build_stock_recommendation(entry, metrics, user_seed, fortune_score, "short", live=True))
+        if entry.get("style") in ("swing", "both"):
+            swing_candidates.append(build_stock_recommendation(entry, metrics, user_seed, fortune_score, "swing", live=True))
+        live_count += 1
+    if len(short_candidates) < 2 or len(swing_candidates) < 2:
+        fallback = build_fallback_stock_recommendations(user=user, fortune_score=fortune_score)
+        fallback["mode"] = "fallback" if live_count == 0 else "hybrid"
+        fallback["live_count"] = live_count
+        return fallback
+    short_candidates.sort(key=lambda x: x["score"], reverse=True)
+    swing_candidates.sort(key=lambda x: x["score"], reverse=True)
+
+    def _dedupe_pick(rows: list[dict], limit: int = 2) -> list[dict]:
+        picked = []
+        seen = set()
+        for row in rows:
+            if row["symbol"] in seen:
+                continue
+            picked.append(row)
+            seen.add(row["symbol"])
+            if len(picked) >= limit:
+                break
+        return picked
+
+    return {
+        "generated_at": now_kst().strftime("%Y-%m-%d %H:%M"),
+        "mode": "live",
+        "short": _dedupe_pick(short_candidates, 2),
+        "swing": _dedupe_pick(swing_candidates, 2),
+        "rotation_themes": get_rotation_themes(),
+        "live_count": live_count,
+        "disclaimer": "본 정보는 참고용이며 투자 판단과 책임은 이용자 본인에게 있습니다. 본 서비스는 투자 자문 또는 권유를 목적으로 하지 않습니다.",
+    }
+
 def generate_weekly_lotto_numbers(today: date | None = None, user=None):
     today = today or today_kst()
     key = f"{get_week_key(today)}::{get_personal_seed_key(user)}"
@@ -2550,6 +2989,7 @@ def generate_fortune(user, active_plan: str):
     base_fortune['이번주로또'] = lotto
     base_fortune['오늘의코멘트'] = get_today_comment(active_plan, base_fortune)
     base_fortune['재물집중코멘트'] = '재물운은 크게 벌리는 것보다 새는 비용을 줄이는 정리형 접근이 유리합니다.'
+    base_fortune['오늘의핫주식'] = generate_hot_stock_recommendations(user=user, fortune_score=score)
     return {**base_fortune, "plan_meta": meta, "access": access, "active_plan": active_plan}
 
 
@@ -3946,6 +4386,23 @@ def api_notifications_read_all(request: Request):
         return JSONResponse({'ok': False}, status_code=401)
     mark_all_notifications_read(user)
     return JSONResponse({'ok': True})
+
+
+@app.get("/api/stock-recommendations")
+def api_stock_recommendations(request: Request):
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    active_plan, _preview_mode = get_active_plan(request, user)
+    fortune = generate_fortune(user, active_plan)
+    return JSONResponse({
+        "generated_at": fortune['오늘의핫주식']['generated_at'],
+        "mode": fortune['오늘의핫주식']['mode'],
+        "rotation_themes": fortune['오늘의핫주식']['rotation_themes'],
+        "short": fortune['오늘의핫주식']['short'],
+        "swing": fortune['오늘의핫주식']['swing'],
+        "disclaimer": fortune['오늘의핫주식']['disclaimer'],
+    })
 
 
 @app.post("/attendance/check")

@@ -27,7 +27,7 @@
   </div>
 </section>
 {% endif %}
-<section class="fortune-hero card premium-fortune-shell">
+<section class="fortune-hero card premium-fortune-shell {% if active_plan == 'Basic' %}basic-report-spotlight{% endif %}">
   <div class="fortune-hero-copy">
     <div class="badge">{{ fortune.plan_meta.label }} · {{ fortune.plan_meta.report_name }}</div>
     <h1>{{ user.name }}님의 오늘 운세</h1>
@@ -66,26 +66,6 @@
   </div>
 </section>
 
-<section class="info-grid two fortune-top-flow comment-focus-grid">
-  <div class="card side-premium-card top-comment-card">
-    <div class="premium-header">
-      <h3>오늘의 코멘트</h3>
-      <p>{{ fortune.plan_meta.accent }}</p>
-    </div>
-    <div class="quote-box">{{ fortune['오늘의코멘트'] }}</div>
-  </div>
-  <div class="card focus-card">
-    <div class="premium-header focus-header">
-      <h3>맞춤 초점</h3>
-      <p>오늘 가장 선명하게 잡아야 할 한 가지</p>
-    </div>
-    <div class="tip-box focus-tip-box">
-      <div class="tip-label">FOCUS POINT</div>
-      <p>{{ fortune['맞춤초점'] }}</p>
-    </div>
-  </div>
-</section>
-
 <section class="info-grid three fortune-kpis reordered-kpis">
   {% if active_plan == "Free" %}
   <div class="card metric-card teaser-metric"><div class="metric-title">총운 티저</div><div class="metric-icon">🌙</div><p>{{ fortune['티저카드'][0] }}</p></div>
@@ -98,9 +78,52 @@
   {% endif %}
 </section>
 
+<section class="card lead-reading-card">
+  <div class="panel-head lead-reading-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip lead-chip">{{ active_plan }} View</span></div>
+  <div class="lead-reading-shell">
+    <div class="lead-reading-hero">
+      <div class="lead-reading-label">TODAY LEADING</div>
+      <div class="lead-reading-copy">{{ fortune['오늘의한줄'] if active_plan == "Free" else fortune['총운'] }}</div>
+      <div class="lead-reading-hook">오늘의 흐름은 넓게 벌리기보다 <strong>핵심 1건</strong>을 끝낼 때 신뢰도와 결과가 함께 올라가는 날입니다.</div>
+      <div class="lead-reading-inline-cards">
+        <div class="lead-insight-card">
+          <div class="lead-insight-label">오늘의 코멘트</div>
+          <p>{{ fortune['오늘의코멘트'] }}</p>
+        </div>
+        <div class="lead-insight-card focus-merge-card">
+          <div class="lead-insight-label">맞춤 초점</div>
+          <p>{{ fortune['맞춤초점'] }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="lead-reading-side">
+      <div class="lead-mini-stat"><span>행운의 수</span><strong>{{ fortune['행운의수'] | join(', ') }}</strong></div>
+      <div class="lead-mini-stat"><span>좋은 방향</span><strong>{{ fortune['오늘의좋은방향'] }}</strong></div>
+      {% if fortune.access.basic %}
+      <div class="lead-mini-stat"><span>행운시간</span><strong>{{ fortune['행운시간'] }}</strong></div>
+      <div class="lead-mini-stat"><span>행운색</span><strong>{{ fortune['행운색'] }}</strong></div>
+      {% else %}
+      <div class="lead-mini-stat locked"><span>행운시간</span><strong>Basic부터 공개</strong></div>
+      <div class="lead-mini-stat locked"><span>행운색</span><strong>Basic부터 공개</strong></div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="lead-reading-points">
+    {% if active_plan == "Free" %}
+    <div class="lead-point-card"><div class="lead-point-title">핵심 메시지</div><p>오늘은 방향만 먼저 공개됩니다. 돈의 흐름과 타이밍 포인트는 Basic부터 더 선명하게 확인할 수 있습니다.</p></div>
+    <div class="lead-point-card"><div class="lead-point-title">실행 포인트</div><p>오늘의 좋은 방향은 <strong>{{ fortune['오늘의좋은방향'] }}</strong>, 길한 성씨는 <strong>{{ fortune['오늘의길인성씨'] }}</strong> 입니다.</p></div>
+    <div class="lead-point-card"><div class="lead-point-title">후킹 포인트</div><p>오늘의 결정 타이밍과 실전형 행동 포인트는 Basic부터 정식으로 열립니다.</p></div>
+    {% else %}
+    {% for item in fortune['리듬체크'] %}
+    <div class="lead-point-card"><div class="lead-point-title">리듬 체크</div><p>{{ item }}</p></div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</section>
+
 <section class="card lotto-card">
   <div class="panel-head"><h3>이번주 행운 로또 번호</h3><span class="panel-chip">{{ fortune['이번주로또']['week_key'] }}</span></div>
-  <p class="muted lotto-caption">관계운 티저 아래, 오늘의 핵심 리딩 위에 배치했습니다. {{ fortune["이번주로또"]["summary"] }}</p>
+  <p class="muted lotto-caption">오늘의 핵심 리딩 아래에 배치했습니다. {{ fortune["이번주로또"]["summary"] }}</p>
   <div class="lotto-grid">
     {% for row in fortune['이번주로또']['sets'][:2 if active_plan == 'Free' else 5 if active_plan == 'VIP' else 3] %}
     <div class="lotto-set-card">
@@ -118,44 +141,100 @@
   </div>
 </section>
 
-<section class="info-grid two fortune-detail-grid reordered-details">
-  <div class="card detail-panel primary-reading-card">
-    <div class="panel-head"><h3>오늘의 핵심 리딩</h3><span class="panel-chip">{{ active_plan }} View</span></div>
-    <div class="fortune-highlight">{{ fortune['오늘의한줄'] if active_plan == "Free" else fortune['총운'] }}</div>
-    <div class="report-stage-list">
-      {% if active_plan == "Free" %}
-      <div class="report-stage-item">오늘은 방향만 먼저 공개됩니다. 돈의 흐름과 타이밍 포인트는 Basic부터 더 선명하게 확인할 수 있습니다.</div>
-      <div class="report-stage-item">행운의 수는 <strong>{{ fortune['행운의수'] | join('</strong>, <strong>') | safe }}</strong> 입니다.</div>
-      <div class="report-stage-item">오늘의 좋은 방향은 <strong>{{ fortune['오늘의좋은방향'] }}</strong>, 오늘의 길한 성씨는 <strong>{{ fortune['오늘의길인성씨'] }}</strong> 입니다.</div>
-      <div class="report-stage-item">오늘의 결정 타이밍과 실전형 행동 포인트는 Basic부터 열립니다.</div>
-      {% else %}
-      {% for item in fortune['리듬체크'] %}<div class="report-stage-item">{{ item }}</div>{% endfor %}
-      {% endif %}
+<section class="card stock-card premium-stock-card">
+  <div class="panel-head stock-panel-head"><h3>오늘의 핫 주식 추천</h3><span class="panel-chip">{{ fortune['오늘의핫주식']['generated_at'] }}</span></div>
+  <p class="muted lotto-caption">로또 아래에 배치된 실전 참고 섹션입니다. 오늘 강하게 도는 테마는 <strong>{{ fortune['오늘의핫주식']['rotation_themes'] | join(', ') }}</strong> 입니다.</p>
+  <div class="stock-hero-strip">
+    <div class="stock-hero-main">
+      <div class="stock-hero-label">TODAY MARKET SIGNAL</div>
+      <div class="stock-hero-copy">오늘은 <strong>단타 2종목</strong>과 <strong>스윙 2종목</strong>만 선별해 한눈에 보기 좋게 압축했습니다.</div>
     </div>
-    {% if fortune.access.basic %}
-    <dl class="fortune-list upgraded">
-      <dt>행운의 수</dt><dd>{{ fortune['행운의수'] | join(', ') }}</dd>
-      <dt>행운색</dt><dd>{{ fortune['행운색'] }}</dd>
-      <dt>행운시간</dt><dd>{{ fortune['행운시간'] }}</dd>
-      <dt>행운아이템</dt><dd>{{ fortune['행운아이템'] }}</dd>
-      <dt>오늘의 좋은 방향</dt><dd>{{ fortune['오늘의좋은방향'] }}</dd>
-      <dt>오늘의 길인 성씨</dt><dd>{{ fortune['오늘의길인성씨'] }}</dd>
-    </dl>
-    {% else %}
-    <div class="lock-card"><div class="lock-title">Basic에서 열리는 섹션</div><p>행운색, 행운시간, 좋은 방향, 길한 성씨, 하루 리듬 체크가 정식으로 열립니다. 무료 화면보다 훨씬 구체적으로 바로 써먹을 수 있게 보입니다.</p><a class="btn primary" href="/plans">Basic 살펴보기</a></div>
-    {% endif %}
-  </div>
-
-  <div class="card side-premium-card plan-cta-card">
-    <div class="premium-header"><h3>플랜별 해석 범위</h3><p>원하는 해석의 깊이에 따라 열리는 리딩 범위를 안내합니다.</p></div>
-    <div class="report-stage-list">
-      <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 행운의 수 2개 + 로또 2세트 공개</div>
-      <div class="report-stage-item"><strong>Basic</strong> : 행운의 수 3개 + 행운시간 + 이유 있는 로또 분석</div>
-      <div class="report-stage-item"><strong>Premium</strong> : 행운의 수 4개 + 사업운 + 행동전략 + 실전형 해석</div>
-      <div class="report-stage-item"><strong>VIP</strong> : 행운의 수 5개 + 로또 5세트 + 전략 브리핑</div>
+    <div class="stock-hero-side">
+      <div class="stock-hero-pill">핫 테마 {{ fortune['오늘의핫주식']['rotation_themes'][0] }}</div>
+      <div class="stock-hero-pill subtle">실전 참고용 브리핑</div>
     </div>
-    <div class="actions" style="margin-top:22px;"><a class="btn primary" href="/plans">플랜 보기</a><a class="btn" href="/contact">문의하기</a></div>
   </div>
+  <div class="stock-buckets premium-stock-buckets">
+    <div class="stock-bucket short-bucket">
+      <div class="stock-bucket-head premium-bucket-head">
+        <div>
+          <div class="stock-bucket-title">⚡ 단타 추천 2종목</div>
+          <div class="stock-bucket-sub">빠른 회전과 당일 흐름 대응 중심</div>
+        </div>
+      </div>
+      <div class="stock-grid premium-stock-grid">
+        {% for row in fortune['오늘의핫주식']['short'] %}
+        <div class="stock-pick-card premium-stock-pick-card short-card-tone">
+          <div class="stock-topline">
+            <div>
+              <div class="stock-name">{{ row['name'] }}</div>
+              <div class="stock-meta">{{ row['theme'] }} · {{ row['market'] }} · 리스크 {{ row['risk'] }}</div>
+            </div>
+            <div class="stock-score-badge">{{ row['score'] }}</div>
+          </div>
+          <div class="stock-headline">{{ row['headline'] }}</div>
+          <div class="stock-pills premium-stock-pills">
+            <span>{{ row['mode'] }}</span>
+            <span>{{ row['style'] }}</span>
+            <span>신뢰도 {{ row['confidence'] }}</span>
+            <span>기준가 {{ '{:,.0f}'.format(row['price']) }}원</span>
+          </div>
+          <div class="stock-focus-box">
+            <div class="stock-focus-title">선정 이유</div>
+            <ul class="stock-reason-list compact-reasons">
+              {% for reason in row['reasons'] %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          </div>
+          <div class="stock-plan-grid">
+            <div class="stock-plan-item"><span>관찰 포인트</span><strong>{{ row['timing'] }}</strong></div>
+            <div class="stock-plan-item"><span>진입 아이디어</span><strong>{{ row['action'] }}</strong></div>
+            <div class="stock-plan-item warn"><span>리스크 관리</span><strong>{{ row['stop'] }}</strong></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="stock-bucket swing-bucket">
+      <div class="stock-bucket-head premium-bucket-head">
+        <div>
+          <div class="stock-bucket-title">💎 스윙 추천 2종목</div>
+          <div class="stock-bucket-sub">추세 지속과 며칠 단위 흐름 점검 중심</div>
+        </div>
+      </div>
+      <div class="stock-grid premium-stock-grid">
+        {% for row in fortune['오늘의핫주식']['swing'] %}
+        <div class="stock-pick-card premium-stock-pick-card swing-card-tone">
+          <div class="stock-topline">
+            <div>
+              <div class="stock-name">{{ row['name'] }}</div>
+              <div class="stock-meta">{{ row['theme'] }} · {{ row['market'] }} · 리스크 {{ row['risk'] }}</div>
+            </div>
+            <div class="stock-score-badge">{{ row['score'] }}</div>
+          </div>
+          <div class="stock-headline">{{ row['headline'] }}</div>
+          <div class="stock-pills premium-stock-pills">
+            <span>{{ row['mode'] }}</span>
+            <span>{{ row['style'] }}</span>
+            <span>신뢰도 {{ row['confidence'] }}</span>
+            <span>기준가 {{ '{:,.0f}'.format(row['price']) }}원</span>
+          </div>
+          <div class="stock-focus-box">
+            <div class="stock-focus-title">선정 이유</div>
+            <ul class="stock-reason-list compact-reasons">
+              {% for reason in row['reasons'] %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+          </div>
+          <div class="stock-plan-grid">
+            <div class="stock-plan-item"><span>관찰 포인트</span><strong>{{ row['timing'] }}</strong></div>
+            <div class="stock-plan-item"><span>진입 아이디어</span><strong>{{ row['action'] }}</strong></div>
+            <div class="stock-plan-item warn"><span>리스크 관리</span><strong>{{ row['stop'] }}</strong></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="stock-disclaimer premium-stock-disclaimer">⚠ {{ fortune['오늘의핫주식']['disclaimer'] }}</div>
 </section>
 
 <section class="info-grid two advanced-grid">
@@ -189,5 +268,16 @@
   {% else %}
   <div class="card lock-card vip-lock vip-colored-card"><div class="lock-title">VIP에서만 보이는 최상위 해석</div><p>투자운, 계약운, 타이밍 코칭, 월간 인사이트, VIP 브리핑은 VIP 전용 구성입니다. Premium과도 확실히 차이 나도록 설계했습니다.</p><a class="btn primary" href="/plans">VIP 보기</a></div>
   {% endif %}
+</section>
+
+<section class="card side-premium-card plan-cta-card plan-cta-card-wide plan-bottom-section">
+  <div class="premium-header"><h3>플랜별 해석 범위</h3><p>원하는 해석의 깊이에 따라 열리는 리딩 범위를 한눈에 보기 좋게 정리했습니다.</p></div>
+  <div class="report-stage-list report-stage-list-wide">
+    <div class="report-stage-item"><strong>Free</strong> : 핵심 흐름 + 행운의 수 2개 + 로또 2세트 공개</div>
+    <div class="report-stage-item"><strong>Basic</strong> : 행운의 수 3개 + 행운시간 + 이유 있는 로또 분석</div>
+    <div class="report-stage-item"><strong>Premium</strong> : 행운의 수 4개 + 사업운 + 행동전략 + 실전형 해석</div>
+    <div class="report-stage-item"><strong>VIP</strong> : 행운의 수 5개 + 로또 5세트 + 전략 브리핑</div>
+  </div>
+  <div class="actions plan-bottom-actions" style="margin-top:22px;"><a class="btn primary" href="/plans">플랜 보기</a><a class="btn" href="/contact">문의하기</a></div>
 </section>
 {% endblock %}

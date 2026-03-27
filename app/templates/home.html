@@ -1,148 +1,118 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="hero-grid commercial-hero-grid hook-main-grid home-premium-grid">
-  <div class="card hero-card commercial-hero hook-hero-card home-lux-hero">
-    <div class="hero-topline-row">
-      <div class="badge badge-lux">오늘의 흐름 · 재물 운 · 관계 신호 · 행운 로또</div>
-      <div class="hero-trust-mini">매일 업데이트 · 모바일 최적화 · 무료 시작 가능</div>
-    </div>
-    <h1>오늘의 흐름을 먼저 읽고, <span>좋은 타이밍을 놓치지 마세요</span></h1>
-    <p class="subtext">하루의 기회와 주의 포인트를 보기 좋게 정리해드립니다. 무료 핵심 요약으로 가볍게 시작하고, 더 깊은 해석은 Basic · Premium · VIP에서 단계별로 확인할 수 있습니다.</p>
-
-    <div class="hero-benefit-strip hero-benefit-lux">
-      <span>무료 핵심 요약 제공</span>
-      <span>회원가입 후 바로 확인</span>
-      <span>오늘의 행운 로또 2세트</span>
+<section class="hero-grid commercial-hero-grid v89-landing-grid">
+  <div class="card hero-card v89-hero-card">
+    <div class="v89-topline-row">
+      <div class="badge badge-lux">지금 바로 무료 확인</div>
+      <div class="v89-mini-proof">매일 업데이트 · 무료 4종목 제공</div>
     </div>
 
-    <div class="hook-stat-row hero-polish-stats">
+    <div class="v89-copy-block">
+      <div class="v89-kicker">운세와 종목 리딩을 한 번에</div>
+      <h1>오늘 꼭 챙겨볼 정보만 <span>고급스럽게 담았습니다</span></h1>
+      <p class="v89-subtext">띠별운세, 행운 정보, 로또번호 5개, 단타 2종목과 스윙 2종목까지. 필요한 정보만 품격 있게 바로 확인하실 수 있습니다.</p>
+    </div>
+
+    <div class="v89-pill-group" aria-label="무료 제공 정보">
+      <span class="v89-pill tone-main">띠별운세</span>
+      <span class="v89-pill tone-soft">오늘의 코멘트</span>
+      <span class="v89-pill tone-main">총운</span>
+      <span class="v89-pill tone-soft">금전운</span>
+      <span class="v89-pill tone-main">관계운</span>
+      <span class="v89-pill tone-gold">로또번호 5개</span>
+      <span class="v89-pill tone-soft">행운의 수</span>
+      <span class="v89-pill tone-main">행운색</span>
+      <span class="v89-pill tone-soft">행운시간</span>
+      <span class="v89-pill tone-main">행운아이템</span>
+      <span class="v89-pill tone-soft">행운방향</span>
+      <span class="v89-pill tone-main">오늘의 길인 성씨</span>
+      <span class="v89-pill tone-hot">🔥 단타 2종목</span>
+      <span class="v89-pill tone-swing">💎 스윙 2종목</span>
+    </div>
+
+    <div class="actions hero-primary-actions v89-hero-actions">
+      <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">지금 무료로 확인하기</a>
+      <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
+    </div>
+
+    <div class="v89-stat-row">
       <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 확인한 사람들</span></div>
-      <div><strong>{{ "{:,}".format(hero_stats.vip_focus) }}</strong><span>심화 해석을 보는 회원</span></div>
-      <div><strong>{{ hero_stats.conversion_rate }}%</strong><span>다시 찾는 만족도</span></div>
+      <div><strong>14가지+</strong><span>무료 제공 정보</span></div>
+      <div><strong>4개</strong><span>매일 무료 종목</span></div>
     </div>
-
-    <div class="actions hero-primary-actions home-hero-actions">
-      <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">오늘의 운세 바로 보기</a>
-      <a class="btn hero-secondary-cta" href="/plans">플랜별 차이 한눈에 보기</a>
-    </div>
-
-    <div class="hero-promise-panel">
-      <div class="hero-promise-item">
-        <strong>오늘 바로 확인</strong>
-        <span>복잡하지 않게 핵심부터 빠르게</span>
-      </div>
-      <div class="hero-promise-item">
-        <strong>무료로 시작</strong>
-        <span>부담 없이 경험한 뒤 필요한 만큼만</span>
-      </div>
-      <div class="hero-promise-item">
-        <strong>더 깊은 해석</strong>
-        <span>중요한 날일수록 플랜별 심화 분석</span>
-      </div>
-    </div>
-
-    <div class="chips hero-proof-chips hero-proof-lux"><span>오늘의 한마디</span><span>관계 흐름 티저</span><span>행운 로또 2세트</span><span>VIP 심화 해석</span></div>
-    <div class="preview-banner soft hero-trust-banner">{{ site_settings.hero_trust_text }}</div>
   </div>
 
-  <div class="card score-card launch-panel premium-sales-panel vip-spotlight-card home-vip-card">
-    <div class="vip-spotlight-badge">지금 가장 깊게 보는 플랜</div>
-    <div class="vip-spotlight-head">
-      <div class="vip-spotlight-kicker">중요한 결정을 앞둔 분께 추천</div>
-      <div class="vip-spotlight-title">VIP</div>
-      <div class="vip-spotlight-subtitle">투자 · 계약 · 타이밍 · 월간 인사이트까지, 단순한 오늘 운세를 넘어 실제 선택에 참고할 수 있는 프리미엄 리포트입니다.</div>
+  <div class="card v89-preview-card">
+    <div class="sidecard-badge">무료 미리보기</div>
+    <h2>오늘 받을 내용을 먼저 보여드립니다</h2>
+
+    <div class="v89-preview-stack">
+      <div class="v89-preview-box fortune-box">
+        <div class="v89-preview-head">
+          <strong>오늘의 운세 리포트</strong>
+          <span>가볍게 보고 바로 이해</span>
+        </div>
+        <div class="v89-button-grid">
+          <div class="v89-preview-btn classic">띠별운세</div>
+          <div class="v89-preview-btn muted">오늘의 코멘트</div>
+          <div class="v89-preview-btn classic">총운 · 금전운 · 관계운</div>
+          <div class="v89-preview-btn gold">로또번호 5개</div>
+          <div class="v89-preview-btn muted">행운의 수 · 색 · 시간</div>
+          <div class="v89-preview-btn classic">행운아이템 · 방향 · 길인 성씨</div>
+        </div>
+      </div>
+
+      <div class="v89-preview-box stock-box">
+        <div class="v89-preview-head">
+          <strong>오늘의 주식 리딩</strong>
+          <span>단타 2종목 · 스윙 2종목</span>
+        </div>
+        <div class="v89-stock-button-grid">
+          <div class="v89-stock-btn hot">🔥 단타 추천 2종목</div>
+          <div class="v89-stock-btn swing">💎 스윙 추천 2종목</div>
+        </div>
+      </div>
     </div>
-    <div class="vip-spotlight-points">
-      <span>로또 5세트</span>
-      <span>VIP 전략 브리핑</span>
-      <span>월간 인사이트</span>
-    </div>
-    <div class="vip-spotlight-highlight">무료는 핵심 요약까지, 깊은 판단은 VIP에서</div>
-    <a class="btn primary vip-spotlight-btn" href="/plans">VIP 혜택 자세히 보기</a>
-    <ul class="bullet-list premium-hook-list vip-bullet-list">
-      <li><strong>Free</strong> : 오늘의 핵심 흐름 + 로또 2세트</li>
-      <li><strong>Basic</strong> : 오늘의 이유까지 보는 실속형 해석</li>
-      <li><strong>Premium</strong> : 사업운 · 행동전략 · 리스크 포인트</li>
-      <li><strong>VIP</strong> : 투자 · 계약 · 타이밍 · 월간 인사이트</li>
-    </ul>
+
+    <div class="v89-preview-note">오늘 필요한 정보만 간결하고 품격 있게 정리했습니다.</div>
   </div>
 </section>
 
-<section class="info-grid four trust-strip home-trust-strip">
-  <div class="card stat-card luxe-stat-card"><div class="stat-label">오늘 먼저 체크할 포인트</div><div class="stat-value">핵심 코멘트</div><p>놓치기 쉬운 흐름을 먼저 정리해 드립니다.</p></div>
-  <div class="card stat-card luxe-stat-card"><div class="stat-label">무료로 시작되는 혜택</div><div class="stat-value">행운 로또 2세트</div><p>가볍게 체험하고 필요할 때만 확장할 수 있습니다.</p></div>
-  <div class="card stat-card luxe-stat-card"><div class="stat-label">가장 많이 고르는 시작</div><div class="stat-value">Basic</div><p>오늘의 이유와 방향까지 보고 싶은 분께 적합합니다.</p></div>
-  <div class="card stat-card luxe-stat-card"><div class="stat-label">깊은 해석이 필요한 순간</div><div class="stat-value">VIP</div><p>중요한 계약, 투자, 타이밍 판단에 더 유리합니다.</p></div>
-</section>
-
-<section class="card compare-teaser home-value-section">
-  <div class="section-head compact section-head-center">
-    <h2>처음이어도 쉽게, 필요한 만큼만 깊게</h2>
-    <p>지금 상태에 맞춰 가볍게 시작할 수도 있고, 더 깊은 해석으로 확장할 수도 있게 구성했습니다.</p>
-  </div>
-  <div class="home-value-grid">
-    <div class="home-value-box">
-      <strong>1. 무료로 시작</strong>
-      <p>오늘의 핵심 흐름과 로또 2세트로 부담 없이 먼저 경험해 보세요.</p>
-    </div>
-    <div class="home-value-box">
-      <strong>2. 필요한 플랜 선택</strong>
-      <p>관계, 재물, 사업, 타이밍 등 내가 필요한 깊이에 맞춰 선택할 수 있습니다.</p>
-    </div>
-    <div class="home-value-box">
-      <strong>3. 매일 더 편하게 확인</strong>
-      <p>모바일에서도 보기 좋게 정리되어 언제든 빠르게 확인할 수 있습니다.</p>
-    </div>
-  </div>
-</section>
-
-<section class="card compare-teaser home-plan-section">
+<section class="card v89-compact-benefit-card">
   <div class="section-head compact">
-    <h2>지금 내게 맞는 플랜, 한눈에 고르세요</h2>
-    <p>무료로 가볍게 시작할지, 더 깊은 해석까지 볼지 바로 비교할 수 있게 정리했습니다.</p>
+    <h2>처음부터 핵심 정보가 넉넉하게 제공됩니다</h2>
+    <p>길게 읽지 않아도 어떤 정보를 받을지 바로 이해되도록 구성했습니다.</p>
   </div>
-  <div class="plan-compare-mini">
+  <div class="v89-mini-benefit-grid">
+    <div class="v89-mini-benefit emphasis">
+      <strong>운세 리포트</strong>
+      <span>띠별운세 · 오늘의 코멘트 · 총운 · 금전운 · 관계운</span>
+    </div>
+    <div class="v89-mini-benefit">
+      <strong>행운 정보</strong>
+      <span>로또번호 5개 · 행운의 수 · 색 · 시간 · 아이템 · 방향 · 길인 성씨</span>
+    </div>
+    <div class="v89-mini-benefit stock-tone">
+      <strong>주식 4종목</strong>
+      <span>단타 2종목 · 스윙 2종목 무료 제공</span>
+    </div>
+  </div>
+</section>
+
+<section class="card compare-teaser home-plan-section v89-plan-section">
+  <div class="section-head compact">
+    <h2>플랜별 해석 범위</h2>
+    <p>Free로 먼저 충분히 확인하고, 필요할 때만 더 넓은 해석을 선택하실 수 있습니다.</p>
+  </div>
+  <div class="plan-compare-mini wide-compare-grid">
     {% for level in ['Free', 'Basic', 'Premium', 'VIP'] %}
     <div class="mini-plan-box {% if level == 'VIP' %}featured vip-tone{% endif %}">
       <div class="mini-plan-name">{{ level }}</div>
       <div class="mini-plan-desc">{{ plan_meta[level].headline }}</div>
-      <a class="link-inline" href="/plans">{{ level }} 플랜 자세히 보기</a>
+      <a class="link-inline" href="/plans">{{ level }} 자세히 보기</a>
     </div>
     {% endfor %}
-  </div>
-</section>
-
-<section class="info-grid three home-support-grid">
-  <div class="card small-card quote-card-lux">
-    <h3>오늘의 명언</h3>
-    <p class="quote">“{{ quote }}”</p>
-  </div>
-  <div class="card small-card tip-card-lux">
-    <h3>오늘의 생활 팁</h3>
-    <p>{{ tip }}</p>
-  </div>
-  <div class="card small-card install-guide-trigger-card install-lux-card">
-    <h3>앱처럼 설치하기</h3>
-    <p>{{ site_settings.pwa_prompt_text }}</p>
-    <button class="link-inline guide-toggle-btn" type="button" data-guide-toggle aria-expanded="false" aria-controls="pwaGuide">설치 가이드 보기</button>
-  </div>
-</section>
-
-<section class="card mobile-install-card is-collapsed" id="pwaGuide" aria-hidden="true">
-  <div class="section-head compact">
-    <h2>홈 화면에 추가하면 더 편하게 이용할 수 있습니다</h2>
-    <p>홈 화면에 추가해 두면 주소창 없이 더 크게 볼 수 있고, 다시 방문할 때도 훨씬 빠르게 이용할 수 있습니다.</p>
-  </div>
-  <div class="info-grid two">
-    <div class="card small-card elevated">
-      <h3>안드로이드</h3>
-      <p>크롬에서 사이트를 연 뒤 우측 상단 메뉴 → <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong>를 누른 뒤, 설치된 아이콘으로 다시 실행해 주세요.</p>
-    </div>
-    <div class="card small-card elevated">
-      <h3>아이폰</h3>
-      <p>사파리에서 사이트를 연 뒤 공유 버튼 → <strong>홈 화면에 추가</strong> → 홈 화면 아이콘으로 실행하면 더 앱처럼 편하게 이용할 수 있습니다.</p>
-    </div>
   </div>
 </section>
 {% endblock %}
