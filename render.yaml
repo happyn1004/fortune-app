@@ -15,7 +15,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: RELEASE_VERSION
-        value: "v100-core-reading-polish"
+        value: "v101-dedupe-readability-fix"
     disk:
       name: mysticday-data
       mountPath: /data
