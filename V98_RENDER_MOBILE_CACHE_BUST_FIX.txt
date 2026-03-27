@@ -1,0 +1,14 @@
+V98 Render 정식 배포 반영 강화
+
+핵심 수정
+1. style.css / manifest / icon / og 이미지에 버전 쿼리 추가
+2. 서비스워커 파일명을 sw-push-v24.js 로 올려 강제 갱신 유도
+3. HTML + 주요 정적자산에 no-cache 헤더 확대
+4. RELEASE_VERSION 환경변수 추가(render.yaml)
+5. og 이미지도 버전값 반영
+
+Render 배포 팁
+- 새 zip의 내용만 Git 또는 업로드 기준으로 반영
+- 기존 .venv 업로드 금지
+- 배포 후 모바일에서 홈 화면 앱으로 설치한 경우에는 앱을 완전히 종료 후 다시 실행
+- 브라우저 일반 탭에서는 새로고침 1~2회면 반영되는 구조

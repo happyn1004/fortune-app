@@ -932,13 +932,15 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
     content_type = (response.headers.get("content-type") or "").lower()
-    if "text/html" in content_type or path.endswith("sw.js") or (path.endswith("sw-push-v22.js") or path.endswith("sw-push-v23.js")) or path.endswith("manifest.webmanifest"):
+    if "text/html" in content_type or path.endswith("sw.js") or path.endswith("style.css") or path.endswith("og-saju-lotto.jpg") or path.endswith("icon-192.png") or path.endswith("icon-512.png") or (path.endswith("sw-push-v22.js") or path.endswith("sw-push-v23.js") or path.endswith("sw-push-v24.js")) or path.endswith("manifest.webmanifest"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v98-mobile-render-final").strip() or "v98-mobile-render-final"
 
 @app.get("/storage-debug", response_class=HTMLResponse)
 def storage_debug(request: Request):
@@ -1455,7 +1457,8 @@ def render_view(request: Request, template_name: str, context: dict):
         context.setdefault("meta_description", "오늘의 흐름과 행운 숫자를 간편하게 확인할 수 있는 운세 서비스입니다.")
     context.setdefault("og_site_name", brand_name)
     context.setdefault("og_url", str(request.url))
-    context.setdefault("og_image", "/static/og-saju-lotto.jpg")
+    context.setdefault("og_image", f"/static/og-saju-lotto.jpg?v={STATIC_VERSION}")
+    context.setdefault("static_version", STATIC_VERSION)
     return templates.TemplateResponse(template_name, context)
 
 

@@ -14,6 +14,8 @@ services:
         generateValue: true
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: RELEASE_VERSION
+        value: "v98-mobile-render-final"
     disk:
       name: mysticday-data
       mountPath: /data
