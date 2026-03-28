@@ -100,51 +100,49 @@
     </div>
   </section>
 
-  <section class="card filter-card admin-settings-card">
-    <div class="table-head-row"><h3>7일 유입 · 전환 분석</h3><p class="muted">방문 → 가입 → 로그인 → 플랜 확인 → 결제 진입 → 결제 완료 흐름을 한눈에 확인합니다.</p></div>
-    <div class="info-grid six compact-stats">
-      <div class="card stat-card"><div class="stat-label">홈 방문</div><div class="stat-value">{{ analytics.counts.get('home_view', 0) }}</div></div>
-      <div class="card stat-card"><div class="stat-label">가입 완료</div><div class="stat-value">{{ analytics.counts.get('signup_complete', 0) }}</div></div>
-      <div class="card stat-card"><div class="stat-label">로그인 성공</div><div class="stat-value">{{ analytics.counts.get('login_success', 0) }}</div></div>
-      <div class="card stat-card"><div class="stat-label">플랜 보기</div><div class="stat-value">{{ analytics.counts.get('plans_view', 0) }}</div></div>
-      <div class="card stat-card"><div class="stat-label">결제 진입</div><div class="stat-value">{{ analytics.counts.get('checkout_view', 0) }}</div></div>
-      <div class="card stat-card"><div class="stat-label">결제 완료</div><div class="stat-value">{{ analytics.counts.get('payment_paid', 0) }}</div></div>
+  <section class="card filter-card admin-settings-card admin-analytics-card">
+    <div class="table-head-row admin-analytics-head-row">
+      <div>
+        <h3>{{ '기간별 유입 · 전환 분석' if analytics.is_custom_range else '7일 유입 · 전환 분석' }}</h3>
+        <p class="muted">방문 → 가입 → 로그인 → 플랜 확인 → 결제 진입 → 결제 완료 흐름을 작고 한줄형으로 정리했습니다.</p>
+      </div>
+      <form class="admin-analytics-filter" method="get" action="/admin">
+        <input type="hidden" name="keyword" value="{{ keyword }}">
+        <input type="hidden" name="plan_filter" value="{{ plan_filter }}">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <label>
+          <span>시작일</span>
+          <input type="date" name="analytics_start_date" value="{{ analytics_start_date }}">
+        </label>
+        <label>
+          <span>종료일</span>
+          <input type="date" name="analytics_end_date" value="{{ analytics_end_date }}">
+        </label>
+        <button class="btn mini" type="submit">조회</button>
+        <a class="btn mini ghost" href="/admin">초기화</a>
+      </form>
     </div>
-    <div class="info-grid five compact-stats" style="margin-top:14px;">
-      <div class="card stat-card"><div class="stat-label">방문→가입</div><div class="stat-value">{{ analytics.visit_to_signup }}%</div></div>
-      <div class="card stat-card"><div class="stat-label">가입→로그인</div><div class="stat-value">{{ analytics.signup_to_login }}%</div></div>
-      <div class="card stat-card"><div class="stat-label">플랜 관심률</div><div class="stat-value">{{ analytics.plan_interest_rate }}%</div></div>
-      <div class="card stat-card"><div class="stat-label">결제 진입률</div><div class="stat-value">{{ analytics.checkout_rate }}%</div></div>
-      <div class="card stat-card"><div class="stat-label">결제 완료율</div><div class="stat-value">{{ analytics.paid_conversion }}%</div></div>
+    <div class="admin-analytics-range muted">집계 범위: {{ analytics.range_label }}</div>
+    <div class="admin-analytics-inline-grid admin-analytics-counts">
+      <div class="admin-inline-stat"><span class="stat-label">홈 방문</span><strong class="stat-inline-value">{{ analytics.counts.get('home_view', 0) }}</strong></div>
+      <div class="admin-inline-stat"><span class="stat-label">가입 완료</span><strong class="stat-inline-value">{{ analytics.counts.get('signup_complete', 0) }}</strong></div>
+      <div class="admin-inline-stat"><span class="stat-label">로그인 성공</span><strong class="stat-inline-value">{{ analytics.counts.get('login_success', 0) }}</strong></div>
+      <div class="admin-inline-stat"><span class="stat-label">플랜 보기</span><strong class="stat-inline-value">{{ analytics.counts.get('plans_view', 0) }}</strong></div>
+      <div class="admin-inline-stat"><span class="stat-label">결제 진입</span><strong class="stat-inline-value">{{ analytics.counts.get('checkout_view', 0) }}</strong></div>
+      <div class="admin-inline-stat"><span class="stat-label">결제 완료</span><strong class="stat-inline-value">{{ analytics.counts.get('payment_paid', 0) }}</strong></div>
     </div>
-    <div class="preview-banner soft" style="margin-top:14px;">최근 이벤트 {{ analytics.days }}일 기준으로 자동 집계됩니다. 로그인 실패 수치는 알림설정/가입 UI를 개선할 때 함께 참고하세요.</div>
+    <div class="admin-analytics-inline-grid admin-analytics-rates">
+      <div class="admin-inline-stat rate"><span class="stat-label">방문→가입</span><strong class="stat-inline-value">{{ analytics.visit_to_signup }}%</strong></div>
+      <div class="admin-inline-stat rate"><span class="stat-label">가입→로그인</span><strong class="stat-inline-value">{{ analytics.signup_to_login }}%</strong></div>
+      <div class="admin-inline-stat rate"><span class="stat-label">플랜 관심률</span><strong class="stat-inline-value">{{ analytics.plan_interest_rate }}%</strong></div>
+      <div class="admin-inline-stat rate"><span class="stat-label">결제 진입률</span><strong class="stat-inline-value">{{ analytics.checkout_rate }}%</strong></div>
+      <div class="admin-inline-stat rate"><span class="stat-label">결제 완료율</span><strong class="stat-inline-value">{{ analytics.paid_conversion }}%</strong></div>
+    </div>
+    <div class="preview-banner soft admin-analytics-footnote">로그인 실패 수치와 함께 보면 가입 폼, 고객 진입 버튼, 플랜 페이지를 어느 구간부터 손봐야 할지 빠르게 판단할 수 있습니다.</div>
   </section>
 
-  <section id="staff-panel" class="card filter-card admin-settings-card">
-    <div class="table-head-row"><h3>운영자 계정 관리</h3><p class="muted">최고관리자는 {{ default_admin_email }} 입니다. 일반 회원을 매니저로 올리면 관리자 화면과 고객 전체 기능을 함께 사용할 수 있고, 문제가 생기면 여기서 바로 박탈할 수 있습니다.</p></div>
-    <div class="preview-banner soft" style="margin-bottom:14px;">
-      <div><strong>최초 관리자 아이디</strong> {{ default_admin_email }}</div>
-      <div><strong>최초 임시 비밀번호</strong> Unsejoa!Temp2026#1</div>
-      <div><strong>현재 로그인 권한</strong> {{ admin.role }}</div>
-    </div>
-    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>최근 로그인</th><th>상태</th><th>조치</th></tr></thead><tbody>{% for staff in staff_rows %}<tr><td data-label="이름">{{ staff.name }}</td><td data-label="이메일">{{ staff.email }}</td><td data-label="권한"><span class="status-pill status-{{ staff.role }}">{{ '최고관리자' if staff.role == 'admin' else '매니저' }}</span></td><td data-label="최근 로그인">{{ staff.last_login_at or '-' }}</td><td data-label="상태">{% if staff.must_change_password %}비밀번호 변경 필요{% else %}정상{% endif %}</td><td data-label="조치">{% if is_super_admin and staff.role == 'manager' %}<form method="post" action="/admin/staff/{{ staff.id }}/revoke" class="inline-form inline-admin-form"><button class="btn mini" type="submit">매니저 박탈</button></form>{% else %}<span class="muted">-</span>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted center">운영자 계정이 없습니다.</td></tr>{% endfor %}</tbody></table></div>
-  </section>
-
-  <section id="member-panel" class="card filter-card admin-settings-card">
-    <div class="table-head-row"><h3>회원 목록</h3><p class="muted">운영자 계정 관리 바로 아래에서 회원을 매니저로 올리거나 다시 일반회원으로 되돌릴 수 있습니다.</p></div>
-    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원</th><th>연락처</th><th>등급</th><th>띠</th><th>가입일</th><th>선택 사항</th></tr></thead><tbody>{% for u in users %}<tr><td data-label="ID">{{ u.id }}</td><td data-label="회원"><strong><a class="link-inline" href="/admin/user/{{ u.id }}">{{ u.name }}</a></strong><div class="muted">{{ u.email }}</div>{% if u.role == 'manager' %}<div class="muted">운영자 권한 활성</div>{% endif %}</td><td data-label="연락처">{{ u.phone or '-' }}</td><td data-label="등급"><span class="grade-badge grade-{{ u.plan|lower }}">{{ u.plan }}</span></td><td data-label="띠">{{ u.zodiac or '-' }}</td><td data-label="가입일">{{ u.created_at }}</td><td data-label="선택 사항">{% if is_super_admin %}<form method="post" action="/admin/user/{{ u.id }}/manage" class="member-manage-form compact-row"><div class="member-compact-controls"><select name="plan" aria-label="등급 선택">{% for level in plan_levels %}<option value="{{ level }}" {% if u.plan == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select><input type="date" name="plan_expires_at" value="{{ u.plan_expires_at or '' }}" aria-label="만료일"><select name="staff_role" aria-label="권한 선택"><option value="customer" {% if u.role == 'customer' %}selected{% endif %}>일반회원</option><option value="manager" {% if u.role == 'manager' %}selected{% endif %}>매니저</option></select><input type="text" name="phone" value="{{ u.phone or '' }}" placeholder="연락처" aria-label="연락처"><input type="text" name="admin_memo" value="{{ u.admin_memo or '' }}" placeholder="운영 메모" aria-label="운영 메모"><button class="btn mini primary" type="submit">저장</button></div>{% if u.role == 'manager' %}<div class="member-inline-note">매니저는 고객 전체 기능 + 관리자 화면 사용 가능</div>{% endif %}</form><div class="member-action-stack">{% if u.role != 'admin' %}<form method="post" action="/admin/user/{{ u.id }}/delete" onsubmit="return confirm('이 회원을 강제 탈퇴 처리하시겠습니까? 삭제 후 같은 이메일로 다시 가입할 수 있습니다.');"><button class="btn mini danger" type="submit">강제 탈퇴</button></form>{% endif %}</div>{% else %}<div class="muted">매니저는 조회만 가능합니다.</div>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
-  </section>
-
-  {% if is_super_admin %}
-  <section id="payment-panel" class="card filter-card admin-settings-card">
-    <div class="table-head-row"><h3>결제 수단 운영 가이드</h3><p class="muted">계좌이체를 우선 오픈하고, 카드/간편결제는 준비중으로 정리한 현재 운영 상태입니다.</p></div>
-    <div class="info-grid four compact-provider-grid">
-      {% for key in ['BANK','NICEPAY','TOSS','KAKAO'] %}
-      {% set meta = payment_provider_meta[key] %}
-      <div class="card small-card provider-box {{ 'provider-live' if meta.is_live else 'provider-soon' }}"><div class="provider-topline"><h4>{{ meta.label }}</h4><span class="status-pill {{ 'status-active' if meta.is_live else 'status-draft' }}">{{ '운영중' if meta.is_live else '준비중' }}</span></div><p>{{ meta.description }}</p><div class="muted">코드 {{ key }}</div></div>
-      {% endfor %}
-    </div>
-    <div class="preview-banner soft">지금은 계좌이체만 노출해도 실제 주문번호 생성 → 입금확인 → VIP 반영 흐름이 가능합니다. 카드/간편결제는 추후 토스페이 또는 나이스페이 중 더 쉬운 쪽으로 확장하면 됩니다.</div>
+  <section class="card filter-card admin-settings-card admin-promo-restore-note">
+    <div class="table-head-row"><h3>광고 / 프로모션 빠른 복구</h3><p class="muted">기존 광고/프로모션 편집 영역을 다시 위쪽에 살려 두었습니다. 관리자에서 바로 확인하고 수정할 수 있게 배치했습니다.</p></div>
   </section>
 
   <section id="promo-panel" class="card filter-card admin-settings-card">
@@ -241,6 +239,34 @@
       <div class="admin-data-box"><h4>최근 백업</h4><div class="backup-list">{% for item in backup_files %}<div class="backup-row"><div><strong>{{ item.filename }}</strong><div class="muted">{{ item.modified_at }} · {{ "{:,}".format(item.size) }} bytes</div></div><a class="btn mini" href="/admin/backup/file/{{ item.filename }}">다운로드</a></div>{% else %}<div class="muted">백업 파일이 아직 없습니다.</div>{% endfor %}</div></div>
     </div>
   </section>
+
+  <section id="staff-panel" class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>운영자 계정 관리</h3><p class="muted">최고관리자는 {{ default_admin_email }} 입니다. 일반 회원을 매니저로 올리면 관리자 화면과 고객 전체 기능을 함께 사용할 수 있고, 문제가 생기면 여기서 바로 박탈할 수 있습니다.</p></div>
+    <div class="preview-banner soft" style="margin-bottom:14px;">
+      <div><strong>최초 관리자 아이디</strong> {{ default_admin_email }}</div>
+      <div><strong>최초 임시 비밀번호</strong> Unsejoa!Temp2026#1</div>
+      <div><strong>현재 로그인 권한</strong> {{ admin.role }}</div>
+    </div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>최근 로그인</th><th>상태</th><th>조치</th></tr></thead><tbody>{% for staff in staff_rows %}<tr><td data-label="이름">{{ staff.name }}</td><td data-label="이메일">{{ staff.email }}</td><td data-label="권한"><span class="status-pill status-{{ staff.role }}">{{ '최고관리자' if staff.role == 'admin' else '매니저' }}</span></td><td data-label="최근 로그인">{{ staff.last_login_at or '-' }}</td><td data-label="상태">{% if staff.must_change_password %}비밀번호 변경 필요{% else %}정상{% endif %}</td><td data-label="조치">{% if is_super_admin and staff.role == 'manager' %}<form method="post" action="/admin/staff/{{ staff.id }}/revoke" class="inline-form inline-admin-form"><button class="btn mini" type="submit">매니저 박탈</button></form>{% else %}<span class="muted">-</span>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted center">운영자 계정이 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section id="member-panel" class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>회원 목록</h3><p class="muted">운영자 계정 관리 바로 아래에서 회원을 매니저로 올리거나 다시 일반회원으로 되돌릴 수 있습니다.</p></div>
+    <div class="table-wrap"><table class="mobile-card-table"><thead><tr><th>ID</th><th>회원</th><th>연락처</th><th>등급</th><th>띠</th><th>가입일</th><th>선택 사항</th></tr></thead><tbody>{% for u in users %}<tr><td data-label="ID">{{ u.id }}</td><td data-label="회원"><strong><a class="link-inline" href="/admin/user/{{ u.id }}">{{ u.name }}</a></strong><div class="muted">{{ u.email }}</div>{% if u.role == 'manager' %}<div class="muted">운영자 권한 활성</div>{% endif %}</td><td data-label="연락처">{{ u.phone or '-' }}</td><td data-label="등급"><span class="grade-badge grade-{{ u.plan|lower }}">{{ u.plan }}</span></td><td data-label="띠">{{ u.zodiac or '-' }}</td><td data-label="가입일">{{ u.created_at }}</td><td data-label="선택 사항">{% if is_super_admin %}<form method="post" action="/admin/user/{{ u.id }}/manage" class="member-manage-form compact-row"><div class="member-compact-controls"><select name="plan" aria-label="등급 선택">{% for level in plan_levels %}<option value="{{ level }}" {% if u.plan == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select><input type="date" name="plan_expires_at" value="{{ u.plan_expires_at or '' }}" aria-label="만료일"><select name="staff_role" aria-label="권한 선택"><option value="customer" {% if u.role == 'customer' %}selected{% endif %}>일반회원</option><option value="manager" {% if u.role == 'manager' %}selected{% endif %}>매니저</option></select><input type="text" name="phone" value="{{ u.phone or '' }}" placeholder="연락처" aria-label="연락처"><input type="text" name="admin_memo" value="{{ u.admin_memo or '' }}" placeholder="운영 메모" aria-label="운영 메모"><button class="btn mini primary" type="submit">저장</button></div>{% if u.role == 'manager' %}<div class="member-inline-note">매니저는 고객 전체 기능 + 관리자 화면 사용 가능</div>{% endif %}</form><div class="member-action-stack">{% if u.role != 'admin' %}<form method="post" action="/admin/user/{{ u.id }}/delete" onsubmit="return confirm('이 회원을 강제 탈퇴 처리하시겠습니까? 삭제 후 같은 이메일로 다시 가입할 수 있습니다.');"><button class="btn mini danger" type="submit">강제 탈퇴</button></form>{% endif %}</div>{% else %}<div class="muted">매니저는 조회만 가능합니다.</div>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  {% if is_super_admin %}
+  <section id="payment-panel" class="card filter-card admin-settings-card">
+    <div class="table-head-row"><h3>결제 수단 운영 가이드</h3><p class="muted">계좌이체를 우선 오픈하고, 카드/간편결제는 준비중으로 정리한 현재 운영 상태입니다.</p></div>
+    <div class="info-grid four compact-provider-grid">
+      {% for key in ['BANK','NICEPAY','TOSS','KAKAO'] %}
+      {% set meta = payment_provider_meta[key] %}
+      <div class="card small-card provider-box {{ 'provider-live' if meta.is_live else 'provider-soon' }}"><div class="provider-topline"><h4>{{ meta.label }}</h4><span class="status-pill {{ 'status-active' if meta.is_live else 'status-draft' }}">{{ '운영중' if meta.is_live else '준비중' }}</span></div><p>{{ meta.description }}</p><div class="muted">코드 {{ key }}</div></div>
+      {% endfor %}
+    </div>
+    <div class="preview-banner soft">지금은 계좌이체만 노출해도 실제 주문번호 생성 → 입금확인 → VIP 반영 흐름이 가능합니다. 카드/간편결제는 추후 토스페이 또는 나이스페이 중 더 쉬운 쪽으로 확장하면 됩니다.</div>
+  </section>
+
 
   <section class="card filter-card admin-settings-card">
     <div class="table-head-row"><h3>필수 정보 관리</h3><p class="muted">이용약관, 개인정보처리방침, 환불정책, 고객센터정보에 쓰이는 내용을 관리자에서 바로 수정할 수 있습니다.</p></div>

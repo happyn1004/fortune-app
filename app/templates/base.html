@@ -42,16 +42,24 @@
         <a href="/plans">구독안내</a>
         <a href="/contact">문의</a>
         {% if user %}
-          {% if user.role in ['admin','manager'] %}<span class="top-plan grade-badge grade-vip">운영자 VIP</span>{% else %}<span class="top-plan grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>{% endif %}
-          {# 베타 운영: 상단 알림 카운트 배지 숨김 #}
-          <a href="/profile">프로필</a>
-          <a href="/fortune">오늘의 운세</a>
-          <a href="/vip-report">VIP 리포트</a>
-          {% if user.role == "admin" %}<a href="/automation-studio">자동화 스튜디오</a>{% endif %}
-          <a href="/logout">로그아웃</a>
+          {% if user.role in ['admin','manager'] %}
+            <span class="top-plan grade-badge grade-vip">운영자 VIP</span>
+            <a class="customer-entry-link" href="/customer">고객페이지</a>
+            <a href="/login?next=/customer">고객 로그인</a>
+            {% if user.role == "admin" %}<a href="/automation-studio">자동화 스튜디오</a>{% endif %}
+            <a href="/logout">관리자 로그아웃</a>
+          {% else %}
+            <span class="top-plan grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span>
+            <a class="customer-entry-link" href="/customer">고객페이지</a>
+            <a href="/profile">프로필</a>
+            <a href="/fortune">오늘의 운세</a>
+            <a href="/vip-report">VIP 리포트</a>
+            <a href="/logout">로그아웃</a>
+          {% endif %}
         {% else %}
+          <a class="customer-entry-link" href="/customer">고객페이지</a>
           <a href="/signup">회원가입</a>
-          <a href="/login">로그인</a>
+          <a href="/login?next=/customer">로그인</a>
         {% endif %}
         <a class="admin-link" href="/admin/login">관리자</a>
       </nav>
@@ -67,15 +75,23 @@
       <a href="/" data-path="/"><span class="icon">🏠</span><span>홈</span></a>
       <a href="/plans" data-path="/plans"><span class="icon">💎</span><span>플랜</span></a>
       {% if user %}
+        {% if user.role in ['admin','manager'] %}
+      <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
+      <a href="/login?next=/customer" data-path="/login"><span class="icon">🔐</span><span>고객로그인</span></a>
+      <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
+      {% if user.role == "admin" %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}
+      <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
+        {% else %}
+      <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
       <a href="/fortune" data-path="/fortune"><span class="icon">🔮</span><span>운세</span></a>
       <a href="/vip-report" data-path="/vip-report"><span class="icon">📘</span><span>VIP리포트</span></a>
       <a href="/profile" data-path="/profile"><span class="icon">👤</span><span>프로필</span></a>
-      <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
       <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
-      {% if user.role == "admin" %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}
+        {% endif %}
       {% else %}
+      <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
       <a href="/signup" data-path="/signup"><span class="icon">✍️</span><span>가입</span></a>
-      <a href="/login" data-path="/login"><span class="icon">🔐</span><span>로그인</span></a>
+      <a href="/login?next=/customer" data-path="/login"><span class="icon">🔐</span><span>로그인</span></a>
       <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
       <a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>
       {% endif %}

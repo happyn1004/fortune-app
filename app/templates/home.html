@@ -10,12 +10,12 @@
   <div class="v95-copy-block">
     <div class="v95-kicker">운세와 종목 리딩을 한 번에</div>
     <h1>오늘 놓치면 아쉬운 흐름만 <span>지금 바로 확인해보세요</span></h1>
-    <p class="v95-subtext desktop-only">핵심 흐름과 오늘의 리딩만 더 선명하게 보이도록 랜딩 상단 중복 미리보기 영역은 정리했습니다.</p>
+    <p class="v95-subtext desktop-only">로그인 상태가 헷갈리지 않도록 고객 전용 진입 경로를 분리했고, 오늘의 핵심 흐름만 바로 들어가도록 정리했습니다.</p>
     <div class="home-mobile-summary mobile-only">오늘의 흐름 · 핵심 리딩 · 무료 확인</div>
   </div>
 
   <div class="actions hero-primary-actions v95-hero-actions">
-    <a class="btn primary big-cta hero-lux-cta" href="{{ '/fortune' if user else '/signup' }}">지금 무료로 확인하기</a>
+    <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '고객페이지 바로가기' if user and user.role == 'customer' else '지금 무료로 확인하기' }}</a>
     <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
   </div>
 

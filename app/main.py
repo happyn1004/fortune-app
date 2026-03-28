@@ -451,16 +451,33 @@ def record_event(event_name: str, request: Request | None = None, user_id: int |
             pass
 
 
-def get_analytics_snapshot(days: int = 7) -> dict:
+def get_analytics_snapshot(days: int = 7, start_date: str | None = None, end_date: str | None = None) -> dict:
     conn = get_db()
-    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    parsed_start = parse_date_value(start_date) if start_date else None
+    parsed_end = parse_date_value(end_date) if end_date else None
+    if parsed_start and parsed_end and parsed_start > parsed_end:
+        parsed_start, parsed_end = parsed_end, parsed_start
+    params = []
+    where_parts = []
+    if parsed_start:
+        where_parts.append("created_at >= ?")
+        params.append(f"{parsed_start.strftime('%Y-%m-%d')} 00:00:00")
+    if parsed_end:
+        where_parts.append("created_at <= ?")
+        params.append(f"{parsed_end.strftime('%Y-%m-%d')} 23:59:59")
+    if not where_parts:
+        since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+        where_parts.append("created_at >= ?")
+        params.append(since)
+    where_clause = " AND ".join(where_parts)
     rows = conn.execute(
-        "SELECT event_name, COUNT(*) AS cnt FROM analytics_events WHERE created_at >= ? GROUP BY event_name",
-        (since,),
+        f"SELECT event_name, COUNT(*) AS cnt FROM analytics_events WHERE {where_clause} GROUP BY event_name",
+        params,
     ).fetchall()
     counts = {row['event_name']: row['cnt'] for row in rows}
     recent = conn.execute(
-        "SELECT event_name, path, metadata, created_at FROM analytics_events ORDER BY id DESC LIMIT 12"
+        f"SELECT event_name, path, metadata, created_at FROM analytics_events WHERE {where_clause} ORDER BY id DESC LIMIT 12",
+        params,
     ).fetchall()
     conn.close()
     visit = counts.get('home_view', 0)
@@ -469,6 +486,8 @@ def get_analytics_snapshot(days: int = 7) -> dict:
     plan_view = counts.get('plans_view', 0)
     checkout_click = counts.get('checkout_view', 0)
     paid = counts.get('payment_paid', 0)
+    active_start = parsed_start.strftime('%Y-%m-%d') if parsed_start else None
+    active_end = parsed_end.strftime('%Y-%m-%d') if parsed_end else None
     return {
         'days': days,
         'counts': counts,
@@ -478,6 +497,10 @@ def get_analytics_snapshot(days: int = 7) -> dict:
         'checkout_rate': round((checkout_click / plan_view) * 100, 1) if plan_view else 0.0,
         'paid_conversion': round((paid / checkout_click) * 100, 1) if checkout_click else 0.0,
         'recent_events': [dict(row) for row in recent],
+        'start_date': active_start,
+        'end_date': active_end,
+        'range_label': f"{active_start} ~ {active_end}" if active_start and active_end else (f"{active_start} 이후" if active_start else (f"{active_end}까지" if active_end else f"최근 {days}일")),
+        'is_custom_range': bool(active_start or active_end),
     }
 
 
@@ -2198,6 +2221,24 @@ def redirect_for_staff_role(user):
     return "/profile"
 
 
+def sanitize_next_path(next_path: str | None, default: str = "/fortune") -> str:
+    value = (next_path or "").strip()
+    if not value.startswith("/") or value.startswith("//"):
+        return default
+    blocked_prefixes = ("/admin", "/static", "/api/")
+    if any(value.startswith(prefix) for prefix in blocked_prefixes):
+        return default
+    return value
+
+
+def redirect_for_customer_entry(user):
+    if not user or get_user_field(user, "role") != "customer":
+        return "/login?next=/customer"
+    if get_user_field(user, "birth_date"):
+        return "/fortune"
+    return "/profile"
+
+
 def get_quote_and_tip():
     idx = now_kst().toordinal() % len(QUOTES)
     return QUOTES[idx], LIFE_TIPS[idx]
@@ -3326,30 +3367,39 @@ def signup(
 def login_page(request: Request):
     signup_done = request.query_params.get("signup") == "1"
     signup_email = normalize_email(request.query_params.get("email") or "")
+    next_path = sanitize_next_path(request.query_params.get("next"), "/customer")
     success_message = "가입이 완료되었습니다. 방금 만든 비밀번호로 로그인해 주세요." if signup_done else None
-    return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email})
+    return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email, "next_path": next_path})
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login(request: Request, email: str = Form(...), password: str = Form(...)):
+def login(request: Request, email: str = Form(...), password: str = Form(...), next: str = Form("/customer")):
     normalized_email = normalize_email(email)
+    next_path = sanitize_next_path(next, "/customer")
     user = authenticate_user(normalized_email, password, {"customer"})
     if not user:
         record_event("login_failure", request, None, {"email": normalized_email, "password_length": len((password or '').strip())})
-        return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None})
+        return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None, "prefill_email": normalized_email, "next_path": next_path})
     request.session.clear()
     request.session["user_id"] = user["id"]
     request.session["login_role"] = user["role"]
     request.session["logged_in_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     record_login(user["id"])
     record_event("login_success", request, user["id"], {"plan": user["plan"]})
-    return RedirectResponse(url=redirect_for_user_role(user), status_code=303)
+    redirect_target = next_path if next_path != "/customer" else redirect_for_customer_entry(user)
+    return RedirectResponse(url=redirect_target, status_code=303)
 
 
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/customer")
+def customer_entry(request: Request):
+    user = get_current_user(request)
+    return RedirectResponse(url=redirect_for_customer_entry(user), status_code=303)
 
 
 @app.get("/profile", response_class=HTMLResponse)
@@ -3739,6 +3789,8 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
     bank_rejected = bool(request.query_params.get("bank_rejected"))
     settings_updated = bool(request.query_params.get("settings_updated"))
     password_changed = bool(request.query_params.get("password_changed"))
+    analytics_start_date = request.query_params.get("analytics_start_date", "").strip()
+    analytics_end_date = request.query_params.get("analytics_end_date", "").strip()
 
     where_parts = ["role = 'customer'"]
     params = []
@@ -3783,7 +3835,7 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         row["status_meta"] = build_campaign_status(row)
     staff_rows = conn.execute("SELECT id, name, email, role, created_at, last_login_at, must_change_password FROM users WHERE role IN ('admin','manager') ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id ASC").fetchall()
     conn.close()
-    analytics = get_analytics_snapshot(7)
+    analytics = get_analytics_snapshot(7, analytics_start_date or None, analytics_end_date or None)
     return render_view(request, "admin_dashboard.html", {
         "admin": admin,
         "users": users,
@@ -3815,6 +3867,8 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         "staff_rows": staff_rows,
         "default_admin_email": DEFAULT_ADMIN_EMAIL,
         "analytics": analytics,
+        "analytics_start_date": analytics_start_date,
+        "analytics_end_date": analytics_end_date,
     })
 
 
