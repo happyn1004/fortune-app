@@ -3624,3 +3624,401 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
     font-size:.8rem;
   }
 }
+
+
+/* v113 premium zodiac refinement */
+.v112-hero-upgrade{
+  background:
+    radial-gradient(circle at top left, rgba(244,217,139,.14), rgba(244,217,139,0) 24%),
+    radial-gradient(circle at top right, rgba(169,92,255,.14), rgba(169,92,255,0) 26%),
+    linear-gradient(160deg,#14111f 0%, #181524 45%, #241931 100%);
+}
+.v112-hero-main{
+  gap:32px;
+}
+.v112-zodiac-panel{
+  position:relative;
+  padding:24px;
+  border-radius:30px;
+  background:
+    radial-gradient(circle at top center, rgba(255,220,145,.12), rgba(255,220,145,0) 28%),
+    radial-gradient(circle at 20% 20%, rgba(169,92,255,.12), rgba(169,92,255,0) 36%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border:1px solid rgba(240,213,154,.16);
+  box-shadow:
+    0 30px 60px rgba(5,4,12,.34),
+    inset 0 1px 0 rgba(255,255,255,.05),
+    inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.v112-zodiac-panel::before{
+  content:"";
+  position:absolute;
+  inset:14px;
+  border-radius:24px;
+  border:1px solid rgba(240,213,154,.08);
+  pointer-events:none;
+}
+.v112-zodiac-panel-head{
+  position:relative;
+  z-index:1;
+}
+.v112-zodiac-panel-head strong{
+  font-size:1.12rem;
+  letter-spacing:.01em;
+}
+.v112-zodiac-panel-head span{
+  background:linear-gradient(135deg, rgba(170,106,255,.18), rgba(255,215,120,.14));
+  color:#f2e5c0;
+}
+.v112-zodiac-grid{
+  position:relative;
+  z-index:1;
+  gap:16px;
+}
+.v112-zodiac-item{
+  min-height:102px;
+  border-radius:24px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03)),
+    radial-gradient(circle at top, rgba(255,238,192,.09), rgba(255,255,255,0) 68%);
+  border:1px solid rgba(255,255,255,.11);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 10px 22px rgba(0,0,0,.14);
+}
+.v112-zodiac-item .v111-zodiac-emoji{
+  font-size:2.25rem;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.20));
+}
+.v112-zodiac-item .v111-zodiac-label{
+  font-size:.94rem;
+  color:#f4ddb1;
+}
+.v112-zodiac-item:hover{
+  transform:translateY(-6px) scale(1.02);
+  border-color:rgba(244,217,139,.42);
+  box-shadow:
+    0 18px 30px rgba(0,0,0,.24),
+    0 0 0 1px rgba(244,217,139,.10) inset;
+}
+.v112-zodiac-item.is-top{
+  background:
+    linear-gradient(180deg, rgba(255,236,191,.16), rgba(255,255,255,.05)),
+    radial-gradient(circle at top, rgba(255,219,126,.20), rgba(255,255,255,0) 70%);
+  border-color:rgba(244,217,139,.45);
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.24),
+    0 0 0 1px rgba(244,217,139,.16) inset,
+    0 0 22px rgba(244,217,139,.10);
+}
+.v112-zodiac-item.is-top::after{
+  content:attr(data-rank);
+  position:absolute;
+  top:8px;
+  right:8px;
+  font-size:.66rem;
+  line-height:1;
+  font-weight:900;
+  color:#2a1b0a;
+  background:linear-gradient(180deg, #ffe6a6, #f0c96a);
+  border-radius:999px;
+  padding:6px 8px 5px;
+  box-shadow:0 6px 12px rgba(0,0,0,.18);
+}
+.v112-zodiac-item.rank-1{
+  transform:translateY(-2px);
+  border-color:rgba(255,225,145,.62);
+  box-shadow:
+    0 22px 40px rgba(0,0,0,.28),
+    0 0 0 1px rgba(255,225,145,.18) inset,
+    0 0 26px rgba(255,220,135,.14);
+}
+.v112-zodiac-item.rank-1::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at top, rgba(255,223,120,.14), rgba(255,255,255,0) 56%);
+  pointer-events:none;
+}
+.v112-zodiac-item.rank-2{
+  border-color:rgba(210,191,255,.40);
+}
+.v112-zodiac-item.rank-3{
+  border-color:rgba(244,217,139,.30);
+}
+.v112-zodiac-tip{
+  position:relative;
+  z-index:1;
+  margin-top:2px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.08);
+  color:#e8dcc2;
+  font-size:.9rem;
+  line-height:1.65;
+}
+.v112-hero-left .v95-copy-block{
+  gap:12px;
+}
+.v112-hero-left .v95-kicker{
+  font-size:.86rem;
+  letter-spacing:.10em;
+}
+.v112-hero-left h1{
+  font-size:clamp(2.2rem, 4.3vw, 3.6rem);
+  line-height:1.12;
+  letter-spacing:-0.02em;
+}
+.v112-hero-left .v95-subtext{
+  max-width:760px;
+  font-size:1.05rem;
+  color:#ece2d0;
+}
+.v95-hero-actions .hero-lux-cta{
+  box-shadow:0 18px 36px rgba(169,92,255,.28);
+}
+.v105-landing-preview{
+  margin-top:4px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.03));
+}
+.v105-landing-preview-head strong{
+  font-size:1.12rem;
+}
+.v105-landing-preview-card{
+  border-radius:20px;
+  min-height:108px;
+}
+@media (max-width: 980px){
+  .v112-hero-main{gap:20px;}
+}
+@media (max-width: 640px){
+  .v112-zodiac-panel{padding:16px;border-radius:24px;}
+  .v112-zodiac-panel::before{inset:10px;border-radius:18px;}
+  .v112-zodiac-grid{gap:10px;}
+  .v112-zodiac-item{min-height:84px;border-radius:18px;}
+  .v112-zodiac-item .v111-zodiac-emoji{font-size:1.85rem;}
+  .v112-zodiac-tip{padding:12px 13px;font-size:.84rem;}
+}
+
+
+/* v114 ultra premium zodiac aura */
+.v114-zodiac-aura{
+  position:relative;
+  overflow:hidden;
+}
+
+.v114-zodiac-aura::before{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:radial-gradient(circle, rgba(255,215,120,0.25), transparent 60%);
+  opacity:0;
+  transition:0.4s;
+}
+
+.v114-zodiac-aura:hover::before{
+  opacity:1;
+}
+
+.v114-zodiac-aura::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:24px;
+  background:linear-gradient(120deg, transparent, rgba(255,255,255,0.15), transparent);
+  opacity:0;
+  transition:0.4s;
+}
+
+.v114-zodiac-aura:hover::after{
+  opacity:1;
+}
+
+.v112-zodiac-item.rank-1{
+  animation: glowPulse 2.5s infinite;
+}
+
+@keyframes glowPulse{
+  0%{ box-shadow:0 0 10px rgba(255,215,120,0.2);}
+  50%{ box-shadow:0 0 30px rgba(255,215,120,0.6);}
+  100%{ box-shadow:0 0 10px rgba(255,215,120,0.2);}
+}
+
+
+.v116-rank-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:72px;
+  padding:8px 12px 7px;
+  border-radius:999px;
+  font-size:.76rem;
+  font-weight:900;
+  letter-spacing:.03em;
+  line-height:1;
+  box-shadow:0 8px 18px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.v116-rank-badge.rank-1{
+  color:#2a1b0a;
+  background:linear-gradient(180deg, #ffe9b7, #f0c96a);
+  border:1px solid rgba(255,225,145,.60);
+}
+.v116-rank-badge.rank-2{
+  color:#f4eaff;
+  background:linear-gradient(180deg, rgba(178,142,255,.34), rgba(138,97,232,.22));
+  border:1px solid rgba(210,191,255,.35);
+}
+.v116-rank-badge.rank-3{
+  color:#f4e5c2;
+  background:linear-gradient(180deg, rgba(255,220,145,.18), rgba(201,147,54,.14));
+  border:1px solid rgba(244,217,139,.26);
+}
+@media (max-width: 640px){
+  .v116-rank-strip{gap:8px;}
+  .v116-rank-badge{
+    min-width:64px;
+    padding:7px 10px 6px;
+    font-size:.72rem;
+  }
+}
+
+
+/* v118 conversion upgrade */
+.v118-score-box{
+  margin:16px 0;
+  padding:16px;
+  border-radius:20px;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.08);
+  text-align:center;
+}
+.v118-score-title{
+  font-size:.85rem;
+  color:#e6d3a3;
+  font-weight:800;
+}
+.v118-score-value{
+  font-size:2.2rem;
+  font-weight:900;
+  color:#ffd86b;
+}
+.v118-score-desc{
+  font-size:.9rem;
+  color:#ddd;
+}
+
+/* TOP1 강조 확대 */
+.v112-zodiac-item.rank-1{
+  transform:scale(1.08);
+}
+
+
+
+
+.v112-zodiac-item.is-top::after{
+  content: attr(data-rank) !important;
+  position:absolute;
+  top:8px;
+  right:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:64px;
+  font-size:.66rem;
+  line-height:1;
+  font-weight:900;
+  color:#2a1b0a;
+  background:linear-gradient(180deg, #ffe6a6, #f0c96a);
+  border-radius:999px;
+  padding:6px 8px 5px;
+  box-shadow:0 6px 12px rgba(0,0,0,.18);
+  opacity:1 !important;
+  visibility:visible !important;
+}
+.v112-zodiac-item.rank-2::after{
+  color:#f4eaff;
+  background:linear-gradient(180deg, rgba(178,142,255,.92), rgba(138,97,232,.90));
+}
+.v112-zodiac-item.rank-3::after{
+  color:#f4e5c2;
+  background:linear-gradient(180deg, rgba(201,147,54,.95), rgba(132,93,28,.95));
+}
+.v112-zodiac-item.rank-1{
+  transform:scale(1.08);
+}
+.v112-zodiac-item.rank-2,
+.v112-zodiac-item.rank-3{
+  transform:none;
+}
+@media (max-width: 640px){
+  .v112-zodiac-item.is-top::after{
+    top:6px;
+    right:6px;
+    min-width:56px;
+    font-size:.6rem;
+    padding:5px 7px 4px;
+  }
+}
+
+
+/* v120 ribbon-style top badges */
+.v112-zodiac-grid{
+  overflow:visible;
+}
+.v112-zodiac-item{
+  overflow:visible;
+}
+.v112-zodiac-item.is-top::after{
+  content: attr(data-rank);
+  position:absolute;
+  top:-10px;
+  left:50%;
+  transform:translateX(-50%);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:66px;
+  height:24px;
+  padding:0 10px;
+  border-radius:999px;
+  font-size:.66rem;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:.02em;
+  white-space:nowrap;
+  box-shadow:0 8px 18px rgba(0,0,0,.18);
+  z-index:3;
+}
+.v112-zodiac-item.rank-1::after{
+  color:#2a1b0a;
+  background:linear-gradient(180deg, #ffe9b7, #f0c96a);
+  border:1px solid rgba(255,225,145,.60);
+}
+.v112-zodiac-item.rank-2::after{
+  color:#f4eaff;
+  background:linear-gradient(180deg, rgba(178,142,255,.95), rgba(138,97,232,.92));
+  border:1px solid rgba(210,191,255,.38);
+}
+.v112-zodiac-item.rank-3::after{
+  color:#f4e5c2;
+  background:linear-gradient(180deg, rgba(214,169,86,.96), rgba(154,110,36,.94));
+  border:1px solid rgba(244,217,139,.30);
+}
+.v112-zodiac-item.rank-1{
+  transform:scale(1.06);
+}
+.v112-zodiac-item.rank-2,
+.v112-zodiac-item.rank-3{
+  transform:none;
+}
+@media (max-width: 640px){
+  .v112-zodiac-item.is-top::after{
+    top:-8px;
+    min-width:58px;
+    height:22px;
+    font-size:.6rem;
+    padding:0 8px;
+  }
+}

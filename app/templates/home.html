@@ -16,7 +16,13 @@
         <div class="home-mobile-summary mobile-only">띠별 운세 · 행운의 수 · 좋은 방향</div>
       </div>
 
-      <div class="actions hero-primary-actions v95-hero-actions">
+      
+<div class="v118-score-box">
+  <div class="v118-score-title">오늘의 운세 점수</div>
+  <div class="v118-score-value" id="fortuneScore">82</div>
+  <div class="v118-score-desc">지금 흐름이 매우 좋은 상태입니다</div>
+</div>
+<div class="actions hero-primary-actions v95-hero-actions">
         <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '지금 바로 운세 보기' if user and user.role == 'customer' else '지금 바로 운세 확인하기' }}</a>
         <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
       </div>
@@ -25,31 +31,31 @@
     <aside class="v109-zodiac-visual v111-zodiac-only v112-zodiac-panel" aria-label="12지지 캐릭터">
       <div class="v112-zodiac-panel-head">
         <strong>12지지 캐릭터</strong>
-        <span>오늘 주목 띠 자동 강조</span>
+        <span>오늘의 주목 띠 TOP 3</span>
       </div>
       <div class="v111-zodiac-grid v112-zodiac-grid">
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="0"><span class="v111-zodiac-emoji">🐭</span><span class="v111-zodiac-label">자</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="1"><span class="v111-zodiac-emoji">🐮</span><span class="v111-zodiac-label">축</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="2"><span class="v111-zodiac-emoji">🐯</span><span class="v111-zodiac-label">인</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="3"><span class="v111-zodiac-emoji">🐰</span><span class="v111-zodiac-label">묘</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="4"><span class="v111-zodiac-emoji">🐲</span><span class="v111-zodiac-label">진</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="5"><span class="v111-zodiac-emoji">🐍</span><span class="v111-zodiac-label">사</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="6"><span class="v111-zodiac-emoji">🐴</span><span class="v111-zodiac-label">오</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="7"><span class="v111-zodiac-emoji">🐑</span><span class="v111-zodiac-label">미</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="8"><span class="v111-zodiac-emoji">🐵</span><span class="v111-zodiac-label">신</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="9"><span class="v111-zodiac-emoji">🐔</span><span class="v111-zodiac-label">유</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="10"><span class="v111-zodiac-emoji">🐶</span><span class="v111-zodiac-label">술</span></div>
-        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="11"><span class="v111-zodiac-emoji">🐷</span><span class="v111-zodiac-label">해</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="0"><span class="v111-zodiac-emoji">🐭</span><span class="v111-zodiac-label">자</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="1"><span class="v111-zodiac-emoji">🐮</span><span class="v111-zodiac-label">축</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="2"><span class="v111-zodiac-emoji">🐯</span><span class="v111-zodiac-label">인</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="3"><span class="v111-zodiac-emoji">🐰</span><span class="v111-zodiac-label">묘</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="4"><span class="v111-zodiac-emoji">🐲</span><span class="v111-zodiac-label">진</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="5"><span class="v111-zodiac-emoji">🐍</span><span class="v111-zodiac-label">사</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="6"><span class="v111-zodiac-emoji">🐴</span><span class="v111-zodiac-label">오</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="7"><span class="v111-zodiac-emoji">🐑</span><span class="v111-zodiac-label">미</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="8"><span class="v111-zodiac-emoji">🐵</span><span class="v111-zodiac-label">신</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="9"><span class="v111-zodiac-emoji">🐔</span><span class="v111-zodiac-label">유</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="10"><span class="v111-zodiac-emoji">🐶</span><span class="v111-zodiac-label">술</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item v114-zodiac-aura" data-zodiac-index="11"><span class="v111-zodiac-emoji">🐷</span><span class="v111-zodiac-label">해</span></div>
       </div>
       <div class="v112-zodiac-tip">
-        오늘 주목할 띠가 자동으로 강조됩니다
+        오늘의 흐름이 강한 띠를 먼저 살펴보고, 좋은 방향과 행운시간까지 함께 확인해보세요
       </div>
     </aside>
   </div>
 
   <section class="v105-landing-preview" aria-label="랜딩 미리보기">
     <div class="v105-landing-preview-head">
-      <strong>오늘 반드시 확인해야 할 핵심 정보</strong>
+      <strong>오늘 반드시 확인해야 할 핵심 정보 (TOP 띠 상세는 VIP에서 공개됩니다)</strong>
       <span>오늘의 흐름을 한눈에 볼 수 있도록 핵심만 정리했습니다.</span>
     </div>
     <div class="v105-landing-preview-grid">
@@ -88,24 +94,27 @@
 
   <script>
     (function () {
-      const items = Array.from(document.querySelectorAll('.v112-zodiac-item'));
+      const items = Array.from(document.querySelectorAll('.v112-zodiac-item.v114-zodiac-aura'));
       if (!items.length) return;
       const now = new Date();
       const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
       const seed = Number(String(kst.getFullYear()) + String(kst.getMonth() + 1).padStart(2, '0') + String(kst.getDate()).padStart(2, '0'));
-      const todayIndex = seed % items.length;
+      const picks = [
+        seed % items.length,
+        (seed + 4) % items.length,
+        (seed + 8) % items.length
+      ];
+      const labels = ['👑 TOP 1', 'TOP 2', 'TOP 3'];
       items.forEach((item, idx) => {
-        if (idx === todayIndex) item.classList.add('is-today');
+        const rank = picks.indexOf(idx);
+        if (rank !== -1) {
+          item.classList.add('is-top');
+          item.classList.add('rank-' + (rank + 1));
+          item.setAttribute('data-rank', labels[rank]);
+        }
       });
     })();
   </script>
-</section>
-
-  <div class="v95-stat-row">
-    <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 이미 확인한 사람들</span></div>
-    <div><strong>핵심 흐름</strong><span>핵심만 압축해 빠르게 확인</span></div>
-    <div><strong>4개</strong><span>매일 제공되는 핵심 종목</span></div>
-  </div>
 </section>
 
 <section class="card compare-teaser home-plan-section v95-plan-section">
