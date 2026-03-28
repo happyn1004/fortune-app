@@ -4,58 +4,58 @@
 <section class="card hero-card v95-merged-hero v103-landing-upgrade">
   <div class="v95-top-row">
     <div class="badge badge-lux">오늘 무료 제공</div>
-    <div class="v95-proof">매일 업데이트 · 가입 유도형 프리미엄 미리보기</div>
+    <div class="v95-proof">매일 업데이트 · 오늘 기준 핵심 정보 제공</div>
   </div>
 
   <div class="v95-copy-block">
     <div class="v95-kicker">운세와 종목 리딩을 한 번에</div>
-    <h1>오늘 놓치면 아쉬운 흐름만 <span>지금 바로 확인해보세요</span></h1>
-    <p class="v95-subtext desktop-only">로그인 상태가 헷갈리지 않도록 고객 전용 진입 경로를 분리했고, 오늘의 핵심 흐름만 바로 들어가도록 정리했습니다.</p>
-    <div class="home-mobile-summary mobile-only">오늘의 흐름 · 핵심 리딩 · 무료 확인</div>
+    <h1>오늘 수익의 방향은 이미 <span>움직이기 시작했습니다</span></h1>
+    <p class="v95-subtext desktop-only">지금 필요한 흐름만 압축했습니다. 오늘의 기회와 핵심 정보만 빠르게 확인해보세요.</p>
+    <div class="home-mobile-summary mobile-only">오늘의 흐름 · 핵심 정보 · 무료 확인</div>
   </div>
 
   <div class="actions hero-primary-actions v95-hero-actions">
-    <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '고객페이지 바로가기' if user and user.role == 'customer' else '지금 무료로 확인하기' }}</a>
+    <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '오늘 흐름 바로 보기' if user and user.role == 'customer' else '지금 바로 흐름 확인하기' }}</a>
     <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
   </div>
 
   <section class="v105-landing-preview" aria-label="랜딩 미리보기">
     <div class="v105-landing-preview-head">
-      <strong>오늘 무료로 먼저 볼 수 있는 핵심 미리보기</strong>
-      <span>아래 핵심 흐름과 연결되도록 같은 톤으로 정리했습니다.</span>
+      <strong>오늘 반드시 확인해야 할 핵심 정보</strong>
+      <span>오늘의 흐름을 한눈에 볼 수 있도록 핵심만 정리했습니다.</span>
     </div>
     <div class="v105-landing-preview-grid">
       <article class="v105-landing-preview-card">
         <strong>띠별 운세</strong>
-        <span>오늘 나의 전체 흐름과 감정선</span>
+        <span>오늘의 흐름과 기회 타이밍</span>
       </article>
       <article class="v105-landing-preview-card">
         <strong>행운의 수</strong>
-        <span>오늘의 선택 감각을 돕는 숫자 신호</span>
+        <span>선택의 방향을 잡아주는 숫자 신호</span>
       </article>
       <article class="v105-landing-preview-card">
         <strong>좋은 방향</strong>
-        <span>움직일 때 더 잘 풀리는 방향 포인트</span>
+        <span>움직일수록 풀리는 방향 포인트</span>
       </article>
       <article class="v105-landing-preview-card">
         <strong>행운시간</strong>
-        <span>타이밍이 살아나는 집중 구간</span>
+        <span>집중해야 할 골든타임</span>
       </article>
       <article class="v105-landing-preview-card accent">
         <strong>단타 2종목</strong>
-        <span>오늘 빠르게 볼 핵심 종목 힌트</span>
+        <span>오늘 빠르게 움직이는 핵심 종목</span>
       </article>
       <article class="v105-landing-preview-card accent">
         <strong>스윙 2종목</strong>
-        <span>조금 더 길게 보는 흐름 종목</span>
+        <span>흐름을 타고 가는 유망 종목</span>
       </article>
     </div>
   </section>
 
   <div class="v95-stat-row">
-    <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 확인한 사람들</span></div>
-    <div><strong>핵심 흐름</strong><span>중복 없이 바로 확인</span></div>
-    <div><strong>4개</strong><span>매일 무료 종목</span></div>
+    <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 이미 확인한 사람들</span></div>
+    <div><strong>핵심 흐름</strong><span>핵심만 압축해 빠르게 확인</span></div>
+    <div><strong>4개</strong><span>매일 제공되는 핵심 종목</span></div>
   </div>
 </section>
 
