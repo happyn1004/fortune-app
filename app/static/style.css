@@ -3406,3 +3406,221 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 .admin-promo-restore-note{padding-bottom:14px;}
 .admin-promo-restore-note .table-head-row{margin-bottom:0;}
 #promo-panel{scroll-margin-top:96px;}
+
+
+/* v111 zodiac-only hero visual */
+.v111-zodiac-only{
+  min-height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+}
+.v111-zodiac-grid{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(72px, 1fr));
+  gap:16px 14px;
+  justify-items:center;
+  align-items:center;
+}
+.v111-zodiac-item{
+  width:100%;
+  max-width:92px;
+  aspect-ratio:1 / 1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:24px;
+  background:radial-gradient(circle at top, rgba(173,118,255,.12), rgba(255,255,255,.03) 62%);
+  border:1px solid rgba(240,213,154,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.v111-zodiac-emoji{
+  font-size:2rem;
+  line-height:1;
+}
+.v111-zodiac-label{
+  color:#f0d59a;
+  font-size:.85rem;
+  font-weight:800;
+  line-height:1;
+}
+@media (max-width: 980px){
+  .v111-zodiac-grid{
+    grid-template-columns:repeat(4, minmax(58px, 1fr));
+    gap:12px 10px;
+  }
+  .v111-zodiac-item{
+    max-width:84px;
+    border-radius:20px;
+  }
+}
+@media (max-width: 640px){
+  .v111-zodiac-only{padding:14px;}
+  .v111-zodiac-grid{
+    grid-template-columns:repeat(3, minmax(56px, 1fr));
+    gap:10px 8px;
+  }
+  .v111-zodiac-item{
+    max-width:76px;
+    border-radius:18px;
+    gap:6px;
+  }
+  .v111-zodiac-emoji{font-size:1.65rem;}
+  .v111-zodiac-label{font-size:.78rem;}
+}
+
+
+/* v112 right-panel zodiac hero upgrade */
+.v112-hero-upgrade{
+  gap:22px;
+}
+.v112-hero-main{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);
+  gap:28px;
+  align-items:stretch;
+}
+.v112-hero-left{
+  display:grid;
+  gap:22px;
+  align-content:center;
+  min-width:0;
+}
+.v112-zodiac-panel{
+  min-height:100%;
+  display:grid;
+  gap:16px;
+  align-content:start;
+  padding:22px;
+  border-radius:28px;
+  background:
+    radial-gradient(circle at top, rgba(173,118,255,.16), rgba(173,118,255,0) 36%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
+  border:1px solid rgba(240,213,154,.14);
+  box-shadow:0 22px 44px rgba(6,4,12,.28), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.v112-zodiac-panel-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.v112-zodiac-panel-head strong{
+  color:#fff3d4;
+  font-size:1.05rem;
+  font-weight:900;
+}
+.v112-zodiac-panel-head span{
+  color:#cebfff;
+  font-size:.82rem;
+  font-weight:800;
+  padding:8px 12px;
+  border-radius:999px;
+  background:rgba(164,96,255,.12);
+  border:1px solid rgba(180,125,255,.18);
+}
+.v112-zodiac-grid{
+  grid-template-columns:repeat(3, minmax(88px, 1fr));
+  gap:14px;
+}
+.v112-zodiac-item{
+  max-width:none;
+  min-height:96px;
+  aspect-ratio:auto;
+  border-radius:22px;
+  position:relative;
+  overflow:hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)),
+    radial-gradient(circle at top, rgba(240,213,154,.12), rgba(255,255,255,0) 65%);
+  border:1px solid rgba(255,255,255,.10);
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.v112-zodiac-item::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+  pointer-events:none;
+}
+.v112-zodiac-item:hover{
+  transform:translateY(-4px);
+  border-color:rgba(224,186,100,.38);
+  box-shadow:0 14px 28px rgba(0,0,0,.22), 0 0 0 1px rgba(240,213,154,.08) inset;
+}
+.v112-zodiac-item.is-today{
+  border-color:rgba(227,191,109,.56);
+  box-shadow:0 18px 34px rgba(0,0,0,.26), 0 0 0 1px rgba(240,213,154,.16) inset, 0 0 18px rgba(206,163,76,.16);
+  background:
+    linear-gradient(180deg, rgba(255,228,161,.12), rgba(255,255,255,.04)),
+    radial-gradient(circle at top, rgba(255,217,110,.18), rgba(255,255,255,0) 68%);
+}
+.v112-zodiac-item.is-today::after{
+  content:"오늘";
+  position:absolute;
+  top:8px;
+  right:8px;
+  font-size:.66rem;
+  line-height:1;
+  font-weight:900;
+  color:#2a1b0a;
+  background:#f4d98b;
+  border-radius:999px;
+  padding:5px 7px 4px;
+}
+.v112-zodiac-item .v111-zodiac-emoji{
+  font-size:2.15rem;
+}
+.v112-zodiac-item .v111-zodiac-label{
+  font-size:.9rem;
+  letter-spacing:.02em;
+}
+.v112-zodiac-tip{
+  color:#e5d8c0;
+  font-size:.88rem;
+  line-height:1.55;
+  text-align:center;
+  font-weight:700;
+}
+@media (max-width: 1100px){
+  .v112-hero-main{
+    grid-template-columns:minmax(0,1fr) 360px;
+    gap:22px;
+  }
+}
+@media (max-width: 980px){
+  .v112-hero-main{
+    grid-template-columns:1fr;
+  }
+  .v112-zodiac-panel{
+    order:2;
+  }
+  .v112-hero-left{
+    order:1;
+  }
+}
+@media (max-width: 640px){
+  .v112-zodiac-panel{
+    padding:16px;
+    border-radius:22px;
+  }
+  .v112-zodiac-grid{
+    grid-template-columns:repeat(3, minmax(72px, 1fr));
+    gap:10px;
+  }
+  .v112-zodiac-item{
+    min-height:82px;
+    border-radius:18px;
+  }
+  .v112-zodiac-item .v111-zodiac-emoji{
+    font-size:1.8rem;
+  }
+  .v112-zodiac-item .v111-zodiac-label{
+    font-size:.8rem;
+  }
+}

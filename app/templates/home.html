@@ -1,22 +1,50 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="card hero-card v95-merged-hero v103-landing-upgrade">
+<section class="card hero-card v95-merged-hero v103-landing-upgrade v112-hero-upgrade">
   <div class="v95-top-row">
     <div class="badge badge-lux">오늘 무료 제공</div>
-    <div class="v95-proof">매일 업데이트 · 오늘 기준 핵심 정보 제공</div>
+    <div class="v95-proof">매일 업데이트 · 12지지 운세 기반 오늘의 흐름 제공</div>
   </div>
 
-  <div class="v95-copy-block">
-    <div class="v95-kicker">운세와 종목 리딩을 한 번에</div>
-    <h1>오늘 수익의 방향은 이미 <span>움직이기 시작했습니다</span></h1>
-    <p class="v95-subtext desktop-only">지금 필요한 흐름만 압축했습니다. 오늘의 기회와 핵심 정보만 빠르게 확인해보세요.</p>
-    <div class="home-mobile-summary mobile-only">오늘의 흐름 · 핵심 정보 · 무료 확인</div>
-  </div>
+  <div class="v112-hero-main">
+    <div class="v112-hero-left">
+      <div class="v95-copy-block">
+        <div class="v95-kicker">12지지 동물과 함께 보는 오늘의 운세</div>
+        <h1>오늘의 운세 흐름을 <span>가장 먼저 확인하세요</span></h1>
+        <p class="v95-subtext desktop-only">띠별 운세, 행운의 수, 좋은 방향, 행운시간까지 오늘 꼭 봐야 할 흐름을 한눈에 확인하세요.</p>
+        <div class="home-mobile-summary mobile-only">띠별 운세 · 행운의 수 · 좋은 방향</div>
+      </div>
 
-  <div class="actions hero-primary-actions v95-hero-actions">
-    <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '오늘 흐름 바로 보기' if user and user.role == 'customer' else '지금 바로 흐름 확인하기' }}</a>
-    <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
+      <div class="actions hero-primary-actions v95-hero-actions">
+        <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '지금 바로 운세 보기' if user and user.role == 'customer' else '지금 바로 운세 확인하기' }}</a>
+        <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
+      </div>
+    </div>
+
+    <aside class="v109-zodiac-visual v111-zodiac-only v112-zodiac-panel" aria-label="12지지 캐릭터">
+      <div class="v112-zodiac-panel-head">
+        <strong>12지지 캐릭터</strong>
+        <span>오늘 주목 띠 자동 강조</span>
+      </div>
+      <div class="v111-zodiac-grid v112-zodiac-grid">
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="0"><span class="v111-zodiac-emoji">🐭</span><span class="v111-zodiac-label">자</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="1"><span class="v111-zodiac-emoji">🐮</span><span class="v111-zodiac-label">축</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="2"><span class="v111-zodiac-emoji">🐯</span><span class="v111-zodiac-label">인</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="3"><span class="v111-zodiac-emoji">🐰</span><span class="v111-zodiac-label">묘</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="4"><span class="v111-zodiac-emoji">🐲</span><span class="v111-zodiac-label">진</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="5"><span class="v111-zodiac-emoji">🐍</span><span class="v111-zodiac-label">사</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="6"><span class="v111-zodiac-emoji">🐴</span><span class="v111-zodiac-label">오</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="7"><span class="v111-zodiac-emoji">🐑</span><span class="v111-zodiac-label">미</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="8"><span class="v111-zodiac-emoji">🐵</span><span class="v111-zodiac-label">신</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="9"><span class="v111-zodiac-emoji">🐔</span><span class="v111-zodiac-label">유</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="10"><span class="v111-zodiac-emoji">🐶</span><span class="v111-zodiac-label">술</span></div>
+        <div class="v111-zodiac-item v112-zodiac-item" data-zodiac-index="11"><span class="v111-zodiac-emoji">🐷</span><span class="v111-zodiac-label">해</span></div>
+      </div>
+      <div class="v112-zodiac-tip">
+        오늘 주목할 띠가 자동으로 강조됩니다
+      </div>
+    </aside>
   </div>
 
   <section class="v105-landing-preview" aria-label="랜딩 미리보기">
@@ -51,6 +79,27 @@
       </article>
     </div>
   </section>
+
+  <div class="v95-stat-row">
+    <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 이미 확인한 사람들</span></div>
+    <div><strong>핵심 흐름</strong><span>핵심만 압축해 빠르게 확인</span></div>
+    <div><strong>4개</strong><span>매일 제공되는 핵심 종목</span></div>
+  </div>
+
+  <script>
+    (function () {
+      const items = Array.from(document.querySelectorAll('.v112-zodiac-item'));
+      if (!items.length) return;
+      const now = new Date();
+      const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+      const seed = Number(String(kst.getFullYear()) + String(kst.getMonth() + 1).padStart(2, '0') + String(kst.getDate()).padStart(2, '0'));
+      const todayIndex = seed % items.length;
+      items.forEach((item, idx) => {
+        if (idx === todayIndex) item.classList.add('is-today');
+      });
+    })();
+  </script>
+</section>
 
   <div class="v95-stat-row">
     <div><strong>{{ "{:,}".format(hero_stats.daily_checkers) }}</strong><span>이번 주 이미 확인한 사람들</span></div>
