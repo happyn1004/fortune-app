@@ -117,6 +117,31 @@
   </script>
 </section>
 
+<section class="card mind-entry-card">
+  <div class="section-head compact">
+    <h2>성공 루틴 체크</h2>
+    <p>베이직 이상 전용. 매일 체크하며 행동으로 옮기는 실전 페이지입니다.</p>
+  </div>
+  <div class="mind-entry-grid">
+    <div class="mind-entry-copy">
+      <strong>문제는 의지 부족이 아니라 시스템 부재입니다</strong>
+      <p>오늘 가장 중요한 1가지 선정부터 밤 마감까지 18개 항목을 숫자로 체크하세요.</p>
+      <ul class="mind-entry-points">
+        <li>01~18 실행 체크리스트</li>
+        <li>오늘 진행률 자동 저장</li>
+        <li>연속 완료일 표시</li>
+      </ul>
+    </div>
+    <div class="mind-entry-actions">
+      {% if user and user.plan in ['Basic','Premium','VIP'] %}
+      <a class="btn primary" href="/mind">지금 체크하러 가기</a>
+      {% else %}
+      <a class="btn primary" href="/upgrade?required=Basic&from_path=/mind">베이직 이상에서 입장</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
 <section class="card compare-teaser home-plan-section v95-plan-section">
   <div class="section-head compact">
     <h2>플랜별 해석 범위</h2>

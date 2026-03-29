@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% block title %}{{ meta_title }}{% endblock %}
+{% block content %}
+<section class="card mind-page-shell mind-page-v2">
+  <div class="mind-top-strip">
+    <div>
+      <span class="badge badge-lux">Basic 이상 전용</span>
+      <span class="mind-mini-formula">성공 = 환경 + 시스템 + 반복</span>
+    </div>
+    <div class="mind-top-actions">
+      <button type="button" class="btn secondary" id="mindResetBtn">오늘 체크 초기화</button>
+    </div>
+  </div>
+
+  <section class="mind-identity-hero">
+    <div class="mind-identity-copy">
+      <div class="mind-identity-kicker">1000억 정체성 각인</div>
+      <h1>나는 이미 1000억을 벌었다</h1>
+      <p>그래서 오늘도 감정이 아니라 기준으로 움직인다. 이 페이지는 좋은 말이 아니라, <strong>1000억을 번 사람처럼 행동했는지 체크하는 실전 보드</strong>다.</p>
+      <div class="mind-identity-pills">
+        <span>중요한 1가지 먼저</span>
+        <span>방해요소 즉시 차단</span>
+        <span>매일 체크로 누적 승리</span>
+      </div>
+    </div>
+    <div class="mind-scoreboard mind-scoreboard-hero">
+      <div class="mind-score-card major">
+        <span>오늘 진행률</span>
+        <strong id="mindProgressPercent">{{ routine_state.progress_percent }}%</strong>
+      </div>
+      <div class="mind-score-card">
+        <span>완료 개수</span>
+        <strong><span id="mindCompletedCount">{{ routine_state.completed_count }}</span> / {{ routine_state.total_count }}</strong>
+      </div>
+      <div class="mind-score-card">
+        <span>연속 완료일</span>
+        <strong id="mindStreakCount">{{ routine_state.streak_count }}일</strong>
+      </div>
+      <div class="mind-score-card accent">
+        <span>최근 완료일</span>
+        <strong>{{ routine_state.recent_completed_days }}일</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="mind-priority-board">
+    <div class="mind-priority-head">
+      <div>
+        <div class="mind-block-no">0. 오늘의 한 가지</div>
+        <h2>오늘 가장 중요한 1가지를 먼저 적고 시작하세요</h2>
+      </div>
+      <div class="mind-priority-tip">많이 하는 날보다, 가장 중요한 1가지를 끝내는 날이 강합니다.</div>
+    </div>
+    <textarea id="mindPriorityInput" class="mind-priority-input" placeholder="예: 오늘 가장 돈이 되는 제안서 1건 끝내기"></textarea>
+    <div class="mind-priority-mini-checks">
+      <label><input type="checkbox" id="mindPhoneOff"> 폰 무음/뒤집기</label>
+      <label><input type="checkbox" id="mindDeskClear"> 작업 자리 정리</label>
+      <label><input type="checkbox" id="mindStartNow"> 지금 바로 시작</label>
+    </div>
+  </section>
+
+  <section class="mind-core-rules">
+    <div class="mind-core-box">
+      <div class="mind-block-no">1. 문제 핵심 구조</div>
+      <ul>
+        <li><strong>1)</strong> 문제는 의지 부족이 아니라 시스템 부재</li>
+        <li><strong>2)</strong> 해결은 환경 + 반복 시스템 구축</li>
+      </ul>
+    </div>
+    <div class="mind-core-box rules">
+      <div class="mind-block-no">2. 반드시 지킬 원칙 3가지</div>
+      <div class="mind-rule-list">
+        <div><strong>1</strong><span>환경이 행동을 만든다</span></div>
+        <div><strong>2</strong><span>목표보다 시스템이 중요하다</span></div>
+        <div><strong>3</strong><span>집중은 선택이 아니라 버림이다</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mind-checklist-header">
+    <div>
+      <div class="mind-block-no">3. 실행 루틴 체크리스트</div>
+      <h2>아래 18개를 실제 행동 기준으로 체크하세요</h2>
+      <p>비슷한 말은 줄이고, 바로 움직일 수 있는 항목만 남겼습니다.</p>
+    </div>
+  </section>
+
+  <div class="mind-routine-grid compact">
+    {% for section in sections %}
+    <section class="mind-routine-card">
+      <div class="mind-routine-card-head">
+        <div>
+          <span class="mind-routine-icon">{{ section['icon'] }}</span>
+          <h3>{{ section['title'] }}</h3>
+        </div>
+        <em>{{ section['subtitle'] }}</em>
+      </div>
+      <div class="mind-check-list">
+        {% for item in section['checks'] %}
+        <label class="mind-check-item {% if routine_state.checked_map.get(item['code']) %}is-checked{% endif %}" data-item-code="{{ item['code'] }}">
+          <input type="checkbox" class="mind-check-input" data-item-code="{{ item['code'] }}" {% if routine_state.checked_map.get(item['code']) %}checked{% endif %}>
+          <span class="mind-check-code">{{ item['code'] }}</span>
+          <span class="mind-check-text">{{ item['label'] }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <section class="mind-execution-footer">
+    <div class="mind-footer-card">
+      <div class="mind-block-no">4. 실행률을 끌어올리는 운영 문장</div>
+      <ul>
+        <li>나는 이미 1000억을 번 사람처럼 가장 중요한 1가지를 먼저 끝낸다.</li>
+        <li>나는 방해요소를 정리하고, 실행이 되는 환경을 먼저 만든다.</li>
+        <li>나는 하루의 체크를 누적으로 쌓아 큰 결과를 만든다.</li>
+      </ul>
+    </div>
+    <div class="mind-footer-card strong">
+      <div class="mind-block-no">최종 결론</div>
+      <p><strong>성공은 의지의 문제가 아니라 시스템의 문제다.</strong><br>오늘 체크를 끝내는 행동이 바로 1000억 정체성을 현실로 만드는 과정이다.</p>
+    </div>
+  </section>
+</section>
+
+<script>
+(function () {
+  const endpointCheck = '/mind/api/check';
+  const endpointReset = '/mind/api/reset';
+  const completedEl = document.getElementById('mindCompletedCount');
+  const percentEl = document.getElementById('mindProgressPercent');
+  const streakEl = document.getElementById('mindStreakCount');
+  const storageKey = 'mind-priority-board-v2';
+
+  function applyState(state) {
+    if (!state) return;
+    if (completedEl) completedEl.textContent = state.completed_count;
+    if (percentEl) percentEl.textContent = state.progress_percent + '%';
+    if (streakEl) streakEl.textContent = state.streak_count + '일';
+    document.querySelectorAll('.mind-check-item').forEach(function (label) {
+      const code = label.getAttribute('data-item-code');
+      const checked = !!state.checked_map[code];
+      label.classList.toggle('is-checked', checked);
+      const input = label.querySelector('input');
+      if (input) input.checked = checked;
+    });
+  }
+
+  async function postJson(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+      credentials: 'same-origin'
+    });
+    return res.json();
+  }
+
+  document.querySelectorAll('.mind-check-input').forEach(function (input) {
+    input.addEventListener('change', async function () {
+      const code = input.getAttribute('data-item-code');
+      try {
+        const result = await postJson(endpointCheck, { item_code: code, checked: input.checked });
+        if (!result.ok) throw new Error(result.message || 'failed');
+        applyState(result.state);
+      } catch (err) {
+        input.checked = !input.checked;
+        alert('체크 저장 중 문제가 발생했습니다. 다시 시도해 주세요.');
+      }
+    });
+  });
+
+  const resetBtn = document.getElementById('mindResetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', async function () {
+      if (!confirm('오늘 체크를 모두 초기화할까요?')) return;
+      try {
+        const result = await postJson(endpointReset, {});
+        if (!result.ok) throw new Error(result.message || 'failed');
+        applyState(result.state);
+      } catch (err) {
+        alert('초기화 중 문제가 발생했습니다. 다시 시도해 주세요.');
+      }
+    });
+  }
+
+  const priorityInput = document.getElementById('mindPriorityInput');
+  const miniChecks = ['mindPhoneOff', 'mindDeskClear', 'mindStartNow'];
+  function loadLocalBoard() {
+    try {
+      const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+      if (data.date !== today) return;
+      if (priorityInput) priorityInput.value = data.priority || '';
+      miniChecks.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!(data[id]);
+      });
+    } catch (e) {}
+  }
+  function saveLocalBoard() {
+    try {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+      const data = { date: today, priority: priorityInput ? priorityInput.value : '' };
+      miniChecks.forEach(function (id) {
+        const el = document.getElementById(id);
+        data[id] = !!(el && el.checked);
+      });
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch (e) {}
+  }
+  if (priorityInput) priorityInput.addEventListener('input', saveLocalBoard);
+  miniChecks.forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', saveLocalBoard);
+  });
+  loadLocalBoard();
+})();
+</script>
+{% endblock %}

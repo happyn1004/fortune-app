@@ -53,6 +53,7 @@
             <a class="customer-entry-link" href="/customer">고객페이지</a>
             <a href="/profile">프로필</a>
             <a href="/fortune">오늘의 운세</a>
+            {% if user.plan in ['Basic','Premium','VIP'] %}<a href="/mind">성공 루틴</a>{% endif %}
             <a href="/vip-report">VIP 리포트</a>
             <a href="/logout">로그아웃</a>
           {% endif %}
@@ -84,6 +85,7 @@
         {% else %}
       <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
       <a href="/fortune" data-path="/fortune"><span class="icon">🔮</span><span>운세</span></a>
+      {% if user.plan in ['Basic','Premium','VIP'] %}<a href="/mind" data-path="/mind"><span class="icon">✅</span><span>성공루틴</span></a>{% endif %}
       <a href="/vip-report" data-path="/vip-report"><span class="icon">📘</span><span>VIP리포트</span></a>
       <a href="/profile" data-path="/profile"><span class="icon">👤</span><span>프로필</span></a>
       <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>

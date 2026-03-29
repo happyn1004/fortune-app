@@ -1622,6 +1622,29 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
+        CREATE TABLE IF NOT EXISTS mind_routine_daily (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            routine_date TEXT NOT NULL,
+            completed_count INTEGER NOT NULL DEFAULT 0,
+            total_count INTEGER NOT NULL DEFAULT 0,
+            is_completed INTEGER NOT NULL DEFAULT 0,
+            streak_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(user_id, routine_date),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        CREATE TABLE IF NOT EXISTS mind_routine_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            routine_date TEXT NOT NULL,
+            item_code TEXT NOT NULL,
+            is_checked INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL,
+            UNIQUE(user_id, routine_date, item_code),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         """
     )
     ensure_column(conn, "users", "plan_expires_at", "plan_expires_at TEXT")
@@ -1649,6 +1672,12 @@ def init_db():
     ensure_column(conn, "push_subscriptions", "last_success_at", "last_success_at TEXT")
     ensure_column(conn, "push_subscriptions", "last_failure_at", "last_failure_at TEXT")
     ensure_column(conn, "push_subscriptions", "failure_reason", "failure_reason TEXT")
+    ensure_column(conn, "mind_routine_daily", "total_items", "total_items INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_daily", "completed_items", "completed_items INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_daily", "streak_count", "streak_count INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_daily", "created_at", "created_at TEXT")
+    ensure_column(conn, "mind_routine_checks", "item_key", "item_key TEXT")
+    ensure_column(conn, "mind_routine_checks", "checked_at", "checked_at TEXT")
     ensure_vapid_keys(conn)
 
     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2906,6 +2935,188 @@ def has_plan_access(user, required_plan: str) -> bool:
     return PLAN_RANK.get(user["plan"], 0) >= PLAN_RANK.get(required_plan, 0)
 
 
+MIND_ROUTINE_SECTIONS = [
+    {
+        "code": "morning",
+        "icon": "☀️",
+        "title": "1. 아침 시동",
+        "subtitle": "시작 1시간",
+        "checks": [
+            {"code": "01", "label": "오늘 가장 중요한 1가지 정하기"},
+            {"code": "02", "label": "폰 무음·뒤집기 / 방해요소 끄기"},
+            {"code": "03", "label": "생각 오래 하지 말고 바로 시작하기"},
+        ],
+    },
+    {
+        "code": "focus",
+        "icon": "🎯",
+        "title": "2. 깊은 집중",
+        "subtitle": "핵심 구간",
+        "checks": [
+            {"code": "04", "label": "60~90분 타이머로 한 가지 일만 하기"},
+            {"code": "05", "label": "멀티태스킹 끊고 현재 작업만 유지"},
+            {"code": "06", "label": "메신저·알림·잡생각 흐름 차단"},
+        ],
+    },
+    {
+        "code": "growth",
+        "icon": "💪",
+        "title": "3. 성장 근육",
+        "subtitle": "습관 강화",
+        "checks": [
+            {"code": "07", "label": "10~30분 몸 움직이기"},
+            {"code": "08", "label": "일부러 어려운 일 1개 먼저 처리"},
+            {"code": "09", "label": "불편함을 피하지 않고 끝까지 버티기"},
+        ],
+    },
+    {
+        "code": "management",
+        "icon": "🧠",
+        "title": "4. 정보·에너지 관리",
+        "subtitle": "흐름 유지",
+        "checks": [
+            {"code": "10", "label": "쓸데없는 정보 소비 끊기"},
+            {"code": "11", "label": "오늘 필요한 것만 짧게 학습"},
+            {"code": "12", "label": "수면 7시간 이상 기준 잡기"},
+        ],
+    },
+    {
+        "code": "closing",
+        "icon": "🌙",
+        "title": "5. 저녁 마감",
+        "subtitle": "하루 정리",
+        "checks": [
+            {"code": "13", "label": "오늘 성과 1가지 기록"},
+            {"code": "14", "label": "잘한 점 1가지 인정"},
+            {"code": "15", "label": "내일 첫 행동 1가지 정리"},
+        ],
+    },
+    {
+        "code": "accelerator",
+        "icon": "🚀",
+        "title": "6. 실행 가속",
+        "subtitle": "필수 적용",
+        "checks": [
+            {"code": "16", "label": "오늘 목표를 누군가에게 말하기"},
+            {"code": "17", "label": "체크해줄 사람 또는 기록 도구 확보"},
+            {"code": "18", "label": "진행 상황을 짧게라도 남기기"},
+        ],
+    },
+]
+
+
+def get_mind_routine_all_items():
+    items = []
+    for section in MIND_ROUTINE_SECTIONS:
+        items.extend(section["checks"])
+    return items
+
+
+def calculate_mind_streak(conn, user_id: int, today_str: str) -> int:
+    rows = conn.execute(
+        "SELECT routine_date, is_completed FROM mind_routine_daily WHERE user_id=? AND is_completed=1 ORDER BY routine_date DESC",
+        (user_id,),
+    ).fetchall()
+    streak = 0
+    cursor = date.fromisoformat(today_str)
+    for row in rows:
+        row_date = date.fromisoformat(row["routine_date"])
+        if row_date == cursor:
+            streak += 1
+            cursor = cursor - timedelta(days=1)
+        elif row_date > cursor:
+            continue
+        else:
+            break
+    return streak
+
+
+def get_mind_routine_state(user_id: int, target_date: date | None = None):
+    target_date = target_date or today_kst()
+    date_str = target_date.isoformat()
+    conn = get_db()
+    try:
+        items = get_mind_routine_all_items()
+        total_count = len(items)
+        checked_rows = conn.execute(
+            "SELECT item_key, is_checked FROM mind_routine_checks WHERE user_id=? AND routine_date=?",
+            (user_id, date_str),
+        ).fetchall()
+        checked_map = {row["item_key"]: int(row["is_checked"] or 0) for row in checked_rows}
+        completed_count = sum(1 for item in items if checked_map.get(item["code"], 0))
+        is_completed = 1 if total_count and completed_count == total_count else 0
+        updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        streak = calculate_mind_streak(conn, user_id, date_str)
+        conn.execute(
+            """
+            INSERT INTO mind_routine_daily (user_id, routine_date, completed_items, total_items, is_completed, streak_count, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT(user_id, routine_date) DO UPDATE SET
+                completed_items=excluded.completed_items,
+                total_items=excluded.total_items,
+                is_completed=excluded.is_completed,
+                streak_count=excluded.streak_count,
+                updated_at=excluded.updated_at
+            """,
+            (user_id, date_str, completed_count, total_count, is_completed, streak, updated_at, updated_at),
+        )
+        rows = conn.execute(
+            "SELECT routine_date, is_completed FROM mind_routine_daily WHERE user_id=? ORDER BY routine_date DESC LIMIT 30",
+            (user_id,),
+        ).fetchall()
+        recent_completed = sum(1 for row in rows if int(row["is_completed"] or 0) == 1)
+        progress_percent = int((completed_count / total_count) * 100) if total_count else 0
+        conn.commit()
+        return {
+            "date": date_str,
+            "checked_map": checked_map,
+            "completed_count": completed_count,
+            "total_count": total_count,
+            "progress_percent": progress_percent,
+            "is_completed": bool(is_completed),
+            "streak_count": streak,
+            "recent_completed_days": recent_completed,
+        }
+    finally:
+        conn.close()
+
+
+def update_mind_routine_item(user_id: int, item_code: str, checked: bool):
+    valid_codes = {item["code"] for item in get_mind_routine_all_items()}
+    if item_code not in valid_codes:
+        raise ValueError("invalid_item_code")
+    conn = get_db()
+    try:
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date_str = today_kst().isoformat()
+        conn.execute(
+            """
+            INSERT INTO mind_routine_checks (user_id, routine_date, item_key, is_checked, checked_at)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(user_id, routine_date, item_key) DO UPDATE SET
+                is_checked=excluded.is_checked,
+                checked_at=excluded.checked_at
+            """,
+            (user_id, date_str, item_code, 1 if checked else 0, now_ts),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return get_mind_routine_state(user_id)
+
+
+def reset_mind_routine(user_id: int):
+    conn = get_db()
+    try:
+        date_str = today_kst().isoformat()
+        conn.execute("DELETE FROM mind_routine_checks WHERE user_id=? AND routine_date=?", (user_id, date_str))
+        conn.execute("DELETE FROM mind_routine_daily WHERE user_id=? AND routine_date=?", (user_id, date_str))
+        conn.commit()
+    finally:
+        conn.close()
+    return get_mind_routine_state(user_id)
+
+
 def build_plan_access(plan: str):
     rank = PLAN_RANK.get(plan, 0)
     return {
@@ -3461,6 +3672,57 @@ def fortune_page(request: Request):
     active_plan, preview_mode = get_active_plan(request, user)
     fortune = generate_fortune(user, active_plan)
     return render_view(request, "fortune.html", {"user": user, "fortune": fortune, "active_plan": active_plan, "preview_mode": preview_mode, "plan_levels": PLAN_LEVELS})
+
+
+@app.get("/mind", response_class=HTMLResponse)
+def mind_routine_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login?next=/mind", status_code=303)
+    if not has_plan_access(user, "Basic"):
+        return RedirectResponse(url="/upgrade?required=Basic&from_path=/mind", status_code=303)
+    state = get_mind_routine_state(user["id"])
+    record_event("mind_view", request, user["id"], {"plan": user["plan"], "progress": state["progress_percent"]})
+    return render_view(request, "mind_routine.html", {
+        "user": user,
+        "sections": MIND_ROUTINE_SECTIONS,
+        "routine_state": state,
+        "push_schedule": [
+            {"time": "오전", "message": "오늘 가장 중요한 1가지를 먼저 체크하세요"},
+            {"time": "오후", "message": "핵심 1가지가 끝났는지 다시 확인하세요"},
+            {"time": "밤", "message": "오늘 성과 1가지와 내일 준비를 체크하세요"},
+        ],
+        "meta_title": "성공 루틴 체크리스트",
+        "meta_description": "베이직 이상 전용 매일 실행 체크리스트 페이지",
+    })
+
+
+@app.post("/mind/api/check")
+async def mind_routine_check_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not has_plan_access(user, "Basic"):
+        return JSONResponse({"ok": False, "message": "upgrade_required"}, status_code=403)
+    payload = await request.json()
+    item_code = str(payload.get("item_code") or "").strip()
+    checked = bool(payload.get("checked"))
+    try:
+        state = update_mind_routine_item(user["id"], item_code, checked)
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "invalid_item_code"}, status_code=400)
+    return JSONResponse({"ok": True, "state": state})
+
+
+@app.post("/mind/api/reset")
+def mind_routine_reset_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not has_plan_access(user, "Basic"):
+        return JSONResponse({"ok": False, "message": "upgrade_required"}, status_code=403)
+    state = reset_mind_routine(user["id"])
+    return JSONResponse({"ok": True, "state": state})
 
 
 @app.get("/vip-report", response_class=HTMLResponse)
