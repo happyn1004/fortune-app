@@ -3107,21 +3107,21 @@ def get_mind_routine_state(user_id: int, target_date: date | None = None):
         items = get_mind_routine_all_items()
         total_count = len(items)
         checked_rows = conn.execute(
-            "SELECT item_key, is_checked FROM mind_routine_checks WHERE user_id=? AND routine_date=?",
+            "SELECT item_code, is_checked FROM mind_routine_checks WHERE user_id=? AND routine_date=?",
             (user_id, date_str),
         ).fetchall()
-        checked_map = {row["item_key"]: int(row["is_checked"] or 0) for row in checked_rows}
+        checked_map = {row["item_code"]: int(row["is_checked"] or 0) for row in checked_rows}
         completed_count = sum(1 for item in items if checked_map.get(item["code"], 0))
         is_completed = 1 if total_count and completed_count == total_count else 0
         updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         streak = calculate_mind_streak(conn, user_id, date_str)
         conn.execute(
             """
-            INSERT INTO mind_routine_daily (user_id, routine_date, completed_items, total_items, is_completed, streak_count, created_at, updated_at)
+            INSERT INTO mind_routine_daily (user_id, routine_date, completed_count, total_count, is_completed, streak_count, created_at, updated_at)
             VALUES (?,?,?,?,?,?,?,?)
             ON CONFLICT(user_id, routine_date) DO UPDATE SET
-                completed_items=excluded.completed_items,
-                total_items=excluded.total_items,
+                completed_count=excluded.completed_count,
+                total_count=excluded.total_count,
                 is_completed=excluded.is_completed,
                 streak_count=excluded.streak_count,
                 updated_at=excluded.updated_at
@@ -3159,11 +3159,11 @@ def update_mind_routine_item(user_id: int, item_code: str, checked: bool):
         date_str = today_kst().isoformat()
         conn.execute(
             """
-            INSERT INTO mind_routine_checks (user_id, routine_date, item_key, is_checked, checked_at)
+            INSERT INTO mind_routine_checks (user_id, routine_date, item_code, is_checked, updated_at)
             VALUES (?,?,?,?,?)
-            ON CONFLICT(user_id, routine_date, item_key) DO UPDATE SET
+            ON CONFLICT(user_id, routine_date, item_code) DO UPDATE SET
                 is_checked=excluded.is_checked,
-                checked_at=excluded.checked_at
+                updated_at=excluded.updated_at
             """,
             (user_id, date_str, item_code, 1 if checked else 0, now_ts),
         )
