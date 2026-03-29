@@ -4471,7 +4471,7 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 .mind-celebration {
   position: sticky;
   top: 92px;
-  z-index: 22;
+  z-index: 12;
   pointer-events: none;
   display: grid;
   justify-items: center;
@@ -4556,5 +4556,72 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   }
   .mind-celebration-card strong {
     font-size: 18px;
+  }
+}
+
+
+/* Mobile fix: celebration notice should appear below sticky header/menu */
+@media (max-width: 768px) {
+  .mind-celebration {
+    position: relative;
+    top: 0;
+    margin: 10px 0 16px;
+    padding-top: 6px;
+  }
+  .mind-celebration-card {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+
+/* Mobile bottom toast for success notice */
+@media (max-width: 768px) {
+  .mind-celebration {
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    top: auto;
+    margin: 0;
+    padding-top: 0;
+    z-index: 40;
+    transform: translateY(18px) scale(.98);
+    opacity: 0;
+  }
+
+  .mind-celebration.is-mobile-toast.is-show {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  .mind-celebration.is-mobile-toast .mind-celebration-burst {
+    display: none;
+  }
+
+  .mind-celebration.is-mobile-toast .mind-celebration-card {
+    width: 100%;
+    max-width: none;
+    padding: 14px 14px 15px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(26,18,44,.97), rgba(14,10,24,.97));
+    box-shadow: 0 18px 38px rgba(0,0,0,.42);
+    border: 1px solid rgba(242,205,122,.24);
+    text-align: left;
+  }
+
+  .mind-celebration.is-mobile-toast .mind-celebration-badge {
+    margin-bottom: 6px;
+  }
+
+  .mind-celebration.is-mobile-toast .mind-celebration-card strong {
+    font-size: 17px;
+    line-height: 1.35;
+    margin-bottom: 4px;
+  }
+
+  .mind-celebration.is-mobile-toast .mind-celebration-card p {
+    font-size: 13px;
+    line-height: 1.5;
   }
 }

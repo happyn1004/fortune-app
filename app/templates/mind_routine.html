@@ -217,6 +217,10 @@
   const celebrationEl = document.getElementById('mindCelebration');
   const celebrationTitleEl = document.getElementById('mindCelebrationTitle');
   const celebrationTextEl = document.getElementById('mindCelebrationText');
+
+  function isMobileMindToast() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
   let lastState = {
     completed_count: {{ routine_state.completed_count }},
     progress_percent: {{ routine_state.progress_percent }},
@@ -261,6 +265,12 @@
     }
 
     celebrationEl.classList.remove('is-show');
+    if (isMobileMindToast()) {
+      celebrationEl.classList.add('is-mobile-toast');
+    } else {
+      celebrationEl.classList.remove('is-mobile-toast');
+    }
+
     window.requestAnimationFrame(function () {
       celebrationEl.classList.add('is-show');
     });
@@ -268,7 +278,7 @@
     window.clearTimeout(showCelebration._timer);
     showCelebration._timer = window.setTimeout(function () {
       celebrationEl.classList.remove('is-show');
-    }, 1800);
+    }, isMobileMindToast() ? 2200 : 1800);
   }
 
   function applyState(state) {
