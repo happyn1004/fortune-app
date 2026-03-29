@@ -282,6 +282,40 @@
       <label class="span-2">사업장 주소<input type="text" name="business_address" value="{{ site_settings.business_address }}"></label>
       <label>개인정보관리책임자<input type="text" name="privacy_manager" value="{{ site_settings.privacy_manager }}"></label>
       <label class="span-2">푸터 설명<textarea name="footer_description" rows="3">{{ site_settings.footer_description }}</textarea></label>
+      <section class="span-2 theme-admin-panel">
+        <div class="theme-admin-head">
+          <div>
+            <h4>브랜드 컬러 시스템</h4>
+            <p class="muted">임시용에서 더 좋았던 톤을 기준으로 정식용까지 같은 분위기로 맞출 수 있게 컬러 토큰을 분리했습니다.</p>
+          </div>
+          <div class="theme-preset-actions">
+            <button type="button" class="btn mini" onclick="applyThemePreset('sunset')">럭셔리 선셋</button>
+            <button type="button" class="btn mini" onclick="applyThemePreset('royal')">로열 바이올렛</button>
+            <button type="button" class="btn mini" onclick="applyThemePreset('emerald')">에메랄드 골드</button>
+          </div>
+        </div>
+        <div class="theme-admin-grid">
+          <label>테마명<input type="text" name="theme_name" value="{{ site_settings.theme_name }}"></label>
+          <label>메인 컬러<input type="color" name="theme_primary" value="{{ site_settings.theme_primary or '#ff8a36' }}"></label>
+          <label>보조 컬러<input type="color" name="theme_secondary" value="{{ site_settings.theme_secondary or '#7a5cff' }}"></label>
+          <label>포인트 컬러<input type="color" name="theme_accent" value="{{ site_settings.theme_accent or '#ff79d1' }}"></label>
+          <label>골드 포인트<input type="color" name="theme_gold" value="{{ site_settings.theme_gold or '#f2cd7a' }}"></label>
+          <label>텍스트 메인<input type="color" name="theme_text" value="{{ site_settings.theme_text or '#f6f2ff' }}"></label>
+          <label>텍스트 서브<input type="color" name="theme_muted" value="{{ site_settings.theme_muted or '#c1b8da' }}"></label>
+          <label>배경 시작<input type="color" name="theme_bg_start" value="{{ site_settings.theme_bg_start or '#0d0817' }}"></label>
+          <label>배경 중간<input type="color" name="theme_bg_mid" value="{{ site_settings.theme_bg_mid or '#120b22' }}"></label>
+          <label>배경 끝<input type="color" name="theme_bg_end" value="{{ site_settings.theme_bg_end or '#0c0917' }}"></label>
+          <label>카드 배경<input type="text" name="theme_surface" value="{{ site_settings.theme_surface or 'rgba(255,255,255,.06)' }}"></label>
+          <label>카드 강조 배경<input type="text" name="theme_surface_strong" value="{{ site_settings.theme_surface_strong or 'rgba(255,255,255,.10)' }}"></label>
+          <label class="span-2">히어로 글로우<input type="text" name="theme_glow" value="{{ site_settings.theme_glow or 'rgba(255,138,54,.20)' }}"></label>
+          <label class="theme-toggle-row"><input type="checkbox" name="mobile_sticky_cta" value="1" {% if site_settings.mobile_sticky_cta == '1' %}checked{% endif %}> 모바일 하단 고정 CTA 사용</label>
+        </div>
+        <div class="theme-preview-card">
+          <div class="theme-preview-badge">{{ site_settings.theme_name or '현재 테마' }}</div>
+          <strong>고급 랜딩 톤 미리보기</strong>
+          <p>메인 버튼, 배경 그라데이션, 카드 표면, 강조 텍스트가 한 번에 통일되도록 설계했습니다.</p>
+        </div>
+      </section>
       <div class="span-2 legal-editor-grid">
         <label class="legal-editor-box"><span>이용약관 전체</span><textarea name="terms_full_text" rows="14" class="legal-scroll-box">{{ site_settings.terms_full_text }}</textarea></label>
         <label class="legal-editor-box"><span>개인정보처리방침 전체</span><textarea name="privacy_full_text" rows="14" class="legal-scroll-box">{{ site_settings.privacy_full_text }}</textarea></label>
@@ -343,6 +377,22 @@
     hideBtn.classList.toggle('is-active', !isVisible);
     state.textContent = isVisible ? '현재 고객 화면에 노출 중' : '현재 고객 화면에서 숨김 상태';
   };
+
+  const THEME_PRESETS = {
+    sunset: { theme_name:'럭셔리 선셋', theme_primary:'#ff8a36', theme_secondary:'#7a5cff', theme_accent:'#ff79d1', theme_gold:'#f2cd7a', theme_text:'#f6f2ff', theme_muted:'#c1b8da', theme_bg_start:'#0d0817', theme_bg_mid:'#120b22', theme_bg_end:'#0c0917', theme_surface:'rgba(255,255,255,.06)', theme_surface_strong:'rgba(255,255,255,.10)', theme_glow:'rgba(255,138,54,.20)' },
+    royal: { theme_name:'로열 바이올렛', theme_primary:'#8b5cf6', theme_secondary:'#5b21b6', theme_accent:'#f472b6', theme_gold:'#f5d76e', theme_text:'#f8f5ff', theme_muted:'#c9c1e4', theme_bg_start:'#10081b', theme_bg_mid:'#1d1031', theme_bg_end:'#0f0918', theme_surface:'rgba(255,255,255,.065)', theme_surface_strong:'rgba(255,255,255,.11)', theme_glow:'rgba(139,92,246,.22)' },
+    emerald: { theme_name:'에메랄드 골드', theme_primary:'#14b8a6', theme_secondary:'#0f766e', theme_accent:'#f59e0b', theme_gold:'#f6d365', theme_text:'#f5fffd', theme_muted:'#bbddd8', theme_bg_start:'#071615', theme_bg_mid:'#0d2321', theme_bg_end:'#071312', theme_surface:'rgba(255,255,255,.055)', theme_surface_strong:'rgba(255,255,255,.095)', theme_glow:'rgba(20,184,166,.20)' }
+  };
+  window.applyThemePreset = function(name){
+    var preset = THEME_PRESETS[name];
+    if(!preset) return;
+    Object.keys(preset).forEach(function(key){
+      var el = document.querySelector('[name="' + key + '"]');
+      if(!el) return;
+      el.value = preset[key];
+    });
+  };
+
   window.triggerPromoMedia = function(slotNumber){
     var input = document.getElementById('ad_media_' + slotNumber);
     if(input) input.click();

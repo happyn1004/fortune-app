@@ -1,7 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="card hero-card v95-merged-hero v103-landing-upgrade v112-hero-upgrade">
+<section class="premium-trust-strip">
+  <div class="premium-trust-item"><strong>{{ site_settings.theme_name }}</strong><span>브랜드 기준 컬러 시스템 적용</span></div>
+  <div class="premium-trust-item"><strong>모바일 최적화</strong><span>핵심 CTA와 정보 밀도를 더 선명하게 정리</span></div>
+  <div class="premium-trust-item"><strong>오늘 바로 확인</strong><span>띠별 운세 · 로또 · 핵심 종목까지 한 번에</span></div>
+</section>
+<section class="card hero-card v95-merged-hero v103-landing-upgrade v112-hero-upgrade hero-lux-shell">
   <div class="v95-top-row">
     <div class="badge badge-lux">오늘 무료 제공</div>
     <div class="v95-proof">매일 업데이트 · 12지지 운세 기반 오늘의 흐름 제공</div>
@@ -116,6 +121,19 @@
     })();
   </script>
 </section>
+
+<section class="home-value-band">
+  <div class="home-value-card"><span>무료 진입</span><strong>핵심 흐름부터 빠르게</strong><p>첫 방문에서도 가치를 느끼게 하는 핵심 정보만 전면 배치했습니다.</p></div>
+  <div class="home-value-card"><span>유료 전환</span><strong>결정 포인트를 더 깊게</strong><p>가입 유도보다 체감 가치를 우선하는 구조로 랜딩 흐름을 정리했습니다.</p></div>
+  <div class="home-value-card"><span>모바일 UX</span><strong>한 손으로 보기 쉽게</strong><p>상단 정보는 압축하고 CTA는 아래에서 바로 접근되게 정리했습니다.</p></div>
+</section>
+
+{% if site_settings.mobile_sticky_cta == '1' %}
+<div class="home-sticky-cta mobile-only">
+  <a class="btn primary" href="/customer">지금 바로 확인</a>
+  <a class="btn" href="/plans">VIP 보기</a>
+</div>
+{% endif %}
 
 <section class="card mind-entry-card">
   <div class="section-head compact">

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ff7a00">
+  <meta name="theme-color" content="{{ site_settings.theme_primary if site_settings else "#ff7a00" }}">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Mystic Day">
@@ -33,8 +33,27 @@
   <link rel="apple-touch-icon" href="/static/icon-192.png?v={{ static_version if static_version is defined else 'v101-dedupe-readability-fix' }}">
   <title>{% block title %}{{ site_settings.brand_name if site_settings else "오늘의 운세" }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css?v={{ static_version if static_version is defined else 'v101-dedupe-readability-fix' }}">
+
+  <style>
+    :root {
+      --bg: {{ site_settings.theme_bg_start if site_settings else '#0d0817' }};
+      --bg-soft: {{ site_settings.theme_bg_mid if site_settings else '#120b22' }};
+      --bg-end: {{ site_settings.theme_bg_end if site_settings else '#0c0917' }};
+      --card: {{ site_settings.theme_surface if site_settings else 'rgba(255,255,255,.06)' }};
+      --card-strong: {{ site_settings.theme_surface_strong if site_settings else 'rgba(255,255,255,.10)' }};
+      --text: {{ site_settings.theme_text if site_settings else '#f6f2ff' }};
+      --muted: {{ site_settings.theme_muted if site_settings else '#c1b8da' }};
+      --gold: {{ site_settings.theme_gold if site_settings else '#f2cd7a' }};
+      --purple: {{ site_settings.theme_secondary if site_settings else '#7a5cff' }};
+      --pink: {{ site_settings.theme_accent if site_settings else '#ff79d1' }};
+      --brand-primary: {{ site_settings.theme_primary if site_settings else '#ff8a36' }};
+      --brand-secondary: {{ site_settings.theme_secondary if site_settings else '#7a5cff' }};
+      --brand-accent: {{ site_settings.theme_accent if site_settings else '#ff79d1' }};
+      --hero-glow: {{ site_settings.theme_glow if site_settings else 'rgba(255,138,54,.20)' }};
+    }
+  </style>
 </head>
-<body>
+<body class="brand-shell {% if request.url.path == '/' %}page-home{% endif %}">
   <header class="topbar" id="siteTopbar">
     <div class="wrap nav">
       <a class="logo" href="/">{{ site_settings.brand_name if site_settings else "Mystic Day" }}</a>

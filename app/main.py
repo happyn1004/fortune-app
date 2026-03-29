@@ -1062,6 +1062,20 @@ DEFAULT_SITE_SETTINGS = {
     "promo_subtitle": "관리자에서 제목, 소제목, 이미지, 설명을 바꾸면 이 영역에 그대로 반영됩니다.",
     "promo_cta_text": "전체 보기",
     "promo_enabled": "0",
+    "theme_primary": "#ff8a36",
+    "theme_secondary": "#7a5cff",
+    "theme_accent": "#ff79d1",
+    "theme_gold": "#f2cd7a",
+    "theme_surface": "rgba(255,255,255,.06)",
+    "theme_surface_strong": "rgba(255,255,255,.10)",
+    "theme_text": "#f6f2ff",
+    "theme_muted": "#c1b8da",
+    "theme_bg_start": "#0d0817",
+    "theme_bg_mid": "#120b22",
+    "theme_bg_end": "#0c0917",
+    "theme_glow": "rgba(255,138,54,.20)",
+    "theme_name": "럭셔리 선셋",
+    "mobile_sticky_cta": "1",
 }
 
 
@@ -1327,6 +1341,7 @@ def get_site_settings():
     if not data.get("support_full_text"):
         data["support_full_text"] = build_support_full_text(data)
     data["promo_enabled"] = "1" if str(data.get("promo_enabled", "0")).strip().lower() in ("1", "true", "yes", "on") else "0"
+    data["mobile_sticky_cta"] = "1" if str(data.get("mobile_sticky_cta", "1")).strip().lower() in ("1", "true", "yes", "on") else "0"
     return data
 
 
@@ -4306,6 +4321,20 @@ def admin_update_settings(
     promo_subtitle: str = Form(""),
     promo_cta_text: str = Form(""),
     promo_enabled: str = Form("0"),
+    theme_primary: str = Form(""),
+    theme_secondary: str = Form(""),
+    theme_accent: str = Form(""),
+    theme_gold: str = Form(""),
+    theme_surface: str = Form(""),
+    theme_surface_strong: str = Form(""),
+    theme_text: str = Form(""),
+    theme_muted: str = Form(""),
+    theme_bg_start: str = Form(""),
+    theme_bg_mid: str = Form(""),
+    theme_bg_end: str = Form(""),
+    theme_glow: str = Form(""),
+    theme_name: str = Form(""),
+    mobile_sticky_cta: str = Form("0"),
     admin=Depends(require_admin),
 ):
     conn = get_db()
@@ -4354,6 +4383,20 @@ def admin_update_settings(
         "promo_subtitle": promo_subtitle.strip(),
         "promo_cta_text": promo_cta_text.strip(),
         "promo_enabled": "1" if promo_enabled.strip() in ("1", "true", "on", "yes") else "0",
+        "theme_primary": theme_primary.strip(),
+        "theme_secondary": theme_secondary.strip(),
+        "theme_accent": theme_accent.strip(),
+        "theme_gold": theme_gold.strip(),
+        "theme_surface": theme_surface.strip(),
+        "theme_surface_strong": theme_surface_strong.strip(),
+        "theme_text": theme_text.strip(),
+        "theme_muted": theme_muted.strip(),
+        "theme_bg_start": theme_bg_start.strip(),
+        "theme_bg_mid": theme_bg_mid.strip(),
+        "theme_bg_end": theme_bg_end.strip(),
+        "theme_glow": theme_glow.strip(),
+        "theme_name": theme_name.strip(),
+        "mobile_sticky_cta": "1" if mobile_sticky_cta.strip() in ("1", "true", "on", "yes") else "0",
     })
     payload = selective_sync_legal_texts(payload, current)
     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
