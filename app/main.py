@@ -1660,6 +1660,19 @@ def init_db():
             UNIQUE(user_id, routine_date, item_code),
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
+        CREATE TABLE IF NOT EXISTS mind_routine_focus (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            routine_date TEXT NOT NULL,
+            priority_text TEXT NOT NULL DEFAULT '',
+            phone_off INTEGER NOT NULL DEFAULT 0,
+            workspace_ready INTEGER NOT NULL DEFAULT 0,
+            ignore_others INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(user_id, routine_date),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         """
     )
     ensure_column(conn, "users", "plan_expires_at", "plan_expires_at TEXT")
@@ -1687,12 +1700,38 @@ def init_db():
     ensure_column(conn, "push_subscriptions", "last_success_at", "last_success_at TEXT")
     ensure_column(conn, "push_subscriptions", "last_failure_at", "last_failure_at TEXT")
     ensure_column(conn, "push_subscriptions", "failure_reason", "failure_reason TEXT")
+    ensure_column(conn, "mind_routine_daily", "total_count", "total_count INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_daily", "completed_count", "completed_count INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_daily", "total_items", "total_items INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_daily", "completed_items", "completed_items INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_daily", "streak_count", "streak_count INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_daily", "created_at", "created_at TEXT")
+    ensure_column(conn, "mind_routine_daily", "updated_at", "updated_at TEXT")
+    ensure_column(conn, "mind_routine_checks", "item_code", "item_code TEXT")
+    ensure_column(conn, "mind_routine_checks", "is_checked", "is_checked INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_checks", "item_key", "item_key TEXT")
     ensure_column(conn, "mind_routine_checks", "checked_at", "checked_at TEXT")
+    ensure_column(conn, "mind_routine_checks", "updated_at", "updated_at TEXT")
+    ensure_column(conn, "mind_routine_focus", "priority_text", "priority_text TEXT NOT NULL DEFAULT ''")
+    ensure_column(conn, "mind_routine_focus", "phone_off", "phone_off INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_focus", "workspace_ready", "workspace_ready INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_focus", "ignore_others", "ignore_others INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "mind_routine_focus", "created_at", "created_at TEXT")
+    ensure_column(conn, "mind_routine_focus", "updated_at", "updated_at TEXT")
+
+    # mind routine compatibility migration for older/temp DBs
+    conn.execute(
+        "UPDATE mind_routine_daily SET total_count=COALESCE(total_count, total_items, 0), "
+        "completed_count=COALESCE(completed_count, completed_items, 0), "
+        "updated_at=COALESCE(updated_at, created_at, ?) ",
+        (now_ts,)
+    )
+    conn.execute(
+        "UPDATE mind_routine_checks SET item_code=COALESCE(item_code, item_key), "
+        "is_checked=COALESCE(is_checked, CASE WHEN checked_at IS NOT NULL THEN 1 ELSE 0 END, 0), "
+        "updated_at=COALESCE(updated_at, checked_at, ?) ",
+        (now_ts,)
+    )
     ensure_vapid_keys(conn)
 
     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3099,6 +3138,68 @@ def calculate_mind_streak(conn, user_id: int, today_str: str) -> int:
     return streak
 
 
+
+def get_mind_focus_board(user_id: int, target_date: date | None = None):
+    target_date = target_date or today_kst()
+    date_str = target_date.isoformat()
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT priority_text, phone_off, workspace_ready, ignore_others
+            FROM mind_routine_focus
+            WHERE user_id=? AND routine_date=?
+            """,
+            (user_id, date_str),
+        ).fetchone()
+        if not row:
+            return {
+                "priority_text": "",
+                "phone_off": False,
+                "workspace_ready": False,
+                "ignore_others": False,
+            }
+        return {
+            "priority_text": row["priority_text"] or "",
+            "phone_off": bool(row["phone_off"] or 0),
+            "workspace_ready": bool(row["workspace_ready"] or 0),
+            "ignore_others": bool(row["ignore_others"] or 0),
+        }
+    finally:
+        conn.close()
+
+
+def upsert_mind_focus_board(user_id: int, payload: dict):
+    date_str = today_kst().isoformat()
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    priority_text = str(payload.get("priority_text") or "").strip()
+    phone_off = 1 if payload.get("phone_off") else 0
+    workspace_ready = 1 if payload.get("workspace_ready") else 0
+    ignore_others = 1 if payload.get("ignore_others") else 0
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO mind_routine_focus
+            (user_id, routine_date, priority_text, phone_off, workspace_ready, ignore_others, created_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT(user_id, routine_date) DO UPDATE SET
+                priority_text=excluded.priority_text,
+                phone_off=excluded.phone_off,
+                workspace_ready=excluded.workspace_ready,
+                ignore_others=excluded.ignore_others,
+                updated_at=excluded.updated_at
+            """,
+            (user_id, date_str, priority_text, phone_off, workspace_ready, ignore_others, now_ts, now_ts),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return get_mind_focus_board(user_id)
+
+
 def get_mind_routine_state(user_id: int, target_date: date | None = None):
     target_date = target_date or today_kst()
     date_str = target_date.isoformat()
@@ -3144,6 +3245,7 @@ def get_mind_routine_state(user_id: int, target_date: date | None = None):
             "is_completed": bool(is_completed),
             "streak_count": streak,
             "recent_completed_days": recent_completed,
+            "focus_board": get_mind_focus_board(user_id, target_date),
         }
     finally:
         conn.close()
@@ -3179,6 +3281,7 @@ def reset_mind_routine(user_id: int):
         date_str = today_kst().isoformat()
         conn.execute("DELETE FROM mind_routine_checks WHERE user_id=? AND routine_date=?", (user_id, date_str))
         conn.execute("DELETE FROM mind_routine_daily WHERE user_id=? AND routine_date=?", (user_id, date_str))
+        conn.execute("DELETE FROM mind_routine_focus WHERE user_id=? AND routine_date=?", (user_id, date_str))
         conn.commit()
     finally:
         conn.close()
@@ -3755,6 +3858,7 @@ def mind_routine_page(request: Request):
         "user": user,
         "sections": MIND_ROUTINE_SECTIONS,
         "routine_state": state,
+        "focus_board": state.get("focus_board", {}),
         "push_schedule": [
             {"time": "오전", "message": "오늘 가장 중요한 1가지를 먼저 체크하세요"},
             {"time": "오후", "message": "핵심 1가지가 끝났는지 다시 확인하세요"},
@@ -3791,6 +3895,18 @@ def mind_routine_reset_api(request: Request):
         return JSONResponse({"ok": False, "message": "upgrade_required"}, status_code=403)
     state = reset_mind_routine(user["id"])
     return JSONResponse({"ok": True, "state": state})
+
+
+@app.post("/mind/api/board")
+async def mind_routine_board_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not has_plan_access(user, "Basic"):
+        return JSONResponse({"ok": False, "message": "upgrade_required"}, status_code=403)
+    payload = await request.json()
+    board = upsert_mind_focus_board(user["id"], payload if isinstance(payload, dict) else {})
+    return JSONResponse({"ok": True, "board": board})
 
 
 @app.get("/vip-report", response_class=HTMLResponse)

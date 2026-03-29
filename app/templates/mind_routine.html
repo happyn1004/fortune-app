@@ -51,10 +51,10 @@
       </div>
       <div class="mind-priority-tip">기준 질문: <strong>“오늘 나는 단 하나라도 제대로 했는가?”</strong></div>
     </div>
-    <textarea id="mindPriorityInput" class="mind-priority-input" placeholder="예: 오늘 가장 돈이 되는 콘텐츠 1개 업로드 완료"></textarea>
+    <textarea id="mindPriorityInput" class="mind-priority-input" placeholder="예: 오늘 가장 돈이 되는 콘텐츠 1개 업로드 완료">{{ focus_board.priority_text if focus_board else "" }}</textarea>
     <div class="mind-priority-mini-checks mind-priority-mini-cards">
       <label class="mind-mini-card" for="mindPhoneOff">
-        <input type="checkbox" id="mindPhoneOff">
+        <input type="checkbox" id="mindPhoneOff" {% if focus_board and focus_board.phone_off %}checked{% endif %}>
         <span class="mind-mini-card-box" aria-hidden="true"></span>
         <span class="mind-mini-card-copy">
           <strong>폰 / 알림 OFF</strong>
@@ -62,7 +62,7 @@
         </span>
       </label>
       <label class="mind-mini-card" for="mindDeskClear">
-        <input type="checkbox" id="mindDeskClear">
+        <input type="checkbox" id="mindDeskClear" {% if focus_board and focus_board.workspace_ready %}checked{% endif %}>
         <span class="mind-mini-card-box" aria-hidden="true"></span>
         <span class="mind-mini-card-copy">
           <strong>작업 환경 세팅</strong>
@@ -70,7 +70,7 @@
         </span>
       </label>
       <label class="mind-mini-card" for="mindStartNow">
-        <input type="checkbox" id="mindStartNow">
+        <input type="checkbox" id="mindStartNow" {% if focus_board and focus_board.ignore_others %}checked{% endif %}>
         <span class="mind-mini-card-box" aria-hidden="true"></span>
         <span class="mind-mini-card-copy">
           <strong>다른 일 무시 선언</strong>
@@ -240,6 +240,8 @@
         const result = await postJson(endpointReset, {});
         if (!result.ok) throw new Error(result.message || 'failed');
         applyState(result.state);
+        applyBoard({ priority_text: '', phone_off: false, workspace_ready: false, ignore_others: false });
+        saveBoardLocalFallback();
       } catch (err) {
         alert('초기화 중 문제가 발생했습니다. 다시 시도해 주세요.');
       }
@@ -247,36 +249,70 @@
   }
 
   const priorityInput = document.getElementById('mindPriorityInput');
+  const endpointBoard = '/mind/api/board';
   const miniChecks = ['mindPhoneOff', 'mindDeskClear', 'mindStartNow'];
-  function loadLocalBoard() {
+  const boardStorageKey = 'mind-priority-board-v4';
+  let boardSaveTimer = null;
+
+  function currentBoardPayload() {
+    return {
+      priority_text: priorityInput ? priorityInput.value : '',
+      phone_off: !!(document.getElementById('mindPhoneOff') && document.getElementById('mindPhoneOff').checked),
+      workspace_ready: !!(document.getElementById('mindDeskClear') && document.getElementById('mindDeskClear').checked),
+      ignore_others: !!(document.getElementById('mindStartNow') && document.getElementById('mindStartNow').checked),
+    };
+  }
+
+  function applyBoard(board) {
+    if (!board) return;
+    if (priorityInput && typeof board.priority_text === 'string') priorityInput.value = board.priority_text;
+    const phoneOff = document.getElementById('mindPhoneOff');
+    const deskClear = document.getElementById('mindDeskClear');
+    const startNow = document.getElementById('mindStartNow');
+    if (phoneOff) phoneOff.checked = !!board.phone_off;
+    if (deskClear) deskClear.checked = !!board.workspace_ready;
+    if (startNow) startNow.checked = !!board.ignore_others;
+  }
+
+  function saveBoardLocalFallback() {
     try {
-      const data = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+      const data = { date: today, ...currentBoardPayload() };
+      localStorage.setItem(boardStorageKey, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  function loadBoardLocalFallback() {
+    try {
+      const data = JSON.parse(localStorage.getItem(boardStorageKey) || '{}');
       const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
       if (data.date !== today) return;
-      if (priorityInput) priorityInput.value = data.priority || '';
-      miniChecks.forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) el.checked = !!(data[id]);
-      });
+      applyBoard(data);
     } catch (e) {}
   }
-  function saveLocalBoard() {
+
+  async function saveBoardToServer() {
     try {
-      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
-      const data = { date: today, priority: priorityInput ? priorityInput.value : '' };
-      miniChecks.forEach(function (id) {
-        const el = document.getElementById(id);
-        data[id] = !!(el && el.checked);
-      });
-      localStorage.setItem(storageKey, JSON.stringify(data));
-    } catch (e) {}
+      const result = await postJson(endpointBoard, currentBoardPayload());
+      if (!result.ok) throw new Error(result.message || 'failed');
+      if (result.board) applyBoard(result.board);
+      saveBoardLocalFallback();
+    } catch (e) {
+      saveBoardLocalFallback();
+    }
   }
-  if (priorityInput) priorityInput.addEventListener('input', saveLocalBoard);
+
+  function scheduleBoardSave() {
+    if (boardSaveTimer) clearTimeout(boardSaveTimer);
+    boardSaveTimer = setTimeout(saveBoardToServer, 250);
+  }
+
+  if (priorityInput) priorityInput.addEventListener('input', scheduleBoardSave);
   miniChecks.forEach(function (id) {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', saveLocalBoard);
+    if (el) el.addEventListener('change', scheduleBoardSave);
   });
-  loadLocalBoard();
+  loadBoardLocalFallback();
 })();
 </script>
 {% endblock %}
