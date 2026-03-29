@@ -24,21 +24,30 @@
       </div>
     </div>
     <div class="mind-scoreboard mind-scoreboard-hero">
-      <div class="mind-score-card major">
+      <div class="mind-score-card major mind-gauge-card">
         <span>오늘 진행률</span>
-        <strong id="mindProgressPercent">{{ routine_state.progress_percent }}%</strong>
+        <div class="mind-progress-gauge" id="mindProgressGauge" data-percent="{{ routine_state.progress_percent }}" style="--percent: {{ routine_state.progress_percent }};">
+          <div class="mind-progress-gauge-ring"></div>
+          <div class="mind-progress-gauge-core">
+            <strong id="mindProgressPercent">{{ routine_state.progress_percent }}%</strong>
+            <em>오늘의 실행률</em>
+          </div>
+        </div>
       </div>
       <div class="mind-score-card">
         <span>완료 개수</span>
         <strong><span id="mindCompletedCount">{{ routine_state.completed_count }}</span> / {{ routine_state.total_count }}</strong>
+        <em class="mind-card-sub">체크한 실행 항목 수</em>
       </div>
       <div class="mind-score-card">
         <span>연속 완료일</span>
         <strong id="mindStreakCount">{{ routine_state.streak_count }}일</strong>
+        <div class="mind-streak-track" id="mindStreakTrack" data-streak="{{ routine_state.streak_count }}"></div>
       </div>
       <div class="mind-score-card accent">
         <span>최근 완료일</span>
         <strong>{{ routine_state.recent_completed_days }}일</strong>
+        <em class="mind-card-sub">최근 30일 기준</em>
       </div>
     </div>
   </section>
@@ -96,6 +105,16 @@
       <p>“나는 이미 성공한 사람처럼 행동하고, 시스템으로 돈을 만든다”</p>
     </div>
   </section>
+
+
+  <div class="mind-celebration" id="mindCelebration" aria-hidden="true">
+    <div class="mind-celebration-burst"></div>
+    <div class="mind-celebration-card">
+      <div class="mind-celebration-badge">오늘의 실행 완료</div>
+      <strong id="mindCelebrationTitle">좋습니다. 오늘도 전진 중입니다.</strong>
+      <p id="mindCelebrationText">체크가 쌓일수록 성공 시스템도 현실이 됩니다.</p>
+    </div>
+  </div>
 
   <section class="mind-checklist-header">
     <div>
@@ -185,6 +204,7 @@
   </section>
 </section>
 
+
 <script>
 (function () {
   const endpointCheck = '/mind/api/check';
@@ -192,20 +212,87 @@
   const completedEl = document.getElementById('mindCompletedCount');
   const percentEl = document.getElementById('mindProgressPercent');
   const streakEl = document.getElementById('mindStreakCount');
-  const storageKey = 'mind-priority-board-v3';
+  const gaugeEl = document.getElementById('mindProgressGauge');
+  const streakTrackEl = document.getElementById('mindStreakTrack');
+  const celebrationEl = document.getElementById('mindCelebration');
+  const celebrationTitleEl = document.getElementById('mindCelebrationTitle');
+  const celebrationTextEl = document.getElementById('mindCelebrationText');
+  let lastState = {
+    completed_count: {{ routine_state.completed_count }},
+    progress_percent: {{ routine_state.progress_percent }},
+    streak_count: {{ routine_state.streak_count }},
+    is_completed: {{ 'true' if routine_state.is_completed else 'false' }}
+  };
+
+  function renderGauge(percent) {
+    if (!gaugeEl) return;
+    const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+    gaugeEl.style.setProperty('--percent', safePercent);
+    gaugeEl.setAttribute('data-percent', safePercent);
+  }
+
+  function renderStreak(streak) {
+    if (!streakTrackEl) return;
+    const value = Math.max(0, Number(streak) || 0);
+    streakTrackEl.innerHTML = '';
+    for (let i = 0; i < 7; i += 1) {
+      const chip = document.createElement('span');
+      chip.className = 'mind-streak-chip' + (i < Math.min(value, 7) ? ' is-on' : '');
+      streakTrackEl.appendChild(chip);
+    }
+  }
+
+  function showCelebration(state, previousState) {
+    if (!celebrationEl) return;
+    const prevCompleted = Number(previousState && previousState.completed_count || 0);
+    const currCompleted = Number(state.completed_count || 0);
+    const streak = Number(state.streak_count || 0);
+    const becameComplete = !previousState.is_completed && !!state.is_completed;
+    const increased = currCompleted > prevCompleted;
+
+    if (!increased && !becameComplete) return;
+
+    if (becameComplete) {
+      celebrationTitleEl.textContent = '오늘 체크리스트 완주 성공';
+      celebrationTextEl.textContent = '좋습니다. 오늘의 실행 루틴을 끝까지 밀어붙였습니다.';
+    } else {
+      celebrationTitleEl.textContent = '좋습니다. 실행이 쌓이고 있습니다.';
+      celebrationTextEl.textContent = '완료 ' + currCompleted + '개 · 진행률 ' + state.progress_percent + '% · 연속 ' + streak + '일';
+    }
+
+    celebrationEl.classList.remove('is-show');
+    window.requestAnimationFrame(function () {
+      celebrationEl.classList.add('is-show');
+    });
+
+    window.clearTimeout(showCelebration._timer);
+    showCelebration._timer = window.setTimeout(function () {
+      celebrationEl.classList.remove('is-show');
+    }, 1800);
+  }
 
   function applyState(state) {
     if (!state) return;
+    const previousState = Object.assign({}, lastState);
     if (completedEl) completedEl.textContent = state.completed_count;
     if (percentEl) percentEl.textContent = state.progress_percent + '%';
     if (streakEl) streakEl.textContent = state.streak_count + '일';
+    renderGauge(state.progress_percent);
+    renderStreak(state.streak_count);
     document.querySelectorAll('.mind-check-item').forEach(function (label) {
       const code = label.getAttribute('data-item-code');
-      const checked = !!state.checked_map[code];
+      const checked = !!(state.checked_map && state.checked_map[code]);
       label.classList.toggle('is-checked', checked);
       const input = label.querySelector('input');
       if (input) input.checked = checked;
     });
+    showCelebration(state, previousState);
+    lastState = {
+      completed_count: Number(state.completed_count || 0),
+      progress_percent: Number(state.progress_percent || 0),
+      streak_count: Number(state.streak_count || 0),
+      is_completed: !!state.is_completed
+    };
   }
 
   async function postJson(url, payload) {
@@ -312,7 +399,11 @@
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', scheduleBoardSave);
   });
+
+  renderGauge(lastState.progress_percent);
+  renderStreak(lastState.streak_count);
   loadBoardLocalFallback();
 })();
 </script>
+
 {% endblock %}

@@ -1508,6 +1508,7 @@ def ensure_column(conn, table_name: str, column_name: str, column_def: str):
 
 def init_db():
     conn = get_db()
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cur = conn.cursor()
     cur.executescript(
         """
@@ -1734,7 +1735,6 @@ def init_db():
     )
     ensure_vapid_keys(conn)
 
-    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for key, value in DEFAULT_SITE_SETTINGS.items():
         cur.execute("INSERT OR IGNORE INTO site_settings (key, value, updated_at) VALUES (?,?,?)", (key, value, now_ts))
 

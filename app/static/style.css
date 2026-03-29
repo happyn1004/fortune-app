@@ -4396,3 +4396,165 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
     min-height:unset;
   }
 }
+
+
+/* Mind routine upgrade: progress gauge, celebration, streak */
+.mind-gauge-card {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
+  min-height: 220px;
+}
+.mind-progress-gauge {
+  --percent: 0;
+  position: relative;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.mind-progress-gauge-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, rgba(9,7,18,0.98) 58%, transparent 59%),
+    conic-gradient(var(--gold) 0 calc(var(--percent) * 1%), rgba(255,255,255,.08) 0 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 12px 34px rgba(0,0,0,.26);
+}
+.mind-progress-gauge::after {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.16), rgba(255,255,255,.03) 48%, rgba(8,6,16,.95) 100%);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.mind-progress-gauge-core {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.mind-progress-gauge-core strong {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--gold);
+}
+.mind-progress-gauge-core em,
+.mind-card-sub {
+  font-style: normal;
+  font-size: 12px;
+  color: rgba(255,255,255,.7);
+}
+.mind-streak-track {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(10px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.mind-streak-chip {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.14);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.mind-streak-chip.is-on {
+  background: linear-gradient(90deg, rgba(242,205,122,.95), rgba(255,121,209,.86));
+  box-shadow: 0 0 18px rgba(242,205,122,.28);
+}
+.mind-celebration {
+  position: sticky;
+  top: 92px;
+  z-index: 22;
+  pointer-events: none;
+  display: grid;
+  justify-items: center;
+  margin: 0 0 18px;
+  opacity: 0;
+  transform: translateY(-8px) scale(.98);
+  transition: opacity .22s ease, transform .22s ease;
+}
+.mind-celebration.is-show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.mind-celebration-burst {
+  position: absolute;
+  inset: -12px auto auto 50%;
+  width: 220px;
+  height: 220px;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle, rgba(242,205,122,.34) 0 8%, transparent 9%),
+    radial-gradient(circle at 75% 28%, rgba(255,121,209,.28) 0 7%, transparent 8%),
+    radial-gradient(circle at 26% 70%, rgba(115,217,182,.25) 0 7%, transparent 8%);
+  filter: blur(2px);
+  opacity: 0;
+}
+.mind-celebration.is-show .mind-celebration-burst {
+  animation: mindBurst 1.2s ease;
+}
+.mind-celebration-card {
+  position: relative;
+  width: min(100%, 540px);
+  padding: 16px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(242,205,122,.28);
+  background: linear-gradient(135deg, rgba(32,22,54,.96), rgba(16,12,28,.95));
+  box-shadow: 0 18px 50px rgba(0,0,0,.34);
+  text-align: center;
+}
+.mind-celebration-badge {
+  display: inline-flex;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--gold);
+  background: rgba(242,205,122,.1);
+  border: 1px solid rgba(242,205,122,.24);
+  margin-bottom: 8px;
+}
+.mind-celebration-card strong {
+  display: block;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+.mind-celebration-card p {
+  margin: 0;
+  color: rgba(255,255,255,.78);
+  line-height: 1.6;
+}
+@keyframes mindBurst {
+  0% { opacity: 0; transform: translateX(-50%) scale(.78); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.22); }
+}
+@media (max-width: 768px) {
+  .mind-gauge-card {
+    min-height: auto;
+  }
+  .mind-progress-gauge {
+    width: 132px;
+    height: 132px;
+  }
+  .mind-progress-gauge-core strong {
+    font-size: 30px;
+  }
+  .mind-celebration {
+    top: 78px;
+  }
+  .mind-celebration-card {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+  .mind-celebration-card strong {
+    font-size: 18px;
+  }
+}
