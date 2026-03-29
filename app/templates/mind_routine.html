@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="card mind-page-shell mind-page-v2">
+<section class="card mind-page-shell mind-page-v2 mind-page-v3">
   <div class="mind-top-strip">
     <div>
       <span class="badge badge-lux">Basic 이상 전용</span>
-      <span class="mind-mini-formula">성공 = 환경 + 시스템 + 반복</span>
+      <span class="mind-mini-formula">성공은 큰 결심이 아니라 작은 반복 시스템</span>
     </div>
     <div class="mind-top-actions">
       <button type="button" class="btn secondary" id="mindResetBtn">오늘 체크 초기화</button>
     </div>
   </div>
 
-  <section class="mind-identity-hero">
+  <section class="mind-identity-hero mind-identity-hero-v3">
     <div class="mind-identity-copy">
-      <div class="mind-identity-kicker">1000억 정체성 각인</div>
-      <h1>나는 이미 1000억을 벌었다</h1>
-      <p>그래서 오늘도 감정이 아니라 기준으로 움직인다. 이 페이지는 좋은 말이 아니라, <strong>1000억을 번 사람처럼 행동했는지 체크하는 실전 보드</strong>다.</p>
+      <div class="mind-identity-kicker">1000억 정체성을 뒷받침하는 실전 보드</div>
+      <h1>🔥 성공 시스템 “하루 실행 체크리스트”</h1>
+      <p>좋은 문장을 읽는 페이지가 아니라, <strong>매일 체크하며 실행하는 페이지</strong>입니다. 오늘 단 하나라도 제대로 해냈다면 그날은 이미 전진한 날입니다.</p>
       <div class="mind-identity-pills">
-        <span>중요한 1가지 먼저</span>
-        <span>방해요소 즉시 차단</span>
-        <span>매일 체크로 누적 승리</span>
+        <span>하루 1개 집중</span>
+        <span>생각보다 즉시 행동</span>
+        <span>매일 반복 체크</span>
       </div>
     </div>
     <div class="mind-scoreboard mind-scoreboard-hero">
@@ -43,51 +43,71 @@
     </div>
   </section>
 
-  <section class="mind-priority-board">
+  <section class="mind-priority-board mind-priority-board-v3">
     <div class="mind-priority-head">
       <div>
-        <div class="mind-block-no">0. 오늘의 한 가지</div>
+        <div class="mind-block-no">오늘의 단 하나</div>
         <h2>오늘 가장 중요한 1가지를 먼저 적고 시작하세요</h2>
       </div>
-      <div class="mind-priority-tip">많이 하는 날보다, 가장 중요한 1가지를 끝내는 날이 강합니다.</div>
+      <div class="mind-priority-tip">기준 질문: <strong>“오늘 나는 단 하나라도 제대로 했는가?”</strong></div>
     </div>
-    <textarea id="mindPriorityInput" class="mind-priority-input" placeholder="예: 오늘 가장 돈이 되는 제안서 1건 끝내기"></textarea>
-    <div class="mind-priority-mini-checks">
-      <label><input type="checkbox" id="mindPhoneOff"> 폰 무음/뒤집기</label>
-      <label><input type="checkbox" id="mindDeskClear"> 작업 자리 정리</label>
-      <label><input type="checkbox" id="mindStartNow"> 지금 바로 시작</label>
+    <textarea id="mindPriorityInput" class="mind-priority-input" placeholder="예: 오늘 가장 돈이 되는 콘텐츠 1개 업로드 완료"></textarea>
+    <div class="mind-priority-mini-checks mind-priority-mini-cards">
+      <label class="mind-mini-card" for="mindPhoneOff">
+        <input type="checkbox" id="mindPhoneOff">
+        <span class="mind-mini-card-box" aria-hidden="true"></span>
+        <span class="mind-mini-card-copy">
+          <strong>폰 / 알림 OFF</strong>
+          <em>집중을 방해하는 요소 차단</em>
+        </span>
+      </label>
+      <label class="mind-mini-card" for="mindDeskClear">
+        <input type="checkbox" id="mindDeskClear">
+        <span class="mind-mini-card-box" aria-hidden="true"></span>
+        <span class="mind-mini-card-copy">
+          <strong>작업 환경 세팅</strong>
+          <em>PC · 툴 · 자료 바로 실행</em>
+        </span>
+      </label>
+      <label class="mind-mini-card" for="mindStartNow">
+        <input type="checkbox" id="mindStartNow">
+        <span class="mind-mini-card-box" aria-hidden="true"></span>
+        <span class="mind-mini-card-copy">
+          <strong>다른 일 무시 선언</strong>
+          <em>오늘의 단 하나만 끝까지 밀기</em>
+        </span>
+      </label>
     </div>
   </section>
 
-  <section class="mind-core-rules">
-    <div class="mind-core-box">
-      <div class="mind-block-no">1. 문제 핵심 구조</div>
+  <section class="mind-summary-ribbon">
+    <div class="mind-summary-card">
+      <span class="mind-summary-label">최종 핵심 5줄 요약</span>
       <ul>
-        <li><strong>1)</strong> 문제는 의지 부족이 아니라 시스템 부재</li>
-        <li><strong>2)</strong> 해결은 환경 + 반복 시스템 구축</li>
+        <li>하루 1개만 집중</li>
+        <li>환경을 미리 세팅</li>
+        <li>생각 말고 즉시 행동</li>
+        <li>매일 반복</li>
+        <li>결과는 신경 끄기</li>
       </ul>
     </div>
-    <div class="mind-core-box rules">
-      <div class="mind-block-no">2. 반드시 지킬 원칙 3가지</div>
-      <div class="mind-rule-list">
-        <div><strong>1</strong><span>환경이 행동을 만든다</span></div>
-        <div><strong>2</strong><span>목표보다 시스템이 중요하다</span></div>
-        <div><strong>3</strong><span>집중은 선택이 아니라 버림이다</span></div>
-      </div>
+    <div class="mind-summary-card identity">
+      <span class="mind-summary-label">당신 맞춤 핵심 한줄</span>
+      <p>“나는 이미 성공한 사람처럼 행동하고, 시스템으로 돈을 만든다”</p>
     </div>
   </section>
 
   <section class="mind-checklist-header">
     <div>
-      <div class="mind-block-no">3. 실행 루틴 체크리스트</div>
-      <h2>아래 18개를 실제 행동 기준으로 체크하세요</h2>
-      <p>비슷한 말은 줄이고, 바로 움직일 수 있는 항목만 남겼습니다.</p>
+      <div class="mind-block-no">실행 체크리스트</div>
+      <h2>아래 항목을 매일 직접 체크하며 행동으로 연결하세요</h2>
+      <p>추상적인 다짐이 아니라 실제 실행이 되도록, 단계별 질문과 체크 항목으로 구성했습니다.</p>
     </div>
   </section>
 
-  <div class="mind-routine-grid compact">
+  <div class="mind-routine-grid compact mind-routine-grid-v3">
     {% for section in sections %}
-    <section class="mind-routine-card">
+    <section class="mind-routine-card mind-routine-card-v3">
       <div class="mind-routine-card-head">
         <div>
           <span class="mind-routine-icon">{{ section['icon'] }}</span>
@@ -104,22 +124,63 @@
         </label>
         {% endfor %}
       </div>
+
+      {% if section['code'] == 'premise' %}
+      <div class="mind-card-quote">👉 기준: “오늘 나는 단 하나라도 제대로 했는가?”</div>
+      {% elif section['code'] == 'morning' %}
+      <div class="mind-card-quote">👉 핵심 질문: “이거 하나 하면 오늘 성공인가?”</div>
+      {% elif section['code'] == 'focus' %}
+      <div class="mind-card-sidebox">
+        <strong>금지사항</strong>
+        <div class="mind-ban-list"><span>SNS 확인 ❌</span><span>다른 일 시작 ❌</span><span>계획 수정 ❌</span></div>
+        <p>👉 핵심: “끝까지 밀어붙이기”</p>
+      </div>
+      {% elif section['code'] == 'speed' %}
+      <div class="mind-card-sidebox">
+        <strong>예시</strong>
+        <div class="mind-chip-row"><span>메모 작성</span><span>연락 보내기</span><span>검색 시작</span></div>
+        <p>👉 핵심: “생각 → 즉시 행동”</p>
+      </div>
+      {% elif section['code'] == 'money' %}
+      <div class="mind-card-sidebox">
+        <strong>예시</strong>
+        <div class="mind-chip-row"><span>영업 연락</span><span>콘텐츠 업로드</span><span>상품 개선</span></div>
+        <p>👉 핵심: “오늘 돈과 연결된 행동 했는가?”</p>
+      </div>
+      {% elif section['code'] == 'environment' %}
+      <div class="mind-card-quote">👉 핵심: “편한 구조 = 자동 실행”</div>
+      {% elif section['code'] == 'evening' %}
+      <div class="mind-card-quote">👉 핵심: “내일 고민하지 않게 만들기”</div>
+      {% elif section['code'] == 'reset' %}
+      <div class="mind-card-quote">👉 핵심: “앉으면 바로 시작 상태”</div>
+      {% elif section['code'] == 'direction' %}
+      <div class="mind-card-quote">👉 핵심: “바쁨 ≠ 성공”</div>
+      {% elif section['code'] == 'mission' %}
+      <div class="mind-card-quote">👉 핵심: “돈보다 이유”</div>
+      {% elif section['code'] == 'result' %}
+      <div class="mind-card-quote">👉 핵심: “나는 지금 씨앗 심는 중이다”</div>
+      {% endif %}
     </section>
     {% endfor %}
   </div>
 
-  <section class="mind-execution-footer">
+  <section class="mind-execution-footer mind-execution-footer-v3">
     <div class="mind-footer-card">
-      <div class="mind-block-no">4. 실행률을 끌어올리는 운영 문장</div>
-      <ul>
-        <li>나는 이미 1000억을 번 사람처럼 가장 중요한 1가지를 먼저 끝낸다.</li>
-        <li>나는 방해요소를 정리하고, 실행이 되는 환경을 먼저 만든다.</li>
-        <li>나는 하루의 체크를 누적으로 쌓아 큰 결과를 만든다.</li>
-      </ul>
+      <div class="mind-block-no">실전 적용 팁</div>
+      <div class="mind-practical-list">
+        <div>
+          <strong>가게 + 온라인 병행</strong>
+          <p>아침 → 온라인 1개 집중<br>낮 → 가게 운영<br>밤 → 다음날 준비</p>
+        </div>
+        <div>
+          <strong>무조건 해야 하는 것 1개</strong>
+          <p>콘텐츠 / 영업 / 상품 개선 중 하나는 반드시 실행</p>
+        </div>
+      </div>
     </div>
     <div class="mind-footer-card strong">
-      <div class="mind-block-no">최종 결론</div>
-      <p><strong>성공은 의지의 문제가 아니라 시스템의 문제다.</strong><br>오늘 체크를 끝내는 행동이 바로 1000억 정체성을 현실로 만드는 과정이다.</p>
+      <div class="mind-block-no">마지막 한마디</div>
+      <p><strong>성공은 “큰 결심”이 아니라 “작은 반복 시스템”입니다.</strong><br>오늘의 체크가 쌓이면 1000억 정체성도 현실이 됩니다.</p>
     </div>
   </section>
 </section>
@@ -131,7 +192,7 @@
   const completedEl = document.getElementById('mindCompletedCount');
   const percentEl = document.getElementById('mindProgressPercent');
   const streakEl = document.getElementById('mindStreakCount');
-  const storageKey = 'mind-priority-board-v2';
+  const storageKey = 'mind-priority-board-v3';
 
   function applyState(state) {
     if (!state) return;

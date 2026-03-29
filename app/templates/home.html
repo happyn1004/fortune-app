@@ -1,11 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ meta_title }}{% endblock %}
 {% block content %}
-<section class="premium-trust-strip">
-  <div class="premium-trust-item"><strong>{{ site_settings.theme_name }}</strong><span>브랜드 기준 컬러 시스템 적용</span></div>
-  <div class="premium-trust-item"><strong>모바일 최적화</strong><span>핵심 CTA와 정보 밀도를 더 선명하게 정리</span></div>
-  <div class="premium-trust-item"><strong>오늘 바로 확인</strong><span>띠별 운세 · 로또 · 핵심 종목까지 한 번에</span></div>
-</section>
 <section class="card hero-card v95-merged-hero v103-landing-upgrade v112-hero-upgrade hero-lux-shell">
   <div class="v95-top-row">
     <div class="badge badge-lux">오늘 무료 제공</div>
@@ -122,11 +117,6 @@
   </script>
 </section>
 
-<section class="home-value-band">
-  <div class="home-value-card"><span>무료 진입</span><strong>핵심 흐름부터 빠르게</strong><p>첫 방문에서도 가치를 느끼게 하는 핵심 정보만 전면 배치했습니다.</p></div>
-  <div class="home-value-card"><span>유료 전환</span><strong>결정 포인트를 더 깊게</strong><p>가입 유도보다 체감 가치를 우선하는 구조로 랜딩 흐름을 정리했습니다.</p></div>
-  <div class="home-value-card"><span>모바일 UX</span><strong>한 손으로 보기 쉽게</strong><p>상단 정보는 압축하고 CTA는 아래에서 바로 접근되게 정리했습니다.</p></div>
-</section>
 
 {% if site_settings.mobile_sticky_cta == '1' %}
 <div class="home-sticky-cta mobile-only">
@@ -135,27 +125,70 @@
 </div>
 {% endif %}
 
-<section class="card mind-entry-card">
-  <div class="section-head compact">
-    <h2>성공 루틴 체크</h2>
-    <p>베이직 이상 전용. 매일 체크하며 행동으로 옮기는 실전 페이지입니다.</p>
+<section class="card mind-entry-card mind-entry-card-upgraded">
+  <div class="section-head compact mind-entry-head">
+    <span class="mind-entry-eyebrow">하루를 바꾸는 실행 습관</span>
+    <h2>🔥 오늘을 정리해 주는 성공 루틴</h2>
+    <p>복잡한 자기계발 문장이 아니라, 오늘 가장 중요한 1가지를 정하고 끝까지 밀어붙일 수 있게 도와주는 실전 체크리스트입니다.</p>
   </div>
-  <div class="mind-entry-grid">
-    <div class="mind-entry-copy">
-      <strong>문제는 의지 부족이 아니라 시스템 부재입니다</strong>
-      <p>오늘 가장 중요한 1가지 선정부터 밤 마감까지 18개 항목을 숫자로 체크하세요.</p>
-      <ul class="mind-entry-points">
-        <li>01~18 실행 체크리스트</li>
-        <li>오늘 진행률 자동 저장</li>
-        <li>연속 완료일 표시</li>
-      </ul>
+  <div class="mind-entry-grid mind-entry-grid-upgraded public-mind-grid">
+    <div class="mind-entry-copy mind-entry-copy-upgraded public-mind-copy">
+      <strong>“오늘 가장 중요한 1가지를 정하고, 흔들리지 않게 실행하세요”</strong>
+      <p>성공루틴은 막연한 동기부여가 아니라, 아침 시작 체크부터 집중 실행, 저녁 정리까지 하루를 실제 행동으로 이어주는 실행형 페이지입니다.</p>
+      <div class="mind-entry-preview-cards public-mind-cards">
+        <div class="mind-preview-card public-main-preview">
+          <span class="mind-preview-badge">오늘의 핵심 루틴</span>
+          <h3>하루의 중심을 먼저 정하고 흔들리지 않기</h3>
+          <p>오늘 가장 중요한 1가지를 먼저 적고, 끝날 때까지 집중 흐름을 유지할 수 있게 설계했습니다.</p>
+        </div>
+        <div class="mind-preview-card-grid public-mind-card-grid">
+          <article class="mind-preview-mini-card public-feature-card">
+            <span class="mind-preview-check public-check-icon"></span>
+            <span>
+              <strong>아침 시작 체크</strong>
+              <em>하루의 단 하나를 정하고 바로 출발</em>
+            </span>
+          </article>
+          <article class="mind-preview-mini-card public-feature-card">
+            <span class="mind-preview-check public-check-icon"></span>
+            <span>
+              <strong>즉시 행동 루틴</strong>
+              <em>생각만 하지 않고 바로 실행으로 연결</em>
+            </span>
+          </article>
+          <article class="mind-preview-mini-card public-feature-card">
+            <span class="mind-preview-check public-check-icon"></span>
+            <span>
+              <strong>저녁 정리 시스템</strong>
+              <em>내일 바로 시작할 수 있게 미리 준비</em>
+            </span>
+          </article>
+        </div>
+      </div>
+      <div class="mind-entry-points public-mind-points">
+        <div class="mind-point-chip"><span>하루 1개 집중</span><em>복잡함을 줄이고 핵심만</em></div>
+        <div class="mind-point-chip"><span>즉시 행동</span><em>생각보다 실행을 먼저</em></div>
+        <div class="mind-point-chip"><span>반복 가능한 구조</span><em>매일 이어지는 작은 시스템</em></div>
+      </div>
     </div>
-    <div class="mind-entry-actions">
-      {% if user and user.plan in ['Basic','Premium','VIP'] %}
-      <a class="btn primary" href="/mind">지금 체크하러 가기</a>
-      {% else %}
-      <a class="btn primary" href="/upgrade?required=Basic&from_path=/mind">베이직 이상에서 입장</a>
-      {% endif %}
+    <div class="mind-entry-actions public-mind-actions">
+      <div class="mind-entry-action-box mind-entry-action-box-upgraded public-mind-action-box">
+        <div class="mind-entry-action-copy">
+          <small>실전 체크 페이지</small>
+          <strong>하루가 흐트러질 때 다시 중심을 잡아주는 루틴</strong>
+          <p>오늘의 단 하나를 정하고, 방해 요소를 줄이고, 끝까지 실행하도록 돕는 체크 흐름을 한 화면에 담았습니다.</p>
+        </div>
+        <div class="public-mind-benefits">
+          <div class="public-mind-benefit"><span>01</span><strong>오늘의 우선순위 정리</strong><em>지금 가장 중요한 1가지를 먼저 잡게 해줍니다</em></div>
+          <div class="public-mind-benefit"><span>02</span><strong>집중 흐름 유지</strong><em>딴길로 새지 않게 체크하며 밀어붙일 수 있습니다</em></div>
+          <div class="public-mind-benefit"><span>03</span><strong>내일 준비까지 연결</strong><em>저녁 정리와 환경 리셋으로 다음 시작이 쉬워집니다</em></div>
+        </div>
+        {% if user and user.plan in ['Basic','Premium','VIP'] %}
+        <a class="btn primary mind-entry-btn" href="/mind">성공 루틴 시작하기</a>
+        {% else %}
+        <a class="btn primary mind-entry-btn" href="/upgrade?required=Basic&from_path=/mind">베이직 이상에서 보기</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 </section>
