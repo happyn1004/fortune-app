@@ -1482,7 +1482,7 @@ def render_view(request: Request, template_name: str, context: dict):
     context.setdefault("og_url", str(request.url))
     context.setdefault("og_image", f"/static/og-saju-lotto.jpg?v={STATIC_VERSION}")
     context.setdefault("static_version", STATIC_VERSION)
-    return templates.TemplateResponse(template_name, context)
+    return templates.TemplateResponse(request, template_name, context)
 
 
 def ensure_column(conn, table_name: str, column_name: str, column_def: str):

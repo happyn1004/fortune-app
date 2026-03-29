@@ -1,0 +1,2 @@
+Fixed TemplateResponse call to the new Starlette/FastAPI style: templates.TemplateResponse(request, template_name, context).
+Added requirements.txt with pinned compatible versions to reduce environment drift.
