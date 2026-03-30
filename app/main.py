@@ -963,7 +963,7 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v101-dedupe-readability-fix").strip() or "v101-dedupe-readability-fix"
+STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v134-share-actions").strip() or "v134-share-actions"
 
 @app.get("/storage-debug", response_class=HTMLResponse)
 def storage_debug(request: Request):
@@ -3742,7 +3742,20 @@ def home(request: Request):
         "vip_focus": max(crm['active_paid'] * 11, 287),
         "conversion_rate": max(crm['conversion_rate'], 31.8),
     }
-    return render_view(request, "home.html", {"user": user, "quote": quote, "tip": tip, "animals": ANIMALS, "plan_meta": PLAN_META, "plan_levels": PLAN_LEVELS, "hero_stats": hero_stats})
+    return render_view(request, "home.html", {
+        "user": user,
+        "quote": quote,
+        "tip": tip,
+        "animals": ANIMALS,
+        "plan_meta": PLAN_META,
+        "plan_levels": PLAN_LEVELS,
+        "hero_stats": hero_stats,
+        "meta_title": "오늘의 운세 + 무료 로또번호 | 운세조아",
+        "meta_description": "띠별 운세, 행운의 수, 좋은 방향, 행운시간과 무료 로또번호까지 지금 바로 확인하세요.",
+        "share_title": "오늘의 운세 + 무료 로또번호 | 운세조아",
+        "share_text": "오늘의 운세 흐름과 무료 로또번호를 바로 확인해보세요.",
+        "share_url": str(request.base_url).rstrip("/"),
+    })
 
 
 @app.get("/signup", response_class=HTMLResponse)
@@ -3890,7 +3903,19 @@ def fortune_page(request: Request):
     user = get_current_user(request)
     active_plan, preview_mode = get_active_plan(request, user)
     fortune = generate_fortune(user, active_plan)
-    return render_view(request, "fortune.html", {"user": user, "fortune": fortune, "active_plan": active_plan, "preview_mode": preview_mode, "plan_levels": PLAN_LEVELS})
+    zodiac_label = f"{fortune.get('띠', '')}띠" if fortune.get('띠') else "오늘의 운세"
+    return render_view(request, "fortune.html", {
+        "user": user,
+        "fortune": fortune,
+        "active_plan": active_plan,
+        "preview_mode": preview_mode,
+        "plan_levels": PLAN_LEVELS,
+        "meta_title": f"{zodiac_label} 오늘의 운세 | 운세조아",
+        "meta_description": "지금 바로 오늘의 운세 흐름, 행운의 수, 좋은 방향, 로또번호와 추천 종목까지 확인해보세요.",
+        "share_title": "오늘의 운세 + 무료 로또번호 | 운세조아",
+        "share_text": f"{zodiac_label} 오늘의 흐름과 무료 로또번호를 지금 바로 확인해보세요.",
+        "share_url": str(request.base_url).rstrip("/"),
+    })
 
 
 @app.get("/mind", response_class=HTMLResponse)

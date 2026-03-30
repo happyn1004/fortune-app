@@ -4797,3 +4797,36 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   border-color: rgba(255, 107, 107, .30);
   color: #ffe0e0;
 }
+
+
+/* share promo */
+.share-promo-wrap{margin-top:22px;margin-bottom:10px}
+.share-promo-card{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 24px;border:1px solid rgba(242,205,122,.18);background:linear-gradient(135deg,rgba(122,92,255,.14),rgba(255,138,54,.12));box-shadow:0 16px 40px rgba(0,0,0,.18)}
+.share-promo-copy{display:flex;flex-direction:column;gap:6px;max-width:720px}
+.share-promo-kicker{display:inline-flex;align-self:flex-start;padding:6px 10px;border-radius:999px;background:rgba(242,205,122,.12);border:1px solid rgba(242,205,122,.22);color:var(--gold);font-size:12px;font-weight:800;letter-spacing:.04em}
+.share-promo-copy strong{font-size:28px;line-height:1.25;color:var(--text)}
+.share-promo-copy p{margin:0;color:var(--muted);font-size:15px;line-height:1.6}
+.share-promo-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;min-width:280px}
+.share-action-btn{min-width:118px;text-align:center}
+.share-promo-status{flex-basis:100%;font-size:13px;color:var(--muted);min-height:20px;padding-top:4px}
+.share-promo-status.is-success{color:#f7d98f}
+.share-promo-status.is-error{color:#ffb3b3}
+.hero-share-inline{margin-top:12px;color:var(--gold);font-size:14px;font-weight:700}
+.fortune-share-inline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;margin-bottom:14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(242,205,122,.12);color:var(--muted)}
+.fortune-share-inline strong{color:var(--gold);font-size:15px}
+.card-lite-share-note span{font-size:14px;line-height:1.5}
+@media (max-width: 900px){
+  .share-promo-card{flex-direction:column;align-items:flex-start;padding:18px}
+  .share-promo-copy strong{font-size:22px}
+  .share-promo-actions{width:100%;min-width:0;justify-content:flex-start}
+  .share-action-btn,.share-sms-btn{flex:1 1 calc(50% - 8px)}
+  .fortune-share-inline{flex-direction:column;align-items:flex-start}
+}
+@media (max-width: 640px){
+  .share-promo-wrap{margin-top:16px}
+  .share-promo-card{padding:16px}
+  .share-promo-copy strong{font-size:20px}
+  .share-promo-copy p{font-size:14px}
+  .share-action-btn,.share-sms-btn{flex:1 1 100%}
+  .hero-share-inline{font-size:13px}
+}

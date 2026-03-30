@@ -11,6 +11,9 @@
   {% set meta_description = meta_description if meta_description is defined else "사주 감성으로 보는 오늘의 운세, 금전운, 연애운, 무료 로또 번호까지 지금 바로 확인하세요." %}
   {% set og_site_name = og_site_name if og_site_name is defined else (site_settings.brand_name if site_settings else "운세조아") %}
   {% set og_url = og_url if og_url is defined else request.url|string %}
+  {% set share_title = share_title if share_title is defined else meta_title %}
+  {% set share_text = share_text if share_text is defined else meta_description %}
+  {% set share_url = share_url if share_url is defined else (request.base_url|string).rstrip('/') %}
   {% set og_image = og_image if og_image is defined else '/static/og-saju-lotto.jpg' %}
   {% if og_image.startswith('/') %}
     {% set og_image = (request.base_url|string).rstrip('/') ~ og_image %}
@@ -701,5 +704,76 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     window.addEventListener('touchstart', function(){ topbar.classList.remove('topbar-hidden'); }, { passive: true });
   })();
 </script>
+  <script>
+    function getSharePayload(source) {
+      const container = source && source.closest ? source.closest('[data-share-title]') : document.querySelector('[data-share-title]');
+      const title = (container && container.dataset.shareTitle) || document.title;
+      const text = (container && container.dataset.shareText) || document.querySelector('meta[name="description"]')?.content || '';
+      const url = (container && container.dataset.shareUrl) || window.location.origin;
+      const status = container ? container.querySelector('.share-promo-status') : null;
+      return { container, title, text, url, status };
+    }
+
+    function setShareStatus(target, message, ok) {
+      if (!target) return;
+      target.textContent = message || '';
+      target.classList.toggle('is-success', !!ok);
+      target.classList.toggle('is-error', ok === false);
+    }
+
+    async function appShare(button) {
+      const payload = getSharePayload(button);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: payload.title, text: payload.text, url: payload.url });
+          setShareStatus(payload.status, '공유창이 열렸습니다. 카카오톡, 문자, SNS 중 원하는 방법으로 전달하세요.', true);
+          return;
+        }
+        await copyShareLink(button);
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          setShareStatus(payload.status, '공유가 취소되었습니다.', false);
+          return;
+        }
+        await copyShareLink(button);
+      }
+    }
+
+    async function copyShareLink(button) {
+      const payload = getSharePayload(button);
+      const message = payload.text ? `${payload.title}
+${payload.text}
+${payload.url}` : `${payload.title}
+${payload.url}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(message);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = message;
+          textarea.setAttribute('readonly', 'readonly');
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+        setShareStatus(payload.status, '공유 문구와 링크가 복사되었습니다. 카톡이나 문자에 바로 붙여넣기 하세요.', true);
+      } catch (error) {
+        setShareStatus(payload.status, '링크 복사에 실패했습니다. 잠시 후 다시 시도해 주세요.', false);
+      }
+    }
+
+    function sendShareSms(link) {
+      const payload = getSharePayload(link);
+      const body = encodeURIComponent(`${payload.title}
+${payload.text}
+${payload.url}`);
+      window.location.href = `sms:?&body=${body}`;
+      setShareStatus(payload.status, '문자앱이 열리면 바로 전송하시면 됩니다.', true);
+      return false;
+    }
+  </script>
 </body>
 </html>
