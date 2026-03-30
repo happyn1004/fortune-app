@@ -142,9 +142,9 @@
             {% if href %}<a href="{{ href }}" target="_blank" rel="noopener" class="footer-ad-gallery-item">{% else %}<div class="footer-ad-gallery-item">{% endif %}
               <div class="footer-ad-media">
                 {% if ad.media_type == 'video' %}
-                <video src="{{ ad.media_url }}" controls playsinline preload="metadata" poster="/static/default-ad.svg"></video>
+                <video src="{{ ad.media_url }}" controls playsinline preload="metadata" poster="{{ ad.fallback_media_url or '/static/default-ad.svg' }}"></video>
                 {% else %}
-                <img src="{{ ad.media_url }}" alt="{{ ad.title }}" onerror="this.onerror=null;this.src='/static/default-ad.svg';">
+                <img src="{{ ad.media_url }}" alt="{{ ad.title }}" onerror="this.onerror=null;this.src='{{ ad.fallback_media_url or '/static/default-ad.svg' }}';">
                 {% endif %}
               </div>
             {% if href %}</a>{% else %}</div>{% endif %}

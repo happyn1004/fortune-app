@@ -1375,11 +1375,34 @@ def normalize_media_url(media_url: str | None) -> str:
     return "/static/uploads/" + value.lstrip("/")
 
 
+def get_slot_fallback_media(slot_index: int | None = None) -> str:
+    try:
+        idx = int(slot_index or 1)
+    except Exception:
+        idx = 1
+    if idx not in (1, 2, 3):
+        idx = 1
+    return f"/static/ad-fortune-{idx}.jpg"
+
+
+def resolve_ad_media_url(media_url: str | None, slot_index: int | None = None) -> str:
+    normalized = normalize_media_url(media_url)
+    if normalized.startswith('/static/uploads/'):
+        file_name = normalized.split('/static/uploads/')[-1].strip()
+        upload_path = BASE_DIR / 'static' / 'uploads' / file_name
+        if not upload_path.exists():
+            return get_slot_fallback_media(slot_index)
+    if normalized == '/static/default-ad.svg':
+        return get_slot_fallback_media(slot_index)
+    return normalized
+
+
 def enrich_ad_row(row):
     if not row:
         return None
     data = dict(row)
-    data["media_url"] = normalize_media_url(data.get("media_url"))
+    data["media_url"] = resolve_ad_media_url(data.get("media_url"), data.get('slot_index'))
+    data["fallback_media_url"] = get_slot_fallback_media(data.get('slot_index'))
     return data
 
 def get_default_ads():
