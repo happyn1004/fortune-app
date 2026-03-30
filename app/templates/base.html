@@ -155,35 +155,6 @@
             </div>
           </article>
         {% endfor %}
-        {% if active_ads|length == 1 and active_ad and active_ad.media_type != 'video' %}
-          {% for idx in range(2) %}
-          <article class="footer-ad-card duplicate">
-            <div class="footer-ad-gallery-item duplicate">
-              <div class="footer-ad-media">
-                <img src="{{ active_ad.media_url }}" alt="{{ active_ad.title }}" onerror="this.onerror=null;this.src='/static/default-ad.svg';">
-              </div>
-            </div>
-            <div class="footer-ad-meta">
-              <div class="footer-ad-meta-top"><span class="footer-ad-label">추천 {{ idx + 2 }}</span></div>
-              <strong class="footer-ad-title">{{ active_ad.title }}</strong>
-              <p class="footer-ad-desc">{{ active_ad.description or '광고 상세 설명이 여기에 노출됩니다.' }}</p>
-            </div>
-          </article>
-          {% endfor %}
-        {% elif active_ads|length == 2 and active_ad and active_ad.media_type != 'video' %}
-          <article class="footer-ad-card duplicate">
-            <div class="footer-ad-gallery-item duplicate">
-              <div class="footer-ad-media">
-                <img src="{{ active_ads[0].media_url }}" alt="{{ active_ads[0].title }}" onerror="this.onerror=null;this.src='/static/default-ad.svg';">
-              </div>
-            </div>
-            <div class="footer-ad-meta">
-              <div class="footer-ad-meta-top"><span class="footer-ad-label">추천 3</span></div>
-              <strong class="footer-ad-title">{{ active_ads[0].title }}</strong>
-              <p class="footer-ad-desc">{{ active_ads[0].description or '광고 상세 설명이 여기에 노출됩니다.' }}</p>
-            </div>
-          </article>
-        {% endif %}
       </div>
     </section>
   </section>

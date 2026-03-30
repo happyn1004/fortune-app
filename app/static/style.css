@@ -4775,3 +4775,25 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
     font-size: 12px;
   }
 }
+
+
+/* Promo save status */
+.promo-save-status {
+  margin: 16px auto 0;
+  max-width: 860px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-weight: 800;
+  line-height: 1.5;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.promo-save-status.is-success {
+  background: rgba(72, 187, 120, .14);
+  border-color: rgba(72, 187, 120, .34);
+  color: #d9ffe7;
+}
+.promo-save-status.is-error {
+  background: rgba(255, 107, 107, .14);
+  border-color: rgba(255, 107, 107, .30);
+  color: #ffe0e0;
+}

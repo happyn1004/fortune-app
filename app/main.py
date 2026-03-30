@@ -1563,6 +1563,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS media_ads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slot_index INTEGER,
             title TEXT NOT NULL,
             description TEXT,
             media_type TEXT NOT NULL DEFAULT 'image',
@@ -1695,6 +1696,11 @@ def init_db():
     ensure_column(conn, "payments", "transfer_requested_at", "transfer_requested_at TEXT")
     ensure_column(conn, "payments", "subscription_mode", "subscription_mode TEXT NOT NULL DEFAULT 'MONTHLY'")
     ensure_column(conn, "payments", "provider_reference", "provider_reference TEXT")
+    ensure_column(conn, "media_ads", "slot_index", "slot_index INTEGER")
+    ensure_column(conn, "media_ads", "description", "description TEXT")
+    ensure_column(conn, "media_ads", "media_type", "media_type TEXT NOT NULL DEFAULT 'image'")
+    ensure_column(conn, "media_ads", "target_url", "target_url TEXT")
+    ensure_column(conn, "media_ads", "is_active", "is_active INTEGER NOT NULL DEFAULT 1")
     ensure_column(conn, "push_notifications", "auto_campaign_key", "auto_campaign_key TEXT")
     ensure_column(conn, "push_subscriptions", "user_agent", "user_agent TEXT")
     ensure_column(conn, "push_subscriptions", "plan_snapshot", "plan_snapshot TEXT NOT NULL DEFAULT 'Free'")
@@ -2815,23 +2821,65 @@ def get_today_comment(active_plan: str, fortune: dict):
     return comments.get(active_plan, fortune.get('오늘의한줄', ''))
 
 
-def get_active_ads(limit: int = 3):
+def get_admin_ads(limit: int = 20):
     conn = get_db()
-    rows = conn.execute("SELECT * FROM media_ads WHERE is_active=1 ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM media_ads ORDER BY CASE WHEN slot_index IS NULL THEN 99 ELSE slot_index END ASC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    except sqlite3.OperationalError as e:
+        if "slot_index" in str(e):
+            try:
+                ensure_column(conn, "media_ads", "slot_index", "slot_index INTEGER")
+                conn.commit()
+                rows = conn.execute(
+                    "SELECT * FROM media_ads ORDER BY CASE WHEN slot_index IS NULL THEN 99 ELSE slot_index END ASC, id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            except Exception:
+                rows = conn.execute("SELECT * FROM media_ads ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        else:
+            raise
     conn.close()
     return [enrich_ad_row(row) for row in rows]
+
+
+def get_ads_by_slot(slot_count: int = 3):
+    ads = get_admin_ads(50)
+    slots = {idx: None for idx in range(1, slot_count + 1)}
+    unslotted = []
+    for ad in ads:
+        slot_index = ad.get('slot_index')
+        try:
+            slot_index = int(slot_index) if slot_index is not None else None
+        except Exception:
+            slot_index = None
+        if slot_index in slots and slots[slot_index] is None:
+            slots[slot_index] = ad
+        else:
+            unslotted.append(ad)
+    for idx in range(1, slot_count + 1):
+        if slots[idx] is None and unslotted:
+            fallback = unslotted.pop(0)
+            fallback['slot_index'] = idx
+            slots[idx] = fallback
+    return slots
+
+
+def get_active_ads(limit: int = 3):
+    ads_by_slot = get_ads_by_slot(max(3, limit))
+    active_ads = []
+    for idx in sorted(ads_by_slot.keys()):
+        ad = ads_by_slot[idx]
+        if ad and int(ad.get('is_active') or 0) == 1:
+            active_ads.append(ad)
+    return active_ads[:limit]
 
 
 def get_active_ad():
     ads = get_active_ads(limit=1)
     return ads[0] if ads else None
-
-
-def get_admin_ads(limit: int = 10):
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM media_ads ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-    conn.close()
-    return [enrich_ad_row(row) for row in rows]
 
 
 def get_recent_pushes(limit: int = 10):
@@ -4302,6 +4350,7 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         "restore_error": request.query_params.get("restore_error"),
         "backup_files": list_backups(12),
         "ads": get_admin_ads(12),
+        "ads_by_slot": get_ads_by_slot(3),
         "pushes": get_recent_pushes(12),
         "crm": get_crm_snapshot(),
         "campaigns": campaigns,
@@ -4583,12 +4632,41 @@ def admin_update_settings(
 
 
 
+
+@app.post("/admin/promo/settings")
+def admin_update_promo_settings(
+    request: Request,
+    promo_badge: str = Form(""),
+    promo_title: str = Form(""),
+    promo_subtitle: str = Form(""),
+    promo_cta_text: str = Form(""),
+    promo_enabled: str = Form("0"),
+    admin=Depends(require_admin),
+):
+    conn = get_db()
+    try:
+        set_site_setting_value(conn, "promo_badge", promo_badge.strip())
+        set_site_setting_value(conn, "promo_title", promo_title.strip())
+        set_site_setting_value(conn, "promo_subtitle", promo_subtitle.strip())
+        set_site_setting_value(conn, "promo_cta_text", promo_cta_text.strip())
+        set_site_setting_value(conn, "promo_enabled", "1" if str(promo_enabled).strip() in ("1", "true", "on", "yes") else "0")
+        conn.commit()
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse({"ok": False, "message": f"promo_settings_save_failed: {e}"}, status_code=500)
+    finally:
+        conn.close()
+
+
+
 @app.post("/admin/ads")
 async def admin_create_ad(
     request: Request,
     title: str = Form(...),
     description: str = Form(""),
     target_url: str = Form(""),
+    slot_index: int = Form(1),
     media_file: UploadFile = File(...),
     admin=Depends(require_admin),
 ):
@@ -4601,11 +4679,16 @@ async def admin_create_ad(
     save_path = uploads_dir / safe_name
     with save_path.open('wb') as f:
         shutil.copyfileobj(media_file.file, f)
+    slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
     conn = get_db()
-    conn.execute('INSERT INTO media_ads (title, description, media_type, media_url, target_url, created_at) VALUES (?,?,?,?,?,?)', (title.strip(), description.strip(), media_type, f'/static/uploads/{safe_name}', target_url.strip(), datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    existing = conn.execute('SELECT id FROM media_ads WHERE slot_index=? LIMIT 1', (slot_index,)).fetchone()
+    if existing:
+        conn.close()
+        raise HTTPException(status_code=400, detail='이미 해당 슬롯에 광고가 있습니다. 기존 카드를 수정해 주세요.')
+    conn.execute('INSERT INTO media_ads (slot_index, title, description, media_type, media_url, target_url, created_at) VALUES (?,?,?,?,?,?,?)', (slot_index, title.strip(), description.strip(), media_type, f'/static/uploads/{safe_name}', target_url.strip(), datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/update")
@@ -4615,6 +4698,7 @@ async def admin_update_ad(
     title: str = Form(...),
     description: str = Form(""),
     target_url: str = Form(""),
+    slot_index: int = Form(1),
     media_file: UploadFile | None = File(None),
     admin=Depends(require_admin),
 ):
@@ -4642,13 +4726,17 @@ async def admin_update_ad(
                 (BASE_DIR / old_media.lstrip('/')).unlink()
             except Exception:
                 pass
+    slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
+    slot_conflict = conn.execute('SELECT id FROM media_ads WHERE slot_index=? AND id<>? LIMIT 1', (slot_index, ad_id)).fetchone()
+    if slot_conflict:
+        conn.execute('UPDATE media_ads SET slot_index=NULL WHERE id=?', (slot_conflict['id'],))
     conn.execute(
-        'UPDATE media_ads SET title=?, description=?, target_url=?, media_type=?, media_url=? WHERE id=?',
-        (title.strip(), description.strip(), target_url.strip(), media_type, media_url, ad_id),
+        'UPDATE media_ads SET slot_index=?, title=?, description=?, target_url=?, media_type=?, media_url=? WHERE id=?',
+        (slot_index, title.strip(), description.strip(), target_url.strip(), media_type, media_url, ad_id),
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/toggle")
@@ -4659,7 +4747,7 @@ def admin_toggle_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('UPDATE media_ads SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, ad_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/delete")
@@ -4678,7 +4766,7 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
                 except Exception:
                     pass
     conn.close()
-    return RedirectResponse(url='/admin', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/push")
@@ -4692,7 +4780,7 @@ def admin_create_push(
 ):
     audience_plan = audience_plan if audience_plan in ['ALL'] + PLAN_LEVELS else 'ALL'
     create_push_notification(title, message, target_url.strip() or '/fortune', audience_plan)
-    return RedirectResponse(url='/admin', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.get("/api/push/public-key")
@@ -5004,7 +5092,7 @@ def admin_toggle_push_campaign(campaign_id: int, request: Request, admin=Depends
         conn.execute('UPDATE push_campaigns SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, campaign_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/delete")
@@ -5013,7 +5101,7 @@ def admin_delete_push_campaign(campaign_id: int, request: Request, admin=Depends
     conn.execute('DELETE FROM push_campaigns WHERE id=?', (campaign_id,))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/inquiry/{inquiry_id}/status")

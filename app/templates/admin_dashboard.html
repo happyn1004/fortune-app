@@ -157,7 +157,7 @@
   <section id="promo-panel" class="card filter-card admin-settings-card">
     <div class="table-head-row"><h3>광고 / 프로모션 쌍둥이 편집</h3><p class="muted">관리자 화면에서도 고객 화면과 같은 자리, 같은 크기, 같은 구조로 보이도록 맞췄습니다. 위의 문구와 각 카드의 제목·설명을 바로 수정하고, 이미지는 카드 이미지를 눌러 바꾸고, 링크는 카드의 CTA를 눌러 바꾼 뒤 아래의 저장 버튼 한 번만 누르면 됩니다.</p></div>
 
-    <form id="promo-section-form" method="post" action="/admin/settings" class="hidden-promo-form" style="display:none;">
+    <form id="promo-section-form" method="post" action="/admin/promo/settings" class="hidden-promo-form" style="display:none;">
       <input type="hidden" name="promo_badge" id="promo_badge_input" value="{{ site_settings.promo_badge }}">
       <input type="hidden" name="promo_title" id="promo_title_input" value="{{ site_settings.promo_title }}">
       <input type="hidden" name="promo_subtitle" id="promo_subtitle_input" value="{{ site_settings.promo_subtitle }}">
@@ -183,7 +183,7 @@
         </div>
         <div class="footer-ad-gallery footer-ad-gallery-count-3">
           {% for idx in range(3) %}
-            {% set ad = ads[idx] if ads|length > idx else none %}
+            {% set ad = ads_by_slot.get(idx + 1) %}
             {% set slot_number = idx + 1 %}
             {% set media_src = ad.media_url if ad else ('/static/ad-fortune-' ~ slot_number ~ '.jpg') %}
             {% set media_type = ad.media_type if ad else 'image' %}
@@ -212,10 +212,10 @@
                 <button type="button" class="btn mini" onclick="triggerPromoMedia({{ slot_number }})">이미지/영상 변경</button>
                 <button type="button" class="btn mini" onclick="openPromoLinkEditor('{{ slot_number }}')">링크 수정</button>
                 <button type="button" class="btn mini primary" onclick="savePromoCard({{ slot_number }})">카드 저장</button>
-                <button type="button" class="btn mini" onclick="togglePromoCard({{ slot_number }})" {% if not ad %}disabled{% endif %}>숨기기</button>
+                <button type="button" class="btn mini {{ 'is-hide' if ad and ad.is_active else 'is-show' }}" onclick="togglePromoCard({{ slot_number }})" {% if not ad %}disabled{% endif %}>{{ '비노출' if ad and ad.is_active else '노출' if ad else '비노출' }}</button>
                 <button type="button" class="btn mini" onclick="deletePromoCard({{ slot_number }})" {% if not ad %}disabled{% endif %}>삭제</button>
               </div>
-              {% if ad and ad.target_url %}<div class="promo-card-current-link">현재 링크: {{ ad.target_url }}</div>{% elif not ad and link_value %}<div class="promo-card-current-link">현재 링크: {{ link_value }}</div>{% endif %}
+              {% if ad and ad.target_url %}<div class="promo-card-current-link">현재 링크: {{ ad.target_url }}</div><div class="promo-card-current-link">현재 상태: {{ '노출 중' if ad.is_active else '숨김' }}</div>{% elif not ad and link_value %}<div class="promo-card-current-link">현재 링크: {{ link_value }}</div>{% endif %}
 
               <form id="ad_form_{{ slot_number }}" method="post" action="{{ '/admin/ads/' ~ ad.id ~ '/update' if ad else '/admin/ads' }}" enctype="multipart/form-data" style="display:none;">
                 <input type="hidden" name="title" id="ad_title_{{ slot_number }}" value="{{ title_value }}">
@@ -233,6 +233,7 @@
       </section>
     </section>
 
+    <div id="promoSaveStatus" class="promo-save-status" style="display:none;"></div>
     <div style="display:flex; justify-content:center; margin-top:22px;">
       <button type="button" class="btn primary" id="promo-save-all-btn" onclick="savePromoTwinAll()">전체 수정 후 저장</button>
     </div>
@@ -451,35 +452,76 @@
   window.savePromoTwinAll = async function(){
     syncAllEditables();
     var saveBtn = document.getElementById('promo-save-all-btn');
-    if(saveBtn){
-      saveBtn.disabled = true;
-      saveBtn.textContent = '저장중...';
+    var statusBox = document.getElementById('promoSaveStatus');
+    function showStatus(message, kind){
+      if(!statusBox) return;
+      statusBox.style.display = 'block';
+      statusBox.className = 'promo-save-status ' + (kind || 'is-error');
+      statusBox.textContent = message || '';
     }
-    try {
-      var forms = [document.getElementById('promo-section-form')];
-      [1,2,3].forEach(function(slot){
-        var form = document.getElementById('ad_form_' + slot);
-        if(!form) return;
-        var hasExisting = !!(form.querySelector('input[name="existing_ad_id"]') || {}).value;
-        var fileInput = document.getElementById('ad_media_' + slot);
-        var hasFile = !!(fileInput && fileInput.files && fileInput.files.length);
-        if(hasExisting || hasFile){ forms.push(form); }
-      });
-      for (var i=0;i<forms.length;i++){
-        var form = forms[i];
-        await fetch(form.action, {
-          method: 'POST',
-          body: new FormData(form),
-          credentials: 'same-origin'
-        });
-      }
-      window.location.href = '/admin?settings_updated=1#promo-panel';
-    } catch (e) {
-      alert('저장 중 문제가 발생했습니다. 다시 시도해 주세요.');
+    function resetButton(){
       if(saveBtn){
         saveBtn.disabled = false;
         saveBtn.textContent = '전체 수정 후 저장';
       }
+    }
+    if(saveBtn){
+      saveBtn.disabled = true;
+      saveBtn.textContent = '저장중...';
+    }
+    if(statusBox){
+      statusBox.style.display = 'none';
+      statusBox.textContent = '';
+      statusBox.className = 'promo-save-status';
+    }
+    try {
+      var sectionForm = document.getElementById('promo-section-form');
+      if(!sectionForm || !sectionForm.action){
+        throw new Error('프로모션 기본 설정 폼을 찾지 못했습니다.');
+      }
+
+      var sectionRes = await fetch(sectionForm.action, {
+        method: 'POST',
+        body: new FormData(sectionForm),
+        credentials: 'same-origin'
+      });
+      if(!sectionRes.ok){
+        var sectionText = '';
+        try { sectionText = await sectionRes.text(); } catch(e){}
+        throw new Error('프로모션 기본 설정 저장 실패' + (sectionText ? ' / ' + sectionText.slice(0, 180) : ''));
+      }
+
+      for (var slot=1; slot<=3; slot++){
+        var form = document.getElementById('ad_form_' + slot);
+        if(!form || !form.action) continue;
+
+        var hasExisting = !!((form.querySelector('input[name="existing_ad_id"]') || {}).value || '');
+        var fileInput = document.getElementById('ad_media_' + slot);
+        var hasFile = !!(fileInput && fileInput.files && fileInput.files.length);
+
+        if(!hasExisting && !hasFile){
+          continue;
+        }
+
+        var response = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          credentials: 'same-origin'
+        });
+        if(!response.ok){
+          var responseText = '';
+          try { responseText = await response.text(); } catch(e){}
+          throw new Error(slot + '번 카드 저장 실패' + (responseText ? ' / ' + responseText.slice(0, 180) : ''));
+        }
+      }
+
+      showStatus('광고 / 프로모션 저장이 완료되었습니다.', 'is-success');
+      window.setTimeout(function(){
+        window.location.href = '/admin?settings_updated=1#promo-panel';
+      }, 500);
+    } catch (e) {
+      showStatus(e && e.message ? e.message : '저장 중 문제가 발생했습니다. 다시 시도해 주세요.', 'is-error');
+      resetButton();
     }
   };
 })();
