@@ -4667,25 +4667,64 @@ async def admin_create_ad(
     description: str = Form(""),
     target_url: str = Form(""),
     slot_index: int = Form(1),
-    media_file: UploadFile = File(...),
+    media_file: UploadFile | None = File(None),
     admin=Depends(require_admin),
 ):
-    uploads_dir = BASE_DIR / 'static' / 'uploads'
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    original = Path(media_file.filename or 'upload.bin').name
-    suffix = Path(original).suffix.lower() or '.bin'
-    media_type = 'video' if suffix in ['.mp4', '.webm', '.mov', '.m4v'] else 'image'
-    safe_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}{suffix}"
-    save_path = uploads_dir / safe_name
-    with save_path.open('wb') as f:
-        shutil.copyfileobj(media_file.file, f)
     slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
     conn = get_db()
-    existing = conn.execute('SELECT id FROM media_ads WHERE slot_index=? LIMIT 1', (slot_index,)).fetchone()
+    existing = conn.execute('SELECT * FROM media_ads WHERE slot_index=? ORDER BY id DESC LIMIT 1', (slot_index,)).fetchone()
+
+    media_url = None
+    media_type = None
+    if media_file and getattr(media_file, 'filename', None):
+        uploads_dir = BASE_DIR / 'static' / 'uploads'
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        original = Path(media_file.filename or 'upload.bin').name
+        suffix = Path(original).suffix.lower() or '.bin'
+        media_type = 'video' if suffix in ['.mp4', '.webm', '.mov', '.m4v'] else 'image'
+        safe_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}{suffix}"
+        save_path = uploads_dir / safe_name
+        with save_path.open('wb') as f:
+            shutil.copyfileobj(media_file.file, f)
+        media_url = f'/static/uploads/{safe_name}'
+
     if existing:
-        conn.close()
-        raise HTTPException(status_code=400, detail='이미 해당 슬롯에 광고가 있습니다. 기존 카드를 수정해 주세요.')
-    conn.execute('INSERT INTO media_ads (slot_index, title, description, media_type, media_url, target_url, created_at) VALUES (?,?,?,?,?,?,?)', (slot_index, title.strip(), description.strip(), media_type, f'/static/uploads/{safe_name}', target_url.strip(), datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        current_media_url = existing['media_url']
+        current_media_type = existing['media_type']
+        conn.execute(
+            'UPDATE media_ads SET title=?, description=?, target_url=?, media_type=?, media_url=? WHERE id=?',
+            (
+                title.strip(),
+                description.strip(),
+                target_url.strip(),
+                media_type or current_media_type,
+                media_url or current_media_url,
+                existing['id'],
+            ),
+        )
+        if media_url:
+            old_media = (current_media_url or '').strip()
+            if old_media.startswith('/static/uploads/') and old_media != media_url:
+                try:
+                    (BASE_DIR / old_media.lstrip('/')).unlink()
+                except Exception:
+                    pass
+    else:
+        if not media_url:
+            conn.close()
+            raise HTTPException(status_code=400, detail='새 카드에는 이미지 또는 영상을 먼저 업로드해 주세요.')
+        conn.execute(
+            'INSERT INTO media_ads (slot_index, title, description, media_type, media_url, target_url, created_at) VALUES (?,?,?,?,?,?,?)',
+            (
+                slot_index,
+                title.strip(),
+                description.strip(),
+                media_type,
+                media_url,
+                target_url.strip(),
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            ),
+        )
     conn.commit()
     conn.close()
     return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
