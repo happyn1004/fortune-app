@@ -4625,3 +4625,95 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
     line-height: 1.5;
   }
 }
+
+
+
+.analytics-quick-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  flex-wrap: wrap;
+}
+.analytics-range-btn {
+  appearance: none;
+  border: 1px solid rgba(242,205,122,.24);
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  color: #f4e6b0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.analytics-range-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(242,205,122,.42);
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+.analytics-range-btn:active {
+  transform: translateY(0);
+}
+@media (max-width: 768px) {
+  .analytics-quick-range {
+    display: flex;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  .analytics-range-btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+}
+
+
+/* Admin analytics quick range buttons */
+.analytics-quick-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  flex-wrap: wrap;
+  vertical-align: middle;
+}
+.analytics-range-btn {
+  appearance: none;
+  border: 1px solid rgba(242,205,122,.24);
+  background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  color: #f4e6b0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  white-space: nowrap;
+}
+.analytics-range-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(242,205,122,.42);
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+.analytics-range-btn:active {
+  transform: translateY(0);
+}
+@media (max-width: 980px) {
+  .analytics-quick-range {
+    display: flex;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 10px;
+  }
+}
+@media (max-width: 768px) {
+  .analytics-range-btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+}
