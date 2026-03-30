@@ -118,6 +118,15 @@
           <span>종료일</span>
           <input type="date" name="analytics_end_date" value="{{ analytics_end_date }}">
         </label>
+        <div class="analytics-quick-range" role="group" aria-label="빠른 기간 선택">
+          <button type="button" class="analytics-range-btn" data-range="today">오늘</button>
+          <button type="button" class="analytics-range-btn" data-range="7d">1주일</button>
+          <button type="button" class="analytics-range-btn" data-range="30d">한달</button>
+          <button type="button" class="analytics-range-btn" data-range="thisMonth">이번달</button>
+          <button type="button" class="analytics-range-btn" data-range="lastMonth">지난달</button>
+          <button type="button" class="analytics-range-btn" data-range="3m">최근 3개월</button>
+        </div>
+
         <button class="btn mini" type="submit">조회</button>
         <a class="btn mini ghost" href="/admin">초기화</a>
       </form>
@@ -500,12 +509,16 @@
 
 
 
+
+
+
 <script>
 (function () {
-  const startInput = document.querySelector('input[name="start_date"]');
-  const endInput = document.querySelector('input[name="end_date"]');
+  const startInput = document.querySelector('input[name="analytics_start_date"]');
+  const endInput = document.querySelector('input[name="analytics_end_date"]');
   const rangeButtons = document.querySelectorAll('.analytics-range-btn');
   if (!startInput || !endInput || !rangeButtons.length) return;
+
   const form = startInput.closest('form') || endInput.closest('form');
   if (!form) return;
 
@@ -517,24 +530,21 @@
   }
 
   function setRange(type) {
-    const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let start = new Date(end);
+    const today = new Date();
+    let start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    if (type === 'today') {
-      start = new Date(end);
-    } else if (type === '7d') {
+    if (type === '7d') {
       start.setDate(start.getDate() - 6);
     } else if (type === '30d') {
       start.setDate(start.getDate() - 29);
     } else if (type === 'thisMonth') {
-      start = new Date(end.getFullYear(), end.getMonth(), 1);
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
     } else if (type === 'lastMonth') {
-      start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(end.getFullYear(), end.getMonth(), 0);
-      end.setTime(lastMonthEnd.getTime());
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
     } else if (type === '3m') {
-      start = new Date(end.getFullYear(), end.getMonth() - 2, 1);
+      start = new Date(today.getFullYear(), today.getMonth() - 2, 1);
     }
 
     startInput.value = fmt(start);
