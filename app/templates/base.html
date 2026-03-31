@@ -68,6 +68,7 @@
             <span class="top-plan grade-badge grade-vip">운영자 VIP</span>
             <a class="customer-entry-link" href="/customer">고객페이지</a>
             <a href="/login?next=/customer">고객 로그인</a>
+            <a href="/study">성장 영상</a>
             {% if user.role == "admin" %}<a href="/automation-studio">자동화 스튜디오</a>{% endif %}
             <a href="/logout">관리자 로그아웃</a>
           {% else %}
@@ -75,6 +76,7 @@
             <a class="customer-entry-link" href="/customer">고객페이지</a>
             <a href="/profile">프로필</a>
             <a href="/fortune">오늘의 운세</a>
+            <a href="/study">성장 영상</a>
             {% if user.plan in ['Basic','Premium','VIP'] %}<a href="/mind">성공 루틴</a>{% endif %}
             <a href="/vip-report">VIP 리포트</a>
             <a href="/logout">로그아웃</a>
@@ -101,12 +103,14 @@
         {% if user.role in ['admin','manager'] %}
       <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
       <a href="/login?next=/customer" data-path="/login"><span class="icon">🔐</span><span>고객로그인</span></a>
+      <a href="/study" data-path="/study"><span class="icon">🎬</span><span>성장영상</span></a>
       <a href="/contact" data-path="/contact"><span class="icon">💬</span><span>문의</span></a>
       {% if user.role == "admin" %}<a href="/admin" data-path="/admin"><span class="icon">🛠️</span><span>관리자</span></a>{% else %}<a href="/admin/login" data-path="/admin/login"><span class="icon">🛠️</span><span>관리자</span></a>{% endif %}
       <a href="/logout" data-path="/logout"><span class="icon">🚪</span><span>로그아웃</span></a>
         {% else %}
       <a class="customer-entry-link mobile-entry-link" href="/customer" data-path="/customer"><span class="icon">🏠</span><span>고객페이지</span></a>
       <a href="/fortune" data-path="/fortune"><span class="icon">🔮</span><span>운세</span></a>
+      <a href="/study" data-path="/study"><span class="icon">🎬</span><span>성장영상</span></a>
       {% if user.plan in ['Basic','Premium','VIP'] %}<a href="/mind" data-path="/mind"><span class="icon">✅</span><span>성공루틴</span></a>{% endif %}
       <a href="/vip-report" data-path="/vip-report"><span class="icon">📘</span><span>VIP리포트</span></a>
       <a href="/profile" data-path="/profile"><span class="icon">👤</span><span>프로필</span></a>

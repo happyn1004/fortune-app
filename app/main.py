@@ -19,6 +19,7 @@ except Exception:
         pass
 
 from urllib.parse import urlparse
+from html import unescape as html_unescape
 import json
 import hashlib
 import hmac
@@ -614,7 +615,9 @@ def get_storage_status() -> dict:
 
 DATA_DIR = get_data_dir()
 DB_PATH = resolve_db_path()
-print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH}")
+UPLOADS_DIR = DATA_DIR / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH} UPLOADS_DIR={UPLOADS_DIR}")
 
 app = FastAPI(title="Fortune Service")
 CORS_ALLOW_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",") if origin.strip()] or ["*"]
@@ -961,9 +964,10 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
         response.headers["Expires"] = "0"
     return response
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v136-profile-fortune-upgrade").strip() or "v136-profile-fortune-upgrade"
+STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v137-persistent-promo-uploads").strip() or "v136-profile-fortune-upgrade"
 
 @app.get("/storage-debug", response_class=HTMLResponse)
 def storage_debug(request: Request):
@@ -1366,13 +1370,78 @@ def normalize_media_url(media_url: str | None) -> str:
     if not media_url:
         return "/static/default-ad.svg"
     value = media_url.strip()
-    if value.startswith(("http://", "https://", "/static/", "data:")):
+    if value.startswith(("http://", "https://", "/uploads/", "/static/", "data:")):
         return value
     if value.startswith("static/"):
         return "/" + value
     if value.startswith("uploads/"):
-        return "/static/" + value
-    return "/static/uploads/" + value.lstrip("/")
+        return "/" + value
+    return "/uploads/" + value.lstrip("/")
+
+
+def media_url_to_path(media_url: str | None) -> Path | None:
+    normalized = normalize_media_url(media_url)
+    if normalized.startswith('/uploads/'):
+        file_name = normalized.split('/uploads/')[-1].strip()
+        return UPLOADS_DIR / file_name if file_name else None
+    if normalized.startswith('/static/uploads/'):
+        file_name = normalized.split('/static/uploads/')[-1].strip()
+        if file_name:
+            persistent_path = UPLOADS_DIR / file_name
+            if persistent_path.exists():
+                return persistent_path
+            return BASE_DIR / 'static' / 'uploads' / file_name
+    return None
+
+
+def migrate_media_ads_to_persistent_uploads():
+    try:
+        conn = get_db()
+    except Exception as e:
+        print(f"[promo_uploads] migration skipped: {e}")
+        return
+    try:
+        rows = conn.execute("SELECT id, media_url FROM media_ads WHERE media_url IS NOT NULL AND TRIM(media_url) <> ''").fetchall()
+        changed = 0
+        copied = 0
+        for row in rows:
+            raw_media = (row['media_url'] or '').strip()
+            if not raw_media:
+                continue
+            normalized = normalize_media_url(raw_media)
+            if normalized.startswith('/uploads/'):
+                src = media_url_to_path(normalized)
+                if src and src.exists():
+                    continue
+                legacy = BASE_DIR / 'static' / 'uploads' / normalized.split('/uploads/')[-1]
+                if legacy.exists() and src and src != legacy:
+                    src.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(legacy, src)
+                    copied += 1
+                continue
+            if not normalized.startswith('/static/uploads/'):
+                continue
+            file_name = normalized.split('/static/uploads/')[-1].strip()
+            if not file_name:
+                continue
+            legacy = BASE_DIR / 'static' / 'uploads' / file_name
+            persistent = UPLOADS_DIR / file_name
+            if legacy.exists() and not persistent.exists():
+                persistent.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(legacy, persistent)
+                copied += 1
+            conn.execute('UPDATE media_ads SET media_url=? WHERE id=?', (f'/uploads/{file_name}', row['id']))
+            changed += 1
+        if changed:
+            conn.commit()
+        print(f"[promo_uploads] migration complete changed={changed} copied={copied}")
+    except Exception as e:
+        print(f"[promo_uploads] migration failed: {e}")
+    finally:
+        conn.close()
+
+
+migrate_media_ads_to_persistent_uploads()
 
 
 def get_slot_fallback_media(slot_index: int | None = None) -> str:
@@ -1387,11 +1456,9 @@ def get_slot_fallback_media(slot_index: int | None = None) -> str:
 
 def resolve_ad_media_url(media_url: str | None, slot_index: int | None = None) -> str:
     normalized = normalize_media_url(media_url)
-    if normalized.startswith('/static/uploads/'):
-        file_name = normalized.split('/static/uploads/')[-1].strip()
-        upload_path = BASE_DIR / 'static' / 'uploads' / file_name
-        if not upload_path.exists():
-            return get_slot_fallback_media(slot_index)
+    media_path = media_url_to_path(normalized)
+    if media_path is not None and not media_path.exists():
+        return get_slot_fallback_media(slot_index)
     if normalized == '/static/default-ad.svg':
         return get_slot_fallback_media(slot_index)
     return normalized
@@ -1527,6 +1594,291 @@ def ensure_column(conn, table_name: str, column_name: str, column_def: str):
     cols = {row["name"] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
     if column_name not in cols:
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_def}")
+
+
+def default_study_sections() -> list[dict]:
+    return [
+        {"title": "자기계발", "description": "실행력, 습관, 생산성을 키우는 영상"},
+        {"title": "마인드 성장", "description": "생각의 크기를 키우고 시야를 넓히는 영상"},
+        {"title": "부자 마인드", "description": "돈을 대하는 태도와 사업 감각을 키우는 영상"},
+        {"title": "동기부여", "description": "지치지 않게 다시 움직이게 만드는 영상"},
+        {"title": "명상", "description": "마음을 정리하고 집중을 회복하는 영상"},
+    ]
+
+
+def seed_default_study_sections(conn):
+    existing_count = conn.execute("SELECT COUNT(*) FROM study_sections").fetchone()[0]
+    if existing_count:
+        return
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for idx, item in enumerate(default_study_sections(), start=1):
+        conn.execute(
+            "INSERT INTO study_sections (title, description, sort_order, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+            (item["title"], item["description"], idx * 10, 1, now_ts, now_ts),
+        )
+
+
+def parse_meta_tag(content: str, names: list[str]) -> str:
+    for name in names:
+        patterns = [
+            rf"<meta[^>]+property=[\"']{re.escape(name)}[\"'][^>]+content=[\"']([^\"']+)[\"']",
+            rf"<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']{re.escape(name)}[\"']",
+            rf"<meta[^>]+name=[\"']{re.escape(name)}[\"'][^>]+content=[\"']([^\"']+)[\"']",
+            rf"<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']{re.escape(name)}[\"']",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                return html_unescape(match.group(1).strip())
+    return ""
+
+
+def parse_html_title(content: str) -> str:
+    match = re.search(r'<title[^>]*>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return ""
+    raw = re.sub(r'\s+', ' ', match.group(1)).strip()
+    return html_unescape(raw)
+
+
+def extract_youtube_video_id(value: str) -> str:
+    parsed = urlparse(value)
+    host = (parsed.netloc or '').lower()
+    path = parsed.path or ''
+    if 'youtu.be' in host:
+        return path.strip('/').split('/')[0]
+    if 'youtube.com' in host:
+        if path == '/watch':
+            query = dict(part.split('=', 1) for part in parsed.query.split('&') if '=' in part)
+            return query.get('v', '')
+        if path.startswith('/shorts/') or path.startswith('/embed/'):
+            parts = [part for part in path.split('/') if part]
+            if len(parts) >= 2:
+                return parts[1]
+    return ''
+
+
+def fetch_json_url(url: str) -> dict | None:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 MysticDayBot/1.0"})
+    with urllib.request.urlopen(req, timeout=8) as response:
+        body = response.read().decode('utf-8', errors='ignore')
+    try:
+        return json.loads(body)
+    except Exception:
+        return None
+
+
+def fetch_url_text(url: str) -> str:
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    })
+    with urllib.request.urlopen(req, timeout=8) as response:
+        charset = response.headers.get_content_charset() or 'utf-8'
+        body = response.read(512000)
+    return body.decode(charset, errors='ignore')
+
+
+def fetch_link_metadata(raw_url: str) -> dict:
+    url = (raw_url or '').strip()
+    if not url:
+        raise ValueError('링크를 입력해 주세요.')
+    if not re.match(r'^https?://', url, re.IGNORECASE):
+        url = 'https://' + url
+    parsed = urlparse(url)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        raise ValueError('올바른 링크 형식이 아닙니다.')
+
+    hostname = (parsed.netloc or '').lower()
+    source_label = hostname.replace('www.', '')
+    provider_name = source_label.split('.')[0].capitalize() if source_label else 'Link'
+    title = ''
+    thumbnail_url = ''
+
+    youtube_id = extract_youtube_video_id(url)
+    if youtube_id:
+        source_label = 'youtube.com'
+        provider_name = 'YouTube'
+        thumbnail_url = f'https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg'
+        oembed_url = f'https://www.youtube.com/oembed?url={quote_plus(url)}&format=json'
+        try:
+            oembed = fetch_json_url(oembed_url)
+            if oembed:
+                title = (oembed.get('title') or '').strip()
+                thumbnail_url = (oembed.get('thumbnail_url') or '').strip() or thumbnail_url
+                provider_name = (oembed.get('author_name') or '').strip() or provider_name
+        except Exception:
+            pass
+
+    if not title:
+        try:
+            html = fetch_url_text(url)
+            title = parse_meta_tag(html, ['og:title', 'twitter:title']) or parse_html_title(html)
+            thumbnail_url = thumbnail_url or parse_meta_tag(html, ['og:image', 'twitter:image'])
+            site_name = parse_meta_tag(html, ['og:site_name'])
+            if site_name:
+                provider_name = site_name.strip()
+        except Exception:
+            pass
+
+    if not title:
+        title = parsed.path.strip('/').split('/')[-1] or source_label or '추천 영상'
+    if not thumbnail_url:
+        thumbnail_url = '/static/og-saju-lotto.jpg'
+
+    return {
+        'source_url': url,
+        'title': title[:220],
+        'thumbnail_url': thumbnail_url,
+        'source_label': source_label[:80],
+        'provider_name': provider_name[:80],
+    }
+
+
+def get_study_sections_with_links() -> list[dict]:
+    conn = get_db()
+    section_rows = conn.execute(
+        "SELECT id, title, description, sort_order FROM study_sections WHERE is_active=1 ORDER BY sort_order ASC, id ASC"
+    ).fetchall()
+    sections: list[dict] = []
+    for section in section_rows:
+        link_rows = conn.execute(
+            "SELECT id, title, source_url, thumbnail_url, source_label, provider_name, created_at FROM study_links WHERE section_id=? ORDER BY sort_order ASC, id DESC",
+            (section['id'],),
+        ).fetchall()
+        sections.append({
+            'id': section['id'],
+            'title': section['title'],
+            'description': section['description'],
+            'links': [dict(row) for row in link_rows],
+            'count': len(link_rows),
+        })
+    conn.close()
+    return sections
+
+
+def create_study_section(title: str, description: str = '') -> dict:
+    cleaned_title = normalize_text_input(title)
+    cleaned_desc = normalize_text_input(description)
+    if not cleaned_title:
+        raise ValueError('섹션명을 입력해 주세요.')
+    conn = get_db()
+    next_sort = conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM study_sections").fetchone()[0]
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute(
+        "INSERT INTO study_sections (title, description, sort_order, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+        (cleaned_title[:80], cleaned_desc[:200], next_sort, 1, now_ts, now_ts),
+    )
+    conn.commit()
+    row = conn.execute("SELECT id, title, description FROM study_sections WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    create_db_backup_if_due('study_section', 30)
+    return dict(row)
+
+
+def create_study_link(section_id: int, raw_url: str) -> dict:
+    metadata = fetch_link_metadata(raw_url)
+    conn = get_db()
+    section = conn.execute("SELECT id FROM study_sections WHERE id=? AND is_active=1", (section_id,)).fetchone()
+    if not section:
+        conn.close()
+        raise ValueError('섹션을 찾을 수 없습니다.')
+    next_sort = conn.execute("SELECT COALESCE(MAX(sort_order), 0) + 10 FROM study_links WHERE section_id=?", (section_id,)).fetchone()[0]
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.execute(
+        "INSERT INTO study_links (section_id, title, source_url, thumbnail_url, source_label, provider_name, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        (section_id, metadata['title'], metadata['source_url'], metadata['thumbnail_url'], metadata['source_label'], metadata['provider_name'], next_sort, now_ts, now_ts),
+    )
+    conn.commit()
+    row = conn.execute("SELECT id, title, source_url, thumbnail_url, source_label, provider_name, created_at FROM study_links WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    create_db_backup_if_due('study_link', 30)
+    return dict(row)
+
+
+def delete_study_link(link_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM study_links WHERE id=?", (link_id,))
+    conn.commit()
+    conn.close()
+    create_db_backup_if_due('study_link_delete', 30)
+
+
+def delete_study_section(section_id: int):
+    conn = get_db()
+    conn.execute("DELETE FROM study_links WHERE section_id=?", (section_id,))
+    conn.execute("DELETE FROM study_sections WHERE id=?", (section_id,))
+    conn.commit()
+    conn.close()
+    create_db_backup_if_due('study_section_delete', 30)
+
+
+def move_study_section(section_id: int, direction: str):
+    direction = (direction or '').strip().lower()
+    if direction not in {'up', 'down'}:
+        raise ValueError('이동 방향이 올바르지 않습니다.')
+    conn = get_db()
+    current = conn.execute(
+        "SELECT id, sort_order FROM study_sections WHERE id=? AND is_active=1",
+        (section_id,),
+    ).fetchone()
+    if not current:
+        conn.close()
+        raise ValueError('섹션을 찾을 수 없습니다.')
+    if direction == 'up':
+        target = conn.execute(
+            "SELECT id, sort_order FROM study_sections WHERE is_active=1 AND (sort_order < ? OR (sort_order = ? AND id < ?)) ORDER BY sort_order DESC, id DESC LIMIT 1",
+            (current['sort_order'], current['sort_order'], current['id']),
+        ).fetchone()
+    else:
+        target = conn.execute(
+            "SELECT id, sort_order FROM study_sections WHERE is_active=1 AND (sort_order > ? OR (sort_order = ? AND id > ?)) ORDER BY sort_order ASC, id ASC LIMIT 1",
+            (current['sort_order'], current['sort_order'], current['id']),
+        ).fetchone()
+    if not target:
+        conn.close()
+        return False
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("UPDATE study_sections SET sort_order=?, updated_at=? WHERE id=?", (target['sort_order'], now_ts, current['id']))
+    conn.execute("UPDATE study_sections SET sort_order=?, updated_at=? WHERE id=?", (current['sort_order'], now_ts, target['id']))
+    conn.commit()
+    conn.close()
+    create_db_backup_if_due('study_section_move', 30)
+    return True
+
+
+def move_study_link(link_id: int, direction: str):
+    direction = (direction or '').strip().lower()
+    if direction not in {'up', 'down'}:
+        raise ValueError('이동 방향이 올바르지 않습니다.')
+    conn = get_db()
+    current = conn.execute(
+        "SELECT id, section_id, sort_order FROM study_links WHERE id=?",
+        (link_id,),
+    ).fetchone()
+    if not current:
+        conn.close()
+        raise ValueError('영상을 찾을 수 없습니다.')
+    if direction == 'up':
+        target = conn.execute(
+            "SELECT id, sort_order FROM study_links WHERE section_id=? AND (sort_order < ? OR (sort_order = ? AND id > ?)) ORDER BY sort_order DESC, id ASC LIMIT 1",
+            (current['section_id'], current['sort_order'], current['sort_order'], current['id']),
+        ).fetchone()
+    else:
+        target = conn.execute(
+            "SELECT id, sort_order FROM study_links WHERE section_id=? AND (sort_order > ? OR (sort_order = ? AND id < ?)) ORDER BY sort_order ASC, id DESC LIMIT 1",
+            (current['section_id'], current['sort_order'], current['sort_order'], current['id']),
+        ).fetchone()
+    if not target:
+        conn.close()
+        return False
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("UPDATE study_links SET sort_order=?, updated_at=? WHERE id=?", (target['sort_order'], now_ts, current['id']))
+    conn.execute("UPDATE study_links SET sort_order=?, updated_at=? WHERE id=?", (current['sort_order'], now_ts, target['id']))
+    conn.commit()
+    conn.close()
+    create_db_backup_if_due('study_link_move', 30)
+    return True
 
 
 def init_db():
@@ -1698,6 +2050,29 @@ def init_db():
             UNIQUE(user_id, routine_date),
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
+        
+        CREATE TABLE IF NOT EXISTS study_sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS study_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            source_url TEXT NOT NULL,
+            thumbnail_url TEXT,
+            source_label TEXT,
+            provider_name TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(section_id) REFERENCES study_sections(id)
+        );
         """
     )
     ensure_column(conn, "users", "plan_expires_at", "plan_expires_at TEXT")
@@ -1750,6 +2125,17 @@ def init_db():
     ensure_column(conn, "mind_routine_focus", "ignore_others", "ignore_others INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "mind_routine_focus", "created_at", "created_at TEXT")
     ensure_column(conn, "mind_routine_focus", "updated_at", "updated_at TEXT")
+    ensure_column(conn, "study_sections", "description", "description TEXT")
+    ensure_column(conn, "study_sections", "sort_order", "sort_order INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "study_sections", "is_active", "is_active INTEGER NOT NULL DEFAULT 1")
+    ensure_column(conn, "study_sections", "created_at", "created_at TEXT")
+    ensure_column(conn, "study_sections", "updated_at", "updated_at TEXT")
+    ensure_column(conn, "study_links", "thumbnail_url", "thumbnail_url TEXT")
+    ensure_column(conn, "study_links", "source_label", "source_label TEXT")
+    ensure_column(conn, "study_links", "provider_name", "provider_name TEXT")
+    ensure_column(conn, "study_links", "sort_order", "sort_order INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "study_links", "created_at", "created_at TEXT")
+    ensure_column(conn, "study_links", "updated_at", "updated_at TEXT")
 
     # mind routine compatibility migration for older/temp DBs
     conn.execute(
@@ -1765,6 +2151,7 @@ def init_db():
         (now_ts,)
     )
     ensure_vapid_keys(conn)
+    seed_default_study_sections(conn)
 
     for key, value in DEFAULT_SITE_SETTINGS.items():
         cur.execute("INSERT OR IGNORE INTO site_settings (key, value, updated_at) VALUES (?,?,?)", (key, value, now_ts))
@@ -4017,6 +4404,107 @@ def fortune_page(request: Request):
     })
 
 
+@app.get("/study", response_class=HTMLResponse)
+def study_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login?next=/study", status_code=303)
+    sections = get_study_sections_with_links()
+    record_event("study_view", request, user["id"], {"section_count": len(sections)})
+    return render_view(request, "study_room.html", {
+        "user": user,
+        "study_sections": sections,
+        "can_manage_study": is_admin(user),
+        "meta_title": "성장 영상 아카이브",
+        "meta_description": "자기계발, 마인드 성장, 부자 마인드, 동기부여, 명상 영상을 한곳에서 모아보는 공부방",
+    })
+
+
+@app.post("/study/api/section")
+async def study_create_section_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    payload = await request.json()
+    try:
+        section = create_study_section(str(payload.get("title") or ""), str(payload.get("description") or ""))
+    except ValueError as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "section": section})
+
+
+@app.post("/study/api/link")
+async def study_create_link_api(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    payload = await request.json()
+    try:
+        section_id = int(payload.get("section_id") or 0)
+        link = create_study_link(section_id, str(payload.get("source_url") or ""))
+    except ValueError as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "message": "링크 정보를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."}, status_code=500)
+    return JSONResponse({"ok": True, "link": link})
+
+
+@app.post("/study/api/link/{link_id}/delete")
+def study_delete_link_api(link_id: int, request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    delete_study_link(link_id)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/study/api/section/{section_id}/delete")
+def study_delete_section_api(section_id: int, request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    delete_study_section(section_id)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/study/api/section/{section_id}/move")
+async def study_move_section_api(section_id: int, request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    payload = await request.json()
+    try:
+        changed = move_study_section(section_id, str(payload.get("direction") or ""))
+    except ValueError as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "changed": changed})
+
+
+@app.post("/study/api/link/{link_id}/move")
+async def study_move_link_api(link_id: int, request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"ok": False, "message": "login_required"}, status_code=401)
+    if not is_admin(user):
+        return JSONResponse({"ok": False, "message": "forbidden"}, status_code=403)
+    payload = await request.json()
+    try:
+        changed = move_study_link(link_id, str(payload.get("direction") or ""))
+    except ValueError as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "changed": changed})
+
+
 @app.get("/mind", response_class=HTMLResponse)
 def mind_routine_page(request: Request):
     user = get_current_user(request)
@@ -4801,7 +5289,7 @@ async def admin_create_ad(
     media_url = None
     media_type = None
     if media_file and getattr(media_file, 'filename', None):
-        uploads_dir = BASE_DIR / 'static' / 'uploads'
+        uploads_dir = UPLOADS_DIR
         uploads_dir.mkdir(parents=True, exist_ok=True)
         original = Path(media_file.filename or 'upload.bin').name
         suffix = Path(original).suffix.lower() or '.bin'
@@ -4810,7 +5298,7 @@ async def admin_create_ad(
         save_path = uploads_dir / safe_name
         with save_path.open('wb') as f:
             shutil.copyfileobj(media_file.file, f)
-        media_url = f'/static/uploads/{safe_name}'
+        media_url = f'/uploads/{safe_name}'
 
     if existing:
         current_media_url = existing['media_url']
@@ -4828,9 +5316,10 @@ async def admin_create_ad(
         )
         if media_url:
             old_media = (current_media_url or '').strip()
-            if old_media.startswith('/static/uploads/') and old_media != media_url:
+            old_media_path = media_url_to_path(old_media)
+            if old_media_path and old_media != media_url:
                 try:
-                    (BASE_DIR / old_media.lstrip('/')).unlink()
+                    old_media_path.unlink(missing_ok=True)
                 except Exception:
                     pass
     else:
@@ -4873,7 +5362,7 @@ async def admin_update_ad(
     media_url = row['media_url']
     media_type = row['media_type']
     if media_file and getattr(media_file, 'filename', None):
-        uploads_dir = BASE_DIR / 'static' / 'uploads'
+        uploads_dir = UPLOADS_DIR
         uploads_dir.mkdir(parents=True, exist_ok=True)
         original = Path(media_file.filename or 'upload.bin').name
         suffix = Path(original).suffix.lower() or '.bin'
@@ -4882,11 +5371,12 @@ async def admin_update_ad(
         save_path = uploads_dir / safe_name
         with save_path.open('wb') as f:
             shutil.copyfileobj(media_file.file, f)
-        media_url = f'/static/uploads/{safe_name}'
+        media_url = f'/uploads/{safe_name}'
         old_media = (row['media_url'] or '').strip()
-        if old_media.startswith('/static/uploads/'):
+        old_media_path = media_url_to_path(old_media)
+        if old_media_path:
             try:
-                (BASE_DIR / old_media.lstrip('/')).unlink()
+                old_media_path.unlink(missing_ok=True)
             except Exception:
                 pass
     slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
@@ -4921,13 +5411,12 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('DELETE FROM media_ads WHERE id=?', (ad_id,))
         conn.commit()
         media_url = row['media_url'] or ''
-        if media_url.startswith('/static/uploads/'):
-            path = BASE_DIR / 'static' / 'uploads' / media_url.split('/static/uploads/')[-1]
-            if path.exists():
-                try:
-                    path.unlink()
-                except Exception:
-                    pass
+        path = media_url_to_path(media_url)
+        if path and path.exists():
+            try:
+                path.unlink()
+            except Exception:
+                pass
     conn.close()
     return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 

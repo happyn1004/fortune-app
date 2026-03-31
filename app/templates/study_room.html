@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}성장 영상 아카이브 | {{ site_settings.brand_name if site_settings else "운세조아" }}{% endblock %}
+{% block content %}
+<section class="study-hero card">
+  <div>
+    <div class="section-badge">성장 공부방</div>
+    <h1>좋은 영상만 모아보는 성장 아카이브</h1>
+    <p class="study-hero-copy">유튜브와 SNS에서 도움이 되는 자기계발, 마인드 성장, 부자 마인드, 동기부여, 명상 영상을 한곳에 모아두었습니다. 링크만 붙여 넣으면 제목과 썸네일을 자동으로 가져오도록 구성했습니다.</p>
+    <div class="study-mini-note">일부 SNS는 보안 정책 때문에 썸네일이 기본 이미지로 표시될 수 있습니다.</div>
+  </div>
+  {% if can_manage_study %}
+  <div class="study-admin-panel">
+    <button type="button" class="btn btn-primary" id="studyAddSectionBtn">새 섹션 추가</button>
+    <div class="study-admin-hint">관리자만 이 페이지에서 영상과 섹션을 관리할 수 있습니다.</div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="study-section-stack">
+  {% for section in study_sections %}
+  <section class="card study-section-card" data-section-id="{{ section.id }}">
+    <div class="study-section-head">
+      <div>
+        <div class="study-section-topline">섹션 {{ loop.index }} · {{ section.count }}개 영상</div>
+        <h2>{{ section.title }}</h2>
+        <p>{{ section.description or "성장에 도움이 되는 추천 영상을 모아두는 공간입니다." }}</p>
+      </div>
+      {% if can_manage_study %}
+      <div class="study-section-actions">
+        <button type="button" class="btn btn-ghost btn-sm study-move-section-btn" data-section-id="{{ section.id }}" data-direction="up">섹션 ↑</button>
+        <button type="button" class="btn btn-ghost btn-sm study-move-section-btn" data-section-id="{{ section.id }}" data-direction="down">섹션 ↓</button>
+        <button type="button" class="btn btn-primary btn-sm study-add-link-btn" data-section-id="{{ section.id }}" data-section-title="{{ section.title }}">이 섹션에 영상 추가</button>
+        <button type="button" class="btn btn-ghost btn-sm study-delete-section-btn" data-section-id="{{ section.id }}" data-section-title="{{ section.title }}">섹션 삭제</button>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if section.links %}
+    <div class="study-grid">
+      {% for item in section.links %}
+      <article class="study-card" data-link-id="{{ item.id }}">
+        <a href="{{ item.source_url }}" target="_blank" rel="noopener" class="study-thumb-link">
+          <img src="{{ item.thumbnail_url or '/static/og-saju-lotto.jpg' }}" alt="{{ item.title }}" class="study-thumb" loading="lazy" onerror="this.onerror=null;this.src='/static/og-saju-lotto.jpg';">
+        </a>
+        <div class="study-card-body">
+          <div class="study-card-meta">{{ item.provider_name or item.source_label or '추천영상' }}</div>
+          <a href="{{ item.source_url }}" target="_blank" rel="noopener" class="study-card-title">{{ item.title }}</a>
+          <div class="study-card-bottom">
+            <span class="study-source">{{ item.source_label }}</span>
+            {% if can_manage_study %}
+            <div class="study-card-actions">
+              <button type="button" class="study-move-link-btn" data-link-id="{{ item.id }}" data-direction="up" title="위로 이동">↑</button>
+              <button type="button" class="study-move-link-btn" data-link-id="{{ item.id }}" data-direction="down" title="아래로 이동">↓</button>
+              <button type="button" class="study-delete-link-btn" data-link-id="{{ item.id }}">삭제</button>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="study-empty">아직 등록된 영상이 없습니다.{% if can_manage_study %} 이 섹션에 첫 번째 링크를 추가해 보세요.{% endif %}</div>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+
+{% if can_manage_study %}
+<div class="study-modal" id="studySectionModal" hidden>
+  <div class="study-modal-card card">
+    <div class="study-modal-head"><h3>새 섹션 추가</h3><button type="button" class="study-close-btn" data-close="studySectionModal">✕</button></div>
+    <label class="study-field-label">섹션명</label>
+    <input type="text" id="studySectionTitle" class="study-input" placeholder="예: 사업가 인터뷰">
+    <label class="study-field-label">설명</label>
+    <textarea id="studySectionDesc" class="study-textarea" placeholder="이 섹션에 어떤 영상을 모을지 간단히 적어주세요"></textarea>
+    <div class="study-modal-actions">
+      <button type="button" class="btn btn-primary" id="studySaveSectionBtn">섹션 저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="study-modal" id="studyLinkModal" hidden>
+  <div class="study-modal-card card">
+    <div class="study-modal-head"><h3 id="studyLinkModalTitle">영상 링크 추가</h3><button type="button" class="study-close-btn" data-close="studyLinkModal">✕</button></div>
+    <input type="hidden" id="studyLinkSectionId">
+    <label class="study-field-label">영상 링크</label>
+    <input type="text" id="studyLinkUrl" class="study-input" placeholder="유튜브 또는 SNS 링크를 붙여 넣어 주세요">
+    <div class="study-help">붙여 넣기만 하면 제목과 썸네일을 자동으로 가져옵니다.</div>
+    <div class="study-modal-actions">
+      <button type="button" class="btn btn-primary" id="studySaveLinkBtn">링크 저장</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.study-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:26px;border:1px solid rgba(255,255,255,.08)}
+.study-hero h1{margin:8px 0 10px;font-size:34px;line-height:1.2}
+.study-hero-copy{margin:0;max-width:860px;color:var(--muted);line-height:1.7}
+.study-mini-note{margin-top:10px;color:var(--gold);font-size:13px}
+.study-admin-panel{min-width:210px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.study-admin-hint{font-size:12px;color:var(--muted);text-align:right;line-height:1.6}
+.study-section-stack{display:flex;flex-direction:column;gap:18px;margin-top:18px}
+.study-section-card{padding:22px}
+.study-section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}
+.study-section-head h2{margin:6px 0 8px;font-size:28px}
+.study-section-head p{margin:0;color:var(--muted)}
+.study-section-topline{font-size:12px;color:var(--gold);letter-spacing:.04em}
+.study-section-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.study-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.study-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;min-height:100%}
+.study-thumb-link{display:block;background:rgba(255,255,255,.03)}
+.study-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.study-card-body{padding:12px 12px 14px;display:flex;flex-direction:column;gap:8px;height:100%}
+.study-card-meta{font-size:12px;color:var(--gold)}
+.study-card-title{color:var(--text);font-weight:700;line-height:1.45;text-decoration:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:42px}
+.study-card-title:hover{color:#fff4cf}
+.study-card-bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.study-source{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%}
+.study-card-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.study-delete-link-btn,.study-delete-section-btn,.study-move-link-btn,.study-move-section-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);border-radius:999px;padding:7px 12px;cursor:pointer}
+.study-move-link-btn{padding:7px 10px;min-width:34px}
+.study-delete-link-btn:hover,.study-delete-section-btn:hover,.study-move-link-btn:hover,.study-move-section-btn:hover{color:#fff;border-color:rgba(255,255,255,.26)}
+.study-empty{padding:18px;border:1px dashed rgba(255,255,255,.14);border-radius:18px;color:var(--muted);background:rgba(255,255,255,.03)}
+.study-modal{position:fixed;inset:0;background:rgba(5,4,11,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.study-modal-card{width:min(560px,100%);padding:22px}
+.study-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.study-modal-head h3{margin:0;font-size:24px}
+.study-close-btn{background:transparent;border:none;color:var(--muted);font-size:24px;cursor:pointer}
+.study-field-label{display:block;margin:12px 0 8px;color:var(--gold);font-size:13px}
+.study-input,.study-textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;color:var(--text);padding:14px 16px;font:inherit}
+.study-textarea{min-height:110px;resize:vertical}
+.study-help{margin-top:8px;color:var(--muted);font-size:13px;line-height:1.6}
+.study-modal-actions{display:flex;justify-content:flex-end;margin-top:16px}
+.btn-sm{padding:10px 14px;font-size:13px}
+@media (max-width:1280px){.study-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column}.study-admin-panel{align-items:flex-start}}
+@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:28px}}
+@media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px}.study-hero{padding:20px}}
+</style>
+
+{% if can_manage_study %}
+<script>
+(() => {
+  const sectionModal = document.getElementById('studySectionModal');
+  const linkModal = document.getElementById('studyLinkModal');
+  const open = (el) => { if (el) el.hidden = false; };
+  const close = (el) => { if (el) el.hidden = true; };
+  const postJson = async (url, payload) => {
+    const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload || {})});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.message || '작업 중 문제가 발생했습니다.');
+    return data;
+  };
+
+  document.getElementById('studyAddSectionBtn')?.addEventListener('click', () => open(sectionModal));
+  document.querySelectorAll('.study-add-link-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('studyLinkSectionId').value = btn.dataset.sectionId;
+      document.getElementById('studyLinkModalTitle').textContent = `영상 링크 추가 · ${btn.dataset.sectionTitle}`;
+      document.getElementById('studyLinkUrl').value = '';
+      open(linkModal);
+    });
+  });
+  document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => close(document.getElementById(btn.dataset.close))));
+
+  document.getElementById('studySaveSectionBtn')?.addEventListener('click', async () => {
+    const title = document.getElementById('studySectionTitle').value.trim();
+    const description = document.getElementById('studySectionDesc').value.trim();
+    if (!title) { alert('섹션명을 입력해 주세요.'); return; }
+    try {
+      await postJson('/study/api/section', {title, description});
+      location.reload();
+    } catch (err) {
+      alert(err.message || '섹션 저장 중 문제가 발생했습니다.');
+    }
+  });
+
+  document.getElementById('studySaveLinkBtn')?.addEventListener('click', async () => {
+    const sectionId = Number(document.getElementById('studyLinkSectionId').value || '0');
+    const sourceUrl = document.getElementById('studyLinkUrl').value.trim();
+    if (!sectionId || !sourceUrl) { alert('링크를 입력해 주세요.'); return; }
+    try {
+      await postJson('/study/api/link', {section_id: sectionId, source_url: sourceUrl});
+      location.reload();
+    } catch (err) {
+      alert(err.message || '링크 저장 중 문제가 발생했습니다.');
+    }
+  });
+
+  document.querySelectorAll('.study-delete-link-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('이 영상을 삭제하시겠습니까?')) return;
+      try {
+        await postJson(`/study/api/link/${btn.dataset.linkId}/delete`, {});
+        location.reload();
+      } catch (err) {
+        alert(err.message || '삭제 중 문제가 발생했습니다.');
+      }
+    });
+  });
+
+  document.querySelectorAll('.study-move-link-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await postJson(`/study/api/link/${btn.dataset.linkId}/move`, {direction: btn.dataset.direction});
+        location.reload();
+      } catch (err) {
+        alert(err.message || '순서 변경 중 문제가 발생했습니다.');
+      }
+    });
+  });
+
+  document.querySelectorAll('.study-delete-section-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`'${btn.dataset.sectionTitle}' 섹션과 내부 영상을 모두 삭제하시겠습니까?`)) return;
+      try {
+        await postJson(`/study/api/section/${btn.dataset.sectionId}/delete`, {});
+        location.reload();
+      } catch (err) {
+        alert(err.message || '섹션 삭제 중 문제가 발생했습니다.');
+      }
+    });
+  });
+
+  document.querySelectorAll('.study-move-section-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await postJson(`/study/api/section/${btn.dataset.sectionId}/move`, {direction: btn.dataset.direction});
+        location.reload();
+      } catch (err) {
+        alert(err.message || '섹션 순서 변경 중 문제가 발생했습니다.');
+      }
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}
