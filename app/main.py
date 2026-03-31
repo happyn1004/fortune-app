@@ -5571,7 +5571,19 @@ async def admin_update_ad(
         mirror_upload_to_static(save_path, safe_name)
         media_url = save_promo_slot_canonical(slot_index, save_path, media_type) or media_url
         old_media = (row['media_url'] or '').strip()
-        remove_upload_mirrors(old_media)
+        if old_media and normalize_media_url(old_media) != normalize_media_url(media_url):
+            remove_upload_mirrors(old_media)
+        try:
+            temp_static = get_static_upload_path(safe_name)
+            if temp_static and temp_static.exists():
+                temp_static.unlink()
+        except Exception:
+            pass
+        try:
+            if save_path.exists() and Path(media_url).name != save_path.name:
+                save_path.unlink()
+        except Exception:
+            pass
     slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
     if not (media_file and getattr(media_file, 'filename', None)):
         media_url = get_promo_slot_canonical_url(slot_index) or media_url
