@@ -564,13 +564,18 @@ def create_full_backup_bundle() -> Path:
             "MysticDay 전체 백업 묶음\n"
             "- fortune_backup_*.db : 관리자 복원에 사용하는 원본 데이터베이스 파일\n"
             "- users_export.csv : 회원 목록 엑셀 확인용 CSV\n"
-            "- payments_export.csv : 결제 내역 엑셀 확인용 CSV\n\n"
+            "- payments_export.csv : 결제 내역 엑셀 확인용 CSV\n- uploads/ 및 static_uploads/ : 광고/프로모션 등 업로드 이미지 백업\n\n"
             "복원 방법: 관리자 > 백업 복원에서 .db 파일 또는 전체 백업 .zip 파일을 업로드하세요.\n",
             encoding="utf-8",
         )
         with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for file_path in [db_copy, users_csv, payments_csv, summary_txt]:
                 zf.write(file_path, arcname=file_path.name)
+            for uploads_base, arc_prefix in ((UPLOADS_DIR, 'uploads'), (STATIC_UPLOADS_DIR, 'static_uploads')):
+                if uploads_base.exists():
+                    for upload_file in uploads_base.rglob('*'):
+                        if upload_file.is_file():
+                            zf.write(upload_file, arcname=f"{arc_prefix}/{upload_file.relative_to(uploads_base)}")
     return bundle_path
 
 
@@ -617,7 +622,10 @@ DATA_DIR = get_data_dir()
 DB_PATH = resolve_db_path()
 UPLOADS_DIR = DATA_DIR / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH} UPLOADS_DIR={UPLOADS_DIR}")
+STATIC_UPLOADS_DIR = BASE_DIR / "static" / "uploads"
+STATIC_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+PROMO_SLOT_MANIFEST_PATH = DATA_DIR / "promo_slot_manifest.json"
+print(f"[STORAGE] DATA_DIR={DATA_DIR} DB_PATH={DB_PATH} UPLOADS_DIR={UPLOADS_DIR} STATIC_UPLOADS_DIR={STATIC_UPLOADS_DIR}")
 
 app = FastAPI(title="Fortune Service")
 CORS_ALLOW_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ALLOW_ORIGINS", "*").split(",") if origin.strip()] or ["*"]
@@ -1393,6 +1401,163 @@ def media_url_to_path(media_url: str | None) -> Path | None:
             return BASE_DIR / 'static' / 'uploads' / file_name
     return None
 
+def get_static_upload_path(file_name: str | None) -> Path | None:
+    clean = (file_name or "").strip().lstrip('/')
+    return STATIC_UPLOADS_DIR / Path(clean).name if clean else None
+
+
+def mirror_upload_to_static(source_path: Path | None, file_name: str | None = None) -> Path | None:
+    if source_path is None:
+        return None
+    target = get_static_upload_path(file_name or source_path.name)
+    if target is None:
+        return None
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, target)
+        return target
+    except Exception as e:
+        print(f"[promo_uploads] static mirror copy failed: {e}")
+        return None
+
+
+def remove_upload_mirrors(media_url: str | None):
+    normalized = normalize_media_url(media_url)
+    file_name = Path(normalized).name
+    for path in filter(None, [media_url_to_path(normalized), get_static_upload_path(file_name)]):
+        try:
+            if path.exists():
+                path.unlink()
+        except Exception:
+            pass
+
+
+def load_promo_slot_manifest() -> dict:
+    try:
+        if PROMO_SLOT_MANIFEST_PATH.exists():
+            return json.loads(PROMO_SLOT_MANIFEST_PATH.read_text(encoding='utf-8'))
+    except Exception as e:
+        print(f"[promo_slot] manifest load failed: {e}")
+    return {}
+
+
+def save_promo_slot_manifest(data: dict):
+    try:
+        PROMO_SLOT_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PROMO_SLOT_MANIFEST_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    except Exception as e:
+        print(f"[promo_slot] manifest save failed: {e}")
+
+
+def get_promo_slot_manifest_entry(slot_index: int | None) -> dict:
+    try:
+        idx = str(int(slot_index or 0))
+    except Exception:
+        return {}
+    return load_promo_slot_manifest().get(idx) or {}
+
+
+def get_promo_slot_canonical_path(slot_index: int | None) -> Path | None:
+    entry = get_promo_slot_manifest_entry(slot_index)
+    file_name = (entry.get('file_name') or '').strip()
+    if not file_name:
+        return None
+    return UPLOADS_DIR / Path(file_name).name
+
+
+def get_promo_slot_canonical_url(slot_index: int | None) -> str | None:
+    path = get_promo_slot_canonical_path(slot_index)
+    if path and path.exists():
+        return f"/uploads/{path.name}"
+    return None
+
+
+def save_promo_slot_canonical(slot_index: int | None, source_path: Path | None, media_type: str | None = None) -> str | None:
+    if source_path is None or not source_path.exists():
+        return None
+    try:
+        idx = int(slot_index or 0)
+    except Exception:
+        idx = 0
+    if idx not in (1, 2, 3):
+        return None
+    suffix = source_path.suffix.lower() or '.bin'
+    canonical_name = f"promo-slot-{idx}{suffix}"
+    canonical_path = UPLOADS_DIR / canonical_name
+    static_path = STATIC_UPLOADS_DIR / canonical_name
+    try:
+        for old in list(UPLOADS_DIR.glob(f"promo-slot-{idx}.*")) + list(STATIC_UPLOADS_DIR.glob(f"promo-slot-{idx}.*")):
+            try:
+                if old.name != canonical_name and old.exists():
+                    old.unlink()
+            except Exception:
+                pass
+        canonical_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, canonical_path)
+        static_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, static_path)
+        manifest = load_promo_slot_manifest()
+        manifest[str(idx)] = {
+            'file_name': canonical_name,
+            'media_type': (media_type or '').strip() or ('video' if suffix in ['.mp4', '.webm', '.mov', '.m4v'] else 'image'),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+        save_promo_slot_manifest(manifest)
+        return f"/uploads/{canonical_name}"
+    except Exception as e:
+        print(f"[promo_slot] canonical save failed slot={idx}: {e}")
+        return None
+
+
+def repair_promo_slot_canonical_mirrors():
+    manifest = load_promo_slot_manifest()
+    changed = 0
+    for key, entry in manifest.items():
+        file_name = Path((entry or {}).get('file_name') or '').name
+        if not file_name:
+            continue
+        src = UPLOADS_DIR / file_name
+        dst = STATIC_UPLOADS_DIR / file_name
+        try:
+            if src.exists() and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                changed += 1
+        except Exception as e:
+            print(f"[promo_slot] mirror repair failed for {file_name}: {e}")
+    if changed:
+        print(f"[promo_slot] repaired static mirrors: {changed}")
+
+
+def self_heal_media_ads_from_slot_canonicals():
+    try:
+        conn = get_db()
+    except Exception as e:
+        print(f"[promo_slot] self-heal skipped: {e}")
+        return
+    try:
+        rows = conn.execute("SELECT id, slot_index, media_url, media_type FROM media_ads WHERE slot_index IS NOT NULL ORDER BY slot_index ASC, id DESC").fetchall()
+        healed = 0
+        for row in rows:
+            slot_index = row['slot_index']
+            canonical_url = get_promo_slot_canonical_url(slot_index)
+            if not canonical_url:
+                continue
+            normalized = normalize_media_url(row['media_url'])
+            current_path = media_url_to_path(normalized)
+            entry = get_promo_slot_manifest_entry(slot_index)
+            desired_media_type = entry.get('media_type') or row['media_type']
+            if normalized != canonical_url or current_path is None or not current_path.exists():
+                conn.execute('UPDATE media_ads SET media_url=?, media_type=? WHERE id=?', (canonical_url, desired_media_type, row['id']))
+                healed += 1
+        if healed:
+            conn.commit()
+            print(f"[promo_slot] self-healed media rows: {healed}")
+    except Exception as e:
+        print(f"[promo_slot] self-heal failed: {e}")
+    finally:
+        conn.close()
+
 
 def migrate_media_ads_to_persistent_uploads():
     try:
@@ -1417,7 +1582,10 @@ def migrate_media_ads_to_persistent_uploads():
                 if legacy.exists() and src and src != legacy:
                     src.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(legacy, src)
+                    mirror_upload_to_static(src)
                     copied += 1
+                elif src and src.exists():
+                    mirror_upload_to_static(src)
                 continue
             if not normalized.startswith('/static/uploads/'):
                 continue
@@ -1429,6 +1597,7 @@ def migrate_media_ads_to_persistent_uploads():
             if legacy.exists() and not persistent.exists():
                 persistent.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(legacy, persistent)
+                mirror_upload_to_static(persistent)
                 copied += 1
             conn.execute('UPDATE media_ads SET media_url=? WHERE id=?', (f'/uploads/{file_name}', row['id']))
             changed += 1
@@ -1442,6 +1611,8 @@ def migrate_media_ads_to_persistent_uploads():
 
 
 migrate_media_ads_to_persistent_uploads()
+repair_promo_slot_canonical_mirrors()
+self_heal_media_ads_from_slot_canonicals()
 
 
 def get_slot_fallback_media(slot_index: int | None = None) -> str:
@@ -1457,10 +1628,19 @@ def get_slot_fallback_media(slot_index: int | None = None) -> str:
 def resolve_ad_media_url(media_url: str | None, slot_index: int | None = None) -> str:
     normalized = normalize_media_url(media_url)
     media_path = media_url_to_path(normalized)
-    if media_path is not None and not media_path.exists():
-        return get_slot_fallback_media(slot_index)
+    canonical_url = get_promo_slot_canonical_url(slot_index)
     if normalized == '/static/default-ad.svg':
+        return canonical_url or get_slot_fallback_media(slot_index)
+    if media_path is not None and not media_path.exists():
+        file_name = Path(normalized).name
+        static_mirror = get_static_upload_path(file_name)
+        if static_mirror and static_mirror.exists():
+            return f'/static/uploads/{file_name}'
+        if canonical_url:
+            return canonical_url
         return get_slot_fallback_media(slot_index)
+    if canonical_url and slot_index in (1, 2, 3) and normalized.startswith('/uploads/promo-slot-'):
+        return canonical_url
     return normalized
 
 
@@ -5076,6 +5256,21 @@ async def admin_restore_backup(request: Request, backup_file: UploadFile = File(
                 db_name = next((name for name in zf.namelist() if name.lower().endswith(".db")), None)
                 if db_name:
                     db_bytes = zf.read(db_name)
+                for name in zf.namelist():
+                    clean = name.strip('/')
+                    if not clean or clean.endswith('/'):
+                        continue
+                    if clean.startswith('uploads/'):
+                        rel = Path(clean).relative_to('uploads')
+                        target = UPLOADS_DIR / rel
+                    elif clean.startswith('static_uploads/'):
+                        rel = Path(clean).relative_to('static_uploads')
+                        target = STATIC_UPLOADS_DIR / rel
+                    else:
+                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(name) as src, target.open('wb') as dst:
+                        shutil.copyfileobj(src, dst)
         except Exception:
             db_bytes = None
     if not db_bytes:
@@ -5299,6 +5494,8 @@ async def admin_create_ad(
         with save_path.open('wb') as f:
             shutil.copyfileobj(media_file.file, f)
         media_url = f'/uploads/{safe_name}'
+        mirror_upload_to_static(save_path, safe_name)
+        media_url = save_promo_slot_canonical(slot_index, save_path, media_type) or media_url
 
     if existing:
         current_media_url = existing['media_url']
@@ -5318,10 +5515,7 @@ async def admin_create_ad(
             old_media = (current_media_url or '').strip()
             old_media_path = media_url_to_path(old_media)
             if old_media_path and old_media != media_url:
-                try:
-                    old_media_path.unlink(missing_ok=True)
-                except Exception:
-                    pass
+                remove_upload_mirrors(old_media)
     else:
         if not media_url:
             conn.close()
@@ -5372,14 +5566,13 @@ async def admin_update_ad(
         with save_path.open('wb') as f:
             shutil.copyfileobj(media_file.file, f)
         media_url = f'/uploads/{safe_name}'
+        mirror_upload_to_static(save_path, safe_name)
+        media_url = save_promo_slot_canonical(slot_index, save_path, media_type) or media_url
         old_media = (row['media_url'] or '').strip()
-        old_media_path = media_url_to_path(old_media)
-        if old_media_path:
-            try:
-                old_media_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+        remove_upload_mirrors(old_media)
     slot_index = 1 if slot_index not in (1, 2, 3) else slot_index
+    if not (media_file and getattr(media_file, 'filename', None)):
+        media_url = get_promo_slot_canonical_url(slot_index) or media_url
     slot_conflict = conn.execute('SELECT id FROM media_ads WHERE slot_index=? AND id<>? LIMIT 1', (slot_index, ad_id)).fetchone()
     if slot_conflict:
         conn.execute('UPDATE media_ads SET slot_index=NULL WHERE id=?', (slot_conflict['id'],))
@@ -5411,12 +5604,7 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('DELETE FROM media_ads WHERE id=?', (ad_id,))
         conn.commit()
         media_url = row['media_url'] or ''
-        path = media_url_to_path(media_url)
-        if path and path.exists():
-            try:
-                path.unlink()
-            except Exception:
-                pass
+        remove_upload_mirrors(media_url)
     conn.close()
     return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
