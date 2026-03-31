@@ -25,14 +25,16 @@
       <p>섹션을 먼저 선택한 뒤 영상 링크를 붙여 넣으면 저장됩니다. 선택한 섹션은 위·아래로 이동하거나 삭제할 수 있습니다.</p>
     </div>
   </div>
-  <div class="study-admin-toolbar-grid">
+  <button type="button" class="study-toolbar-toggle btn btn-ghost btn-sm" id="studyToolbarToggleBtn" aria-expanded="true">관리 도구 접기</button>
+  <div class="study-admin-toolbar-grid" id="studyAdminToolbarBody">
     <div class="study-toolbar-block">
       <label class="study-field-label">섹션 선택</label>
       <select id="studyToolbarSectionId" class="study-input study-select">
         {% for section in study_sections %}
-        <option value="{{ section.id }}">{{ loop.index }}. {{ section.title }}</option>
+        <option value="{{ section.id }}" data-position="{{ loop.index }}" data-total="{{ study_sections|length }}">{{ loop.index }}. {{ section.title }}</option>
         {% endfor %}
       </select>
+      <div class="study-order-chip" id="studySectionOrderLabel">현재 {{ 1 if study_sections else 0 }}번째 섹션 / 총 {{ study_sections|length }}개</div>
       <div class="study-toolbar-actions">
         <button type="button" class="btn btn-ghost btn-sm" id="studyToolbarMoveUpBtn">선택 섹션 ↑</button>
         <button type="button" class="btn btn-ghost btn-sm" id="studyToolbarMoveDownBtn">선택 섹션 ↓</button>
@@ -49,6 +51,7 @@
     </div>
   </div>
 </section>
+<div class="study-toast" id="studyToast" hidden></div>
 {% endif %}
 
 <div class="study-section-stack">
@@ -121,9 +124,13 @@
 .study-mini-note{margin-top:10px;color:var(--gold);font-size:13px}
 .study-admin-panel{min-width:210px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
 .study-admin-hint{font-size:12px;color:var(--muted);text-align:right;line-height:1.6}
-.study-admin-toolbar-card{padding:22px;margin-top:18px;border:1px solid rgba(255,255,255,.08)}
+.study-admin-toolbar-card{padding:22px;margin-top:18px;border:1px solid rgba(255,255,255,.08);position:sticky;top:88px;z-index:25;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.94),rgba(16,13,25,.96))}
 .study-admin-toolbar-head h2{margin:8px 0 8px;font-size:26px}
 .study-admin-toolbar-head p{margin:0;color:var(--muted);line-height:1.7}
+.study-toolbar-toggle{margin-top:14px}
+.study-order-chip{display:inline-flex;align-items:center;margin-top:12px;padding:9px 12px;border-radius:999px;background:rgba(255,215,96,.12);border:1px solid rgba(255,215,96,.22);color:var(--gold);font-size:12px;font-weight:700}
+.study-toast{position:fixed;top:96px;right:22px;z-index:1100;min-width:220px;max-width:min(88vw,420px);padding:14px 16px;border-radius:16px;background:rgba(16,13,25,.96);border:1px solid rgba(255,215,96,.28);color:#fff4cf;box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.study-toast[hidden]{display:none !important}
 .study-admin-toolbar-grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:18px;margin-top:18px}
 .study-toolbar-block{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:18px}
 .study-toolbar-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -152,6 +159,7 @@
 .study-delete-link-btn:hover,.study-delete-section-btn:hover,.study-move-link-btn:hover,.study-move-section-btn:hover{color:#fff;border-color:rgba(255,255,255,.26)}
 .study-empty{padding:18px;border:1px dashed rgba(255,255,255,.14);border-radius:18px;color:var(--muted);background:rgba(255,255,255,.03)}
 .study-modal{position:fixed;inset:0;background:rgba(5,4,11,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.study-modal[hidden]{display:none !important}
 .study-modal-card{width:min(560px,100%);padding:22px}
 .study-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .study-modal-head h3{margin:0;font-size:24px}
@@ -163,17 +171,21 @@
 .study-modal-actions{display:flex;justify-content:flex-end;margin-top:16px}
 .btn-sm{padding:10px 14px;font-size:13px}
 @media (max-width:1280px){.study-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column}.study-admin-panel{align-items:flex-start}.study-admin-toolbar-grid{grid-template-columns:1fr}}
-@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:28px}}
-@media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px}.study-hero{padding:20px}}
+@media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column}.study-admin-panel{align-items:flex-start}.study-admin-toolbar-card{top:76px}.study-admin-toolbar-grid{grid-template-columns:1fr}}
+@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:28px}.study-admin-toolbar-card{top:68px;padding:18px}.study-toast{top:78px;right:14px;left:14px;max-width:none}}
+@media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px}.study-hero{padding:20px}.study-toolbar-actions{flex-direction:column;align-items:stretch}.study-toolbar-toggle{width:100%}}
 </style>
 
 {% if can_manage_study %}
 <script>
 (() => {
   const sectionModal = document.getElementById('studySectionModal');
-  const open = (el) => { if (el) el.hidden = false; };
-  const close = (el) => { if (el) el.hidden = true; };
+  const toolbarBody = document.getElementById('studyAdminToolbarBody');
+  const toolbarToggleBtn = document.getElementById('studyToolbarToggleBtn');
+  const toastEl = document.getElementById('studyToast');
+  const open = (el) => { if (el) { el.hidden = false; el.style.display = 'flex'; } };
+  const close = (el) => { if (el) { el.hidden = true; el.style.display = 'none'; } };
+  if (sectionModal) { sectionModal.hidden = true; sectionModal.style.display = 'none'; }
   const postJson = async (url, payload) => {
     const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload || {})});
     const data = await res.json().catch(() => ({}));
@@ -183,11 +195,44 @@
 
   const sectionSelect = document.getElementById('studyToolbarSectionId');
   const toolbarLinkInput = document.getElementById('studyToolbarLinkUrl');
+  const orderLabel = document.getElementById('studySectionOrderLabel');
   const getSelectedSectionId = () => Number(sectionSelect?.value || '0');
   const getSelectedSectionTitle = () => sectionSelect?.options?.[sectionSelect.selectedIndex]?.text || '선택 섹션';
+  const showToast = (message) => {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.hidden = false;
+    clearTimeout(window.__studyToastTimer);
+    window.__studyToastTimer = setTimeout(() => { toastEl.hidden = true; }, 2200);
+  };
+  const syncOrderLabel = () => {
+    if (!sectionSelect || !orderLabel) return;
+    const option = sectionSelect.options?.[sectionSelect.selectedIndex];
+    if (!option) {
+      orderLabel.textContent = '현재 선택된 섹션이 없습니다';
+      return;
+    }
+    const pos = option.dataset.position || '-';
+    const total = option.dataset.total || sectionSelect.options.length || 0;
+    orderLabel.textContent = `현재 ${pos}번째 섹션 / 총 ${total}개`;
+  };
+
+  const setToolbarCollapsed = (collapsed) => {
+    if (!toolbarBody || !toolbarToggleBtn) return;
+    toolbarBody.hidden = !!collapsed;
+    toolbarToggleBtn.setAttribute('aria-expanded', String(!collapsed));
+    toolbarToggleBtn.textContent = collapsed ? '관리 도구 펼치기' : '관리 도구 접기';
+  };
+  const autoCollapseOnMobile = () => {
+    if (window.innerWidth <= 720) setToolbarCollapsed(true);
+  };
 
   document.getElementById('studyAddSectionBtn')?.addEventListener('click', () => open(sectionModal));
+  toolbarToggleBtn?.addEventListener('click', () => setToolbarCollapsed(!toolbarBody || !toolbarBody.hidden ? true : false));
   document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => close(document.getElementById(btn.dataset.close))));
+  sectionSelect?.addEventListener('change', syncOrderLabel);
+  syncOrderLabel();
+  autoCollapseOnMobile();
 
   document.getElementById('studySaveSectionBtn')?.addEventListener('click', async () => {
     const title = document.getElementById('studySectionTitle').value.trim();
@@ -195,6 +240,8 @@
     if (!title) { alert('섹션명을 입력해 주세요.'); return; }
     try {
       await postJson('/study/api/section', {title, description});
+      close(sectionModal);
+      showToast('새 섹션이 저장되었습니다.');
       location.reload();
     } catch (err) {
       alert(err.message || '섹션 저장 중 문제가 발생했습니다.');
@@ -208,6 +255,7 @@
     if (!sourceUrl) { alert('영상 링크를 입력해 주세요.'); toolbarLinkInput?.focus(); return; }
     try {
       await postJson('/study/api/link', {section_id: sectionId, source_url: sourceUrl});
+      showToast('영상 링크가 저장되었습니다.');
       location.reload();
     } catch (err) {
       alert(err.message || '링크 저장 중 문제가 발생했습니다.');
@@ -219,6 +267,7 @@
     if (!sectionId) { alert('섹션을 먼저 선택해 주세요.'); return; }
     try {
       await postJson(`/study/api/section/${sectionId}/move`, {direction: 'up'});
+      showToast('섹션을 위로 이동했습니다.');
       location.reload();
     } catch (err) {
       alert(err.message || '섹션 순서 변경 중 문제가 발생했습니다.');
@@ -230,6 +279,7 @@
     if (!sectionId) { alert('섹션을 먼저 선택해 주세요.'); return; }
     try {
       await postJson(`/study/api/section/${sectionId}/move`, {direction: 'down'});
+      showToast('섹션을 아래로 이동했습니다.');
       location.reload();
     } catch (err) {
       alert(err.message || '섹션 순서 변경 중 문제가 발생했습니다.');
@@ -243,6 +293,7 @@
     if (!confirm(`'${sectionTitle}' 섹션과 내부 영상을 모두 삭제하시겠습니까?`)) return;
     try {
       await postJson(`/study/api/section/${sectionId}/delete`, {});
+      showToast('섹션이 삭제되었습니다.');
       location.reload();
     } catch (err) {
       alert(err.message || '섹션 삭제 중 문제가 발생했습니다.');
@@ -254,6 +305,7 @@
       if (!confirm('이 영상을 삭제하시겠습니까?')) return;
       try {
         await postJson(`/study/api/link/${btn.dataset.linkId}/delete`, {});
+        showToast('영상이 삭제되었습니다.');
         location.reload();
       } catch (err) {
         alert(err.message || '삭제 중 문제가 발생했습니다.');
@@ -265,6 +317,7 @@
     btn.addEventListener('click', async () => {
       try {
         await postJson(`/study/api/link/${btn.dataset.linkId}/move`, {direction: btn.dataset.direction});
+        showToast(btn.dataset.direction === 'up' ? '영상을 위로 이동했습니다.' : '영상을 아래로 이동했습니다.');
         location.reload();
       } catch (err) {
         alert(err.message || '순서 변경 중 문제가 발생했습니다.');
