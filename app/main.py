@@ -5518,8 +5518,10 @@ async def admin_create_ad(
                 remove_upload_mirrors(old_media)
     else:
         if not media_url:
-            conn.close()
-            raise HTTPException(status_code=400, detail='새 카드에는 이미지 또는 영상을 먼저 업로드해 주세요.')
+            # 슬롯에 아직 DB 행이 없더라도, 현재 보이는 대표 이미지를 그대로 사용해
+            # 추천 1/2/3 카드의 제목·설명·링크만 먼저 저장할 수 있게 한다.
+            media_url = get_promo_slot_canonical_url(slot_index) or f'/static/ad-fortune-{slot_index}.jpg'
+            media_type = media_type or 'image'
         conn.execute(
             'INSERT INTO media_ads (slot_index, title, description, media_type, media_url, target_url, created_at) VALUES (?,?,?,?,?,?,?)',
             (

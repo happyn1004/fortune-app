@@ -418,15 +418,17 @@
     syncAllEditables();
     var form = document.getElementById('ad_form_' + slotNumber);
     if(!form) return;
-    var fileInput = document.getElementById('ad_media_' + slotNumber);
-    var hasExisting = !!(form.querySelector('input[name="existing_ad_id"]') || {}).value;
-    var hasFile = !!(fileInput && fileInput.files && fileInput.files.length);
-    if(!hasExisting && !hasFile){
-      alert('새 카드로 저장하려면 먼저 이미지나 영상을 올려주세요.');
-      return;
-    }
     try {
-      await fetch(form.action, { method:'POST', body:new FormData(form), credentials:'same-origin' });
+      var response = await fetch(form.action, { method:'POST', body:new FormData(form), credentials:'same-origin' });
+      if(!response.ok){
+        var message = '카드 저장 중 문제가 발생했습니다.';
+        try {
+          var text = await response.text();
+          if(text) message += '\n' + text.slice(0, 200);
+        } catch(e){}
+        alert(message);
+        return;
+      }
       window.location.href = '/admin?settings_updated=1#promo-panel';
     } catch(e){
       alert('카드 저장 중 문제가 발생했습니다.');
