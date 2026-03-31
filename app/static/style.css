@@ -4830,3 +4830,50 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   .share-action-btn,.share-sms-btn{flex:1 1 100%}
   .hero-share-inline{font-size:13px}
 }
+
+.home-reality-note {
+  margin-top: 20px;
+  background: linear-gradient(135deg, rgba(33, 19, 58, 0.96), rgba(14, 14, 24, 0.96));
+  border: 1px solid rgba(255, 215, 64, 0.2);
+}
+.home-reality-note h2 {
+  color: #ffd85b;
+}
+.fortune-mini-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.mini-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 215, 64, 0.12);
+  border: 1px solid rgba(255, 215, 64, 0.22);
+  color: #ffe69a;
+  font-size: 14px;
+  font-weight: 700;
+}
+.mini-profile-summary {
+  margin-top: 18px;
+}
+.extended-life-section {
+  margin-top: 20px;
+}
+.extended-life-section .detail-panel,
+.extended-life-section .vip-briefing-card {
+  min-height: 100%;
+}
+.extended-life-section p {
+  line-height: 1.75;
+}
+@media (max-width: 768px) {
+  .fortune-mini-chips {
+    gap: 8px;
+  }
+  .mini-chip {
+    width: 100%;
+    justify-content: center;
+  }
+}

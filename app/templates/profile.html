@@ -30,6 +30,19 @@
     </label>
     <label>출생 시<input type="number" name="birth_hour" min="0" max="23" placeholder="08" value="{{ user.birth_hour or '' }}"></label>
     <label>출생 분<input type="number" name="birth_minute" min="0" max="59" placeholder="30" value="{{ user.birth_minute or '' }}"></label>
+    <label>결혼 유무
+      <select name="marital_status">
+        <option value="싱글" {% if (user.marital_status or '싱글') == '싱글' %}selected{% endif %}>싱글</option>
+        <option value="연애" {% if user.marital_status == '연애' %}selected{% endif %}>연애</option>
+        <option value="기혼" {% if user.marital_status == '기혼' %}selected{% endif %}>기혼</option>
+      </select>
+    </label>
+    <label>자녀 유무
+      <select name="has_children">
+        <option value="없음" {% if (user.has_children or '없음') == '없음' %}selected{% endif %}>없음</option>
+        <option value="있음" {% if user.has_children == '있음' %}selected{% endif %}>있음</option>
+      </select>
+    </label>
     <label class="span-2">관심사/보고 싶은 분야<input type="text" name="interests" placeholder="예: 사업, 투자, 건강, 연애" value="{{ user.interests or '' }}"></label>
     <button class="btn primary" type="submit">저장하고 운세 보기</button>
   </form>

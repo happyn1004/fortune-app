@@ -963,7 +963,7 @@ async def disable_cache_for_html_and_sw(request: Request, call_next):
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v134-share-actions").strip() or "v134-share-actions"
+STATIC_VERSION = os.environ.get("RELEASE_VERSION", "v136-profile-fortune-upgrade").strip() or "v136-profile-fortune-upgrade"
 
 @app.get("/storage-debug", response_class=HTMLResponse)
 def storage_debug(request: Request):
@@ -1707,6 +1707,8 @@ def init_db():
     ensure_column(conn, "users", "last_fortune_at", "last_fortune_at TEXT")
     ensure_column(conn, "users", "phone", "phone TEXT")
     ensure_column(conn, "users", "interests", "interests TEXT")
+    ensure_column(conn, "users", "marital_status", "marital_status TEXT")
+    ensure_column(conn, "users", "has_children", "has_children TEXT")
     ensure_column(conn, "users", "must_change_password", "must_change_password INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "users", "password_changed_at", "password_changed_at TEXT")
     ensure_column(conn, "users", "last_attendance_date", "last_attendance_date TEXT")
@@ -3369,6 +3371,71 @@ def build_plan_access(plan: str):
     }
 
 
+def _fortune_profile_flags(user):
+    marital_status = (get_user_field(user, "marital_status") or "싱글").strip() or "싱글"
+    if marital_status not in {"기혼", "연애", "싱글"}:
+        marital_status = "싱글"
+    has_children = (get_user_field(user, "has_children") or "없음").strip() or "없음"
+    if has_children not in {"있음", "없음"}:
+        has_children = "없음"
+    interests = (get_user_field(user, "interests") or "").strip()
+    return marital_status, has_children, interests
+
+
+def build_extended_fortune_sections(user, tone_idx: int, score: int):
+    marital_status, has_children, interests = _fortune_profile_flags(user)
+    interest_tail = f" 특히 {interests}와 연결된 선택은 감보다 기준이 중요합니다." if interests else ""
+
+    caution_map = {
+        "싱글": "돈에서는 조급한 기대수익 계산을 경계하고, 일에서는 준비되지 않은 약속을 크게 잡지 않는 편이 좋습니다. 관계에서는 외로움 때문에 급히 마음을 정하기보다 상대의 지속성을 먼저 보는 날입니다.",
+        "연애": "돈 문제를 감정으로 덮어두면 작은 오해가 커질 수 있습니다. 일에서는 일정 지연을 미리 설명해야 하고, 관계에서는 상대의 말투보다 실제 행동을 기준으로 판단하는 편이 좋습니다.",
+        "기혼": "돈과 일의 스트레스를 가족에게 바로 옮기지 않는 것이 중요합니다. 관계에서는 정답을 말하기보다 생활 리듬을 맞추는 태도가 필요하며, 중요한 결정은 배우자와 속도를 맞춰야 충돌이 줄어듭니다.",
+    }
+    career_map = [
+        "직업운은 새로운 판을 무리하게 넓히기보다 지금 하고 있는 일의 신뢰도를 높일수록 살아납니다. 소개, 재방문, 재계약처럼 이미 연결된 흐름에서 기회가 다시 붙는 날입니다.",
+        "직업운은 실무 완성도가 평가받는 흐름입니다. 눈에 띄는 말보다 결과물의 밀도가 중요하니, 오늘은 한 가지를 확실히 끝내는 것이 다음 기회를 끌어옵니다.",
+        "직업운은 사람을 잘 만나는 것보다 기준을 잘 세우는 데서 강해집니다. 가격, 일정, 역할을 분명히 하면 쓸데없는 소모가 줄고 평판이 좋아집니다.",
+        "직업운은 성급한 확장보다 수익 구조를 다시 정리할 때 힘이 붙습니다. 많이 벌리는 선택보다 남는 구조를 만드는 선택이 오래 갑니다.",
+    ]
+    turning_map = [
+        "삶의 전환점은 대운이 완전히 바뀌는 강한 변곡이라기보다, 세운이 현재의 선택을 시험하는 구간에 가깝습니다. 올해는 무엇을 더할지보다 무엇을 정리할지가 다음 몇 년의 흐름을 좌우합니다.",
+        "지금은 인생 흐름이 천천히 방향을 재조정하는 세운 구간입니다. 당장 큰 결과가 없더라도 기준을 정리해두면 다음 상승 구간에서 속도가 붙습니다.",
+        "대운의 힘이 크게 흔들리는 시기라기보다, 세운이 인간관계와 돈의 우선순위를 다시 묻는 때입니다. 사람과 자원을 선별하는 결정을 할수록 삶의 무게가 가벼워집니다.",
+        "삶의 전환점은 외부 사건보다 내부 기준 재정비에서 먼저 시작됩니다. 지금 시기에는 익숙하지만 비효율적인 방식을 내려놓는 결심이 향후 흐름을 바꾸는 핵심 포인트가 됩니다.",
+    ]
+    health_map = [
+        "건강운은 큰 질환 신호보다 피로 누적과 생활 리듬 붕괴를 먼저 관리해야 하는 흐름입니다. 수면, 수분, 식사 시간을 어기지 않는 기본 관리가 컨디션 차이를 크게 만듭니다.",
+        "건강운에서는 소화기와 긴장성 피로 관리가 중요합니다. 바쁠수록 카페인과 자극적인 음식에 의존하지 말고, 짧게라도 몸을 풀어주는 시간이 필요합니다.",
+        "건강운은 무리한 버티기보다 회복 루틴을 만들수록 좋아집니다. 어깨, 목, 허리처럼 누적 피로가 쌓이는 부위를 먼저 챙기면 전체 집중력이 올라갑니다.",
+        "건강운은 감정 소모가 몸의 컨디션으로 바로 이어지는 날입니다. 예민함이 올라올 때는 더 밀어붙이기보다 잠깐 멈추고 호흡을 정리하는 편이 좋습니다.",
+    ]
+    family_parts = []
+    if marital_status == "기혼":
+        family_parts.append("배우자와는 누가 맞는지보다 어떤 리듬으로 맞춰갈지가 중요합니다. 생활 대화와 현실적인 일정 조율을 먼저 하면 분위기가 안정됩니다.")
+    elif marital_status == "연애":
+        family_parts.append("연애 중이라면 상대를 가족처럼 당연하게 대하지 않는 태도가 중요합니다. 기대를 말하지 않고 쌓아두면 작은 오해가 커질 수 있습니다.")
+    else:
+        family_parts.append("싱글 흐름에서는 원가족과의 거리 조절이 중요합니다. 도움을 주고받더라도 내 선택의 중심은 스스로 쥐고 가는 편이 좋습니다.")
+    if has_children == "있음":
+        family_parts.append("자녀가 있다면 조언보다 반응의 톤이 더 중요하게 작동합니다. 일정, 교육, 생활 패턴과 관련한 대화는 짧고 분명하게 정리하는 것이 좋습니다.")
+    else:
+        family_parts.append("가족운은 가까운 사람과의 정서적 거리감을 부드럽게 줄일수록 좋아집니다. 먼저 안부를 묻는 작은 행동이 분위기를 바꿉니다.")
+    life_flow_map = [
+        f"현 시점 인생 흐름은 급상승 직전의 정비 구간에 가깝습니다. 크게 터뜨리기보다 {score}점 흐름을 안정적으로 유지할 기반을 만드는 것이 중요합니다.",
+        f"지금은 인생 흐름이 넓은 확장보다 한 방향 집중을 요구하는 시기입니다. {score}점의 흐름을 제대로 쓰려면 사람, 시간, 돈의 에너지를 흩어지지 않게 관리해야 합니다.",
+        f"현 시점 흐름은 운이 없는 시기가 아니라 선택의 밀도가 결과를 가르는 구간입니다. 작은 판단 하나를 정교하게 할수록 {score}점 운세가 체감 성과로 바뀝니다.",
+        f"지금 인생 흐름은 과거 방식을 반복하면 제자리처럼 느껴질 수 있습니다. 다만 기준을 새로 세우면 {score}점의 흐름이 뒤에서 천천히 힘을 실어주는 구조입니다.",
+    ]
+    return {
+        "돈일관계주의": caution_map[marital_status] + interest_tail,
+        "직업운확장": career_map[tone_idx % len(career_map)],
+        "삶의전환점": turning_map[(tone_idx + 1) % len(turning_map)],
+        "건강운확장": health_map[(tone_idx + 2) % len(health_map)],
+        "가족흐름": " ".join(family_parts),
+        "현시점인생흐름": life_flow_map[(tone_idx + 3) % len(life_flow_map)],
+    }
+
+
 def generate_fortune(user, active_plan: str):
     today = now_kst()
     quote, tip = get_quote_and_tip()
@@ -3493,11 +3560,16 @@ def generate_fortune(user, active_plan: str):
     access = build_plan_access(active_plan)
     meta = PLAN_META[active_plan]
     lotto = generate_weekly_lotto_numbers(today.date(), user=user)
-    interest_text = (user['interests'] or '').strip() if user and 'interests' in user.keys() else ''
+    marital_status, has_children, interest_text = _fortune_profile_flags(user)
     if interest_text:
         base_fortune['맞춤초점'] = f"관심사 '{interest_text}' 기준으로 보면 오늘은 준비된 영역에서 실행할수록 성과가 잘 붙습니다."
     else:
         base_fortune['맞춤초점'] = '오늘은 내가 이미 익숙한 영역에서 강점이 잘 살아나는 흐름입니다.'
+    base_fortune['프로필요약'] = {
+        '결혼유무': marital_status,
+        '자녀유무': has_children,
+    }
+    base_fortune.update(build_extended_fortune_sections(user, tone_idx, score))
     base_fortune['이번주로또'] = lotto
     base_fortune['오늘의코멘트'] = get_today_comment(active_plan, base_fortune)
     base_fortune['재물집중코멘트'] = '재물운은 크게 벌리는 것보다 새는 비용을 줄이는 정리형 접근이 유리합니다.'
@@ -3890,6 +3962,8 @@ def profile_save(
     gender: str = Form(""),
     phone: str = Form(""),
     interests: str = Form(""),
+    marital_status: str = Form("싱글"),
+    has_children: str = Form("없음"),
 ):
     user = get_current_user(request)
     if not user:
@@ -3905,9 +3979,11 @@ def profile_save(
     birth_date = parsed_birth.strftime("%Y-%m-%d")
     zodiac = ZODIAC_MAP[parsed_birth.year % 12]
     conn = get_db()
+    marital_status = marital_status if marital_status in {"기혼", "연애", "싱글"} else "싱글"
+    has_children = has_children if has_children in {"있음", "없음"} else "없음"
     conn.execute(
-        "UPDATE users SET birth_date=?, birth_hour=?, birth_minute=?, gender=?, zodiac=?, phone=?, interests=? WHERE id=?",
-        (birth_date, birth_hour, birth_minute, gender, zodiac, phone.strip(), interests.strip(), user["id"]),
+        "UPDATE users SET birth_date=?, birth_hour=?, birth_minute=?, gender=?, zodiac=?, phone=?, interests=?, marital_status=?, has_children=? WHERE id=?",
+        (birth_date, birth_hour, birth_minute, gender, zodiac, phone.strip(), interests.strip(), marital_status, has_children, user["id"]),
     )
     conn.commit()
     create_db_backup_if_due("profile", 30)
