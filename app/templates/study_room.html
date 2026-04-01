@@ -4,16 +4,28 @@
 <section class="study-hero card">
   <div>
     <div class="section-badge">성장 공부방</div>
-    <h1>좋은 영상만 모아보는 성장 아카이브</h1>
-    <p class="study-hero-copy">유튜브와 SNS에서 도움이 되는 자기계발, 마인드 성장, 부자 마인드, 동기부여, 명상 영상을 한곳에 모아두었습니다. 링크만 붙여 넣으면 제목과 썸네일을 자동으로 가져오도록 구성했습니다.</p>
-    <div class="study-mini-note">일부 SNS는 보안 정책 때문에 썸네일이 기본 이미지로 표시될 수 있습니다.</div>
+    <h1>좋은 성장 영상을 모아보는 공간</h1>
+    <p class="study-hero-copy">자기계발·부자마인드·동기부여·명상 영상을 빠르게 찾아보세요.</p>
   </div>
   {% if can_manage_study %}
   <div class="study-admin-panel">
-    <div class="study-admin-hint">관리자 전용 관리 기능</div>
+    <div class="study-admin-hint">관리자 전용 관리 가능</div>
   </div>
   {% endif %}
 </section>
+
+{% if study_sections %}
+<section class="card study-quick-nav-card">
+  <div class="study-quick-nav-inner">
+    <div class="study-quick-nav-label">섹션 바로가기</div>
+    <div class="study-quick-nav-buttons">
+      {% for section in study_sections %}
+      <a href="#study-section-{{ section.id }}" class="study-quick-nav-btn">{{ loop.index }}. {{ section.title }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
 
 {% if can_manage_study %}
 <section class="card study-admin-toolbar-card">
@@ -57,7 +69,7 @@
 
 <div class="study-section-stack">
   {% for section in study_sections %}
-  <section class="card study-section-card" data-section-id="{{ section.id }}">
+  <section id="study-section-{{ section.id }}" class="card study-section-card" data-section-id="{{ section.id }}">
     <div class="study-section-head">
       <div>
         <div class="study-section-topline">섹션 {{ loop.index }} · {{ section.count }}개 영상</div>
@@ -119,13 +131,18 @@
 {% endif %}
 
 <style>
-.study-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:26px;border:1px solid rgba(255,255,255,.08)}
-.study-hero h1{margin:8px 0 10px;font-size:34px;line-height:1.2}
-.study-hero-copy{margin:0;max-width:860px;color:var(--muted);line-height:1.7}
-.study-mini-note{margin-top:10px;color:var(--gold);font-size:13px}
-.study-admin-panel{min-width:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.study-hero{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:18px 20px;border:1px solid rgba(255,255,255,.08)}
+.study-hero h1{margin:6px 0 4px;font-size:28px;line-height:1.2}
+.study-hero-copy{margin:0;max-width:860px;color:var(--muted);line-height:1.5;font-size:14px}
+.study-admin-panel{min-width:auto;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 .study-admin-hint{font-size:11px;color:var(--muted);text-align:right;line-height:1.4}
-.study-admin-toolbar-card{padding:12px 14px;margin-top:14px;border:1px solid rgba(255,255,255,.08);position:sticky;top:82px;z-index:25;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.94),rgba(16,13,25,.96))}
+.study-quick-nav-card{position:sticky;top:82px;z-index:26;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.95),rgba(16,13,25,.97))}
+.study-quick-nav-inner{display:flex;align-items:center;gap:12px}
+.study-quick-nav-label{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--gold);white-space:nowrap}
+.study-quick-nav-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.study-quick-nav-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;text-decoration:none;font-size:12px;font-weight:700;line-height:1.2}
+.study-quick-nav-btn:hover{border-color:rgba(255,215,96,.35);color:#fff4cf;background:rgba(255,215,96,.1)}
+.study-admin-toolbar-card{padding:12px 14px;margin-top:12px;border:1px solid rgba(255,255,255,.08);position:sticky;top:148px;z-index:25;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.94),rgba(16,13,25,.96))}
  .study-admin-toolbar-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.study-admin-toolbar-head h2{margin:0;font-size:18px}.study-admin-toolbar-head.compact{gap:10px}
 .study-admin-toolbar-head p{margin:0;color:var(--muted);line-height:1.5}.study-toolbar-titleline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.study-toolbar-inline-note{font-size:12px;color:var(--muted)}.study-toolbar-head-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .study-toolbar-toggle{margin-top:0}
@@ -137,7 +154,7 @@
 .study-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .study-select{appearance:auto}
 .study-section-stack{display:flex;flex-direction:column;gap:18px;margin-top:18px}
-.study-section-card{padding:22px}
+.study-section-card{padding:22px;scroll-margin-top:230px}
 .study-section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}
 .study-section-head h2{margin:6px 0 8px;font-size:28px}
 .study-section-head p{margin:0;color:var(--muted)}
@@ -172,9 +189,9 @@
 .study-modal-actions{display:flex;justify-content:flex-end;margin-top:16px}
 .btn-sm{padding:8px 12px;font-size:12px}
 @media (max-width:1280px){.study-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column}.study-admin-panel{align-items:flex-start}.study-admin-toolbar-card{top:72px}.study-admin-toolbar-grid{grid-template-columns:1fr}.study-admin-toolbar-head{align-items:flex-start;flex-direction:column}.study-toolbar-head-actions{width:100%;justify-content:flex-end}}
-@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:28px}.study-admin-toolbar-card{top:64px;padding:10px 12px}.study-toast{top:78px;right:14px;left:14px;max-width:none}.study-toolbar-inline-note{display:none}}
-@media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px}.study-hero{padding:20px}.study-toolbar-actions{flex-direction:column;align-items:stretch}.study-toolbar-head-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.study-toolbar-toggle{width:100%}}
+@media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column;align-items:flex-start}.study-admin-panel{align-items:flex-start}.study-quick-nav-card{top:72px}.study-quick-nav-inner{flex-direction:column;align-items:flex-start}.study-admin-toolbar-card{top:136px}.study-admin-toolbar-grid{grid-template-columns:1fr}.study-admin-toolbar-head{align-items:flex-start;flex-direction:column}.study-toolbar-head-actions{width:100%;justify-content:flex-end}.study-section-card{scroll-margin-top:216px}}
+@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:24px}.study-quick-nav-card{top:64px;padding:8px 10px}.study-quick-nav-buttons{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;width:100%}.study-quick-nav-btn{flex:0 0 auto;padding:7px 10px}.study-admin-toolbar-card{top:126px;padding:10px 12px}.study-toast{top:78px;right:14px;left:14px;max-width:none}.study-toolbar-inline-note{display:none}.study-section-card{scroll-margin-top:206px}}
+@media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px;scroll-margin-top:198px}.study-hero{padding:16px 18px}.study-quick-nav-label{font-size:11px}.study-toolbar-actions{flex-direction:column;align-items:stretch}.study-toolbar-head-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.study-toolbar-toggle{width:100%}}
 </style>
 
 {% if can_manage_study %}
@@ -231,6 +248,20 @@
   document.getElementById('studyAddSectionBtn')?.addEventListener('click', () => open(sectionModal));
   toolbarToggleBtn?.addEventListener('click', () => setToolbarCollapsed(!toolbarBody || !toolbarBody.hidden ? true : false));
   document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => close(document.getElementById(btn.dataset.close))));
+  document.querySelectorAll('.study-quick-nav-btn').forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      const href = btn.getAttribute('href') || '';
+      if (!href.startsWith('#')) return;
+      const target = document.querySelector(href);
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({behavior: 'smooth', block: 'start'});
+      const sectionId = target.dataset.sectionId;
+      if (sectionSelect && sectionId) sectionSelect.value = sectionId;
+      syncOrderLabel();
+      history.replaceState(null, '', href);
+    });
+  });
   sectionSelect?.addEventListener('change', syncOrderLabel);
   syncOrderLabel();
   autoCollapseOnMobile();
