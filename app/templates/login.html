@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card form-card narrow">
   <h2>고객 로그인</h2>
-  {% if success_message %}<div class="success">{{ success_message }}</div>{% endif %}
+  {% if success_message %}<div class="success">{{ success_message }} 로그인하면 알림 연결 페이지로 바로 이동합니다.</div>{% endif %}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" class="form-grid auth-form-cleanup">
     <input type="hidden" name="next" value="{{ next_path or '/customer' }}">
@@ -10,7 +10,6 @@
     <label>비밀번호<input type="password" name="password" required autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
     <button class="btn primary" type="submit">로그인</button>
   </form>
-  <div class="preview-banner soft" style="margin-top:14px;">회원가입 시 알림 수신에 동의한 계정은 로그인 후 자동으로 푸시 연결을 시도합니다. 브라우저에서 알림 허용만 승인해 주세요.</div>
 </div>
 
 <script>

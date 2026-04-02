@@ -18,7 +18,7 @@ except Exception:
     class ZoneInfoNotFoundError(Exception):
         pass
 
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from urllib.parse import urlparse
 from html import unescape as html_unescape
 import json
 import hashlib
@@ -95,32 +95,6 @@ def get_push_schedule_clock(settings: dict | None = None) -> tuple[int, int]:
     hour = min(23, max(0, safe_int(settings.get("push_auto_hour", "08"), 8)))
     minute = min(59, max(0, safe_int(settings.get("push_auto_minute", "00"), 0)))
     return hour, minute
-
-
-
-
-def user_has_active_push_subscription(user_id: int | None) -> bool:
-    if not user_id:
-        return False
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT 1 FROM push_subscriptions WHERE user_id=? AND is_active=1 LIMIT 1",
-            (int(user_id),),
-        ).fetchone()
-        return bool(row)
-    finally:
-        conn.close()
-
-
-def append_query_param(url: str, key: str, value: str) -> str:
-    if not url:
-        return url
-    parsed = urlparse(url)
-    params = parse_qsl(parsed.query, keep_blank_values=True)
-    params = [(k, v) for k, v in params if k != key]
-    params.append((key, value))
-    return urlunparse(parsed._replace(query=urlencode(params)))
 
 
 def push_service_enabled(settings: dict | None = None) -> bool:
@@ -1824,17 +1798,8 @@ def render_view(request: Request, template_name: str, context: dict):
         context["attendance_status"] = None
         context["notification_count"] = 0
     context["request"] = request
-    path = str(request.url.path or "/")
-    current_user = context.get("user")
-    context["auto_push_request"] = False
-    if current_user and user_can_use_member_features(current_user):
-        push_opt_in = int(current_user["push_opt_in"]) if "push_opt_in" in current_user.keys() and current_user["push_opt_in"] is not None else 1
-        should_auto_push = request.query_params.get("auto_push") == "1" or (path in ["/fortune", "/customer"] and push_opt_in and not user_has_active_push_subscription(current_user["id"]))
-        context["auto_push_request"] = bool(should_auto_push and push_service_enabled(context["site_settings"]))
-        current_role = current_user["role"] if hasattr(current_user, "keys") and "role" in current_user.keys() else None
-        if current_role != "admin":
-            context.setdefault("hide_push_bar", True)
     brand_name = context["site_settings"].get("brand_name", "운세조아")
+    path = str(request.url.path or "/")
     if path == "/":
         context.setdefault("meta_title", "당신을 위한 오늘의 운세")
         context.setdefault("meta_description", "금전운 · 연애운 · 무료 로또번호까지 지금 바로 확인하세요.")
@@ -2163,8 +2128,7 @@ def init_db():
             last_login_at TEXT,
             fortune_views INTEGER NOT NULL DEFAULT 0,
             last_fortune_at TEXT,
-            phone TEXT,
-            push_opt_in INTEGER NOT NULL DEFAULT 1
+            phone TEXT
         );
         CREATE TABLE IF NOT EXISTS inquiries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2340,7 +2304,6 @@ def init_db():
     ensure_column(conn, "users", "fortune_views", "fortune_views INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "users", "last_fortune_at", "last_fortune_at TEXT")
     ensure_column(conn, "users", "phone", "phone TEXT")
-    ensure_column(conn, "users", "push_opt_in", "push_opt_in INTEGER NOT NULL DEFAULT 1")
     ensure_column(conn, "users", "interests", "interests TEXT")
     ensure_column(conn, "users", "marital_status", "marital_status TEXT")
     ensure_column(conn, "users", "has_children", "has_children TEXT")
@@ -3666,6 +3629,50 @@ def mark_all_notifications_read(user):
     conn.close()
 
 
+def create_direct_user_notification(user_id: int, title: str, message: str, target_url: str = "/push-setup") -> int:
+    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO push_notifications (title, message, target_url, audience_plan, is_active, created_at, auto_campaign_key) VALUES (?,?,?,?,?,?,?)",
+            (title[:80], message[:220], (target_url or '/push-setup')[:250], 'ALL', 0, now_ts, None),
+        )
+        notification_id = cur.lastrowid
+        conn.execute(
+            "INSERT OR IGNORE INTO user_notifications (user_id, notification_id, delivered_at) VALUES (?,?,?)",
+            (int(user_id), int(notification_id), now_ts),
+        )
+        conn.commit()
+        return int(notification_id)
+    finally:
+        conn.close()
+
+
+def user_has_active_push_subscription(user_id: int) -> bool:
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM push_subscriptions WHERE user_id=? AND is_active=1 LIMIT 1",
+                (int(user_id),),
+            ).fetchone()
+            if row:
+                return True
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    try:
+        data = _load_push_subscriptions_store()
+        items = data.get('items') if isinstance(data, dict) else []
+        for item in items or []:
+            if int(item.get('user_id') or 0) == int(user_id) and int(item.get('is_active') or 0) == 1:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def record_attendance(user):
     if not user_can_use_member_features(user):
         return None
@@ -4539,16 +4546,14 @@ def signup(
     password: str = Form(...),
     password_confirm: str = Form(...),
     phone: str = Form(""),
-    push_opt_in: str = Form("1"),
 ):
     cleaned_name = normalize_text_input(name)
     normalized_email = normalize_email(email)
     normalized_password = normalize_password_input(password)
     normalized_password_confirm = normalize_password_input(password_confirm)
     cleaned_phone = normalize_text_input(phone)
-    push_opt_in_value = 1 if str(push_opt_in).strip() in ("1", "true", "on", "yes") else 0
 
-    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone, "form_push_opt_in": push_opt_in_value}
+    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone}
     if not cleaned_name:
         return render_view(request, "signup.html", {**base_context, "error": "이름을 입력해 주세요."})
     if not normalized_email:
@@ -4561,8 +4566,8 @@ def signup(
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone,push_opt_in) VALUES (?,?,?,?,?,?,?,?)",
-            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone, push_opt_in_value),
+            "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
+            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone),
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
@@ -4571,7 +4576,16 @@ def signup(
         conn.close()
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
-    record_event("signup_complete", request, user_id, {"email": normalized_email, "push_opt_in": push_opt_in_value})
+    record_event("signup_complete", request, user_id, {"email": normalized_email})
+    try:
+        create_direct_user_notification(
+            int(user_id),
+            "회원가입이 완료되었습니다.",
+            "서비스 알림은 가입 즉시 사이트 안에서 먼저 받을 수 있습니다. 브라우저 푸시는 첫 로그인 후 자동 연결 페이지에서 마무리해 주세요.",
+            "/push-setup?auto=1",
+        )
+    except Exception as e:
+        print(f"[signup_direct_notification_failed] {e}")
     request.session.clear()
     return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
 
@@ -4600,9 +4614,12 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     record_login(user["id"])
     record_event("login_success", request, user["id"], {"plan": user["plan"]})
     redirect_target = next_path if next_path != "/customer" else redirect_for_customer_entry(user)
-    push_opt_in = int(user["push_opt_in"]) if "push_opt_in" in user.keys() and user["push_opt_in"] is not None else 1
-    if push_opt_in and not user_has_active_push_subscription(user["id"]):
-        redirect_target = append_query_param(redirect_target, "auto_push", "1")
+    if not user_has_active_push_subscription(int(user["id"])):
+        safe_return = quote_plus(redirect_target or "/customer")
+        if user.get("role") in {"admin", "manager"}:
+            redirect_target = f"/push-setup?auto=1&return={safe_return}&admin=1"
+        else:
+            redirect_target = f"/push-setup?auto=1&return={safe_return}"
     return RedirectResponse(url=redirect_target, status_code=303)
 
 
@@ -4798,34 +4815,23 @@ async def study_move_link_api(link_id: int, request: Request):
 
 
 
-def require_staff(request: Request):
-    user = get_current_user(request)
-    if not is_staff(user):
-        raise HTTPException(status_code=403, detail="관리자/매니저만 접근할 수 있습니다")
-    return user
-
-
-def require_admin(request: Request):
-    user = get_current_user(request)
-    if not is_admin(user):
-        raise HTTPException(status_code=403, detail="최고 관리자만 접근할 수 있습니다")
-    return user
-
-
-@app.get("/push/setup", response_class=HTMLResponse)
-def push_setup_page_alias(request: Request):
-    return RedirectResponse(url="/push-setup", status_code=307)
-
 @app.get("/push-setup", response_class=HTMLResponse)
 def push_setup_page(request: Request):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login?next=/push-setup", status_code=303)
+    return_path = sanitize_next_path(request.query_params.get("return"), "/customer")
+    auto_open = request.query_params.get("auto") == "1"
+    from_admin = request.query_params.get("admin") == "1" or (user and user.get("role") in {"admin", "manager"} and return_path.startswith("/admin"))
     return render_view(request, "push_setup.html", {
         "user": user,
         "hide_push_bar": True,
         "meta_title": "푸시 알림 설정",
         "meta_description": "앱처럼 설치와 푸시 알림 설정을 분리해서 진행하는 안내 페이지",
+        "return_path": return_path,
+        "push_auto_open": auto_open,
+        "from_admin": from_admin,
+        "service_notice_enabled": True,
     })
 
 

@@ -3,6 +3,7 @@
 <div class="card form-card narrow">
   <h2>고객 회원가입</h2>
   <p class="muted">가입 후 사주 프로필을 입력하면 오늘의 운세를 볼 수 있습니다. 비밀번호를 두 번 확인한 뒤 가입해 주세요.</p>
+  <div class="preview-banner soft" style="margin-bottom:12px;"><strong>알림 안내</strong><br>회원가입을 하면 서비스 알림은 사이트 안에서 먼저 받을 수 있게 처리됩니다. 브라우저 푸시는 로그인 직후 자동 연결 페이지에서 한 번에 마무리하도록 바꿨습니다.</div>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" class="form-grid auth-form-cleanup" id="signupForm">
     <label>이름<input type="text" name="name" required value="{{ form_name or '' }}"></label>

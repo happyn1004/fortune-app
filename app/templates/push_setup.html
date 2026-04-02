@@ -3,7 +3,8 @@
 <section class="card" style="margin-bottom:16px;">
   <div class="badge">알림 센터</div>
   <h1 style="margin:8px 0 10px;">앱처럼 설치와 푸시알림을 따로 진행</h1>
-  <p class="subtext">이제 고객 화면에서는 버튼을 분리했습니다. 아래에서 설치와 알림을 각각 따로 진행하면 됩니다.</p>
+  <p class="subtext">브라우저 푸시는 운영체제와 브라우저 권한이 필요합니다. 대신 회원가입 직후에는 서비스 알림을 사이트 안에서 먼저 받을 수 있게 바꿨고, 이 페이지에서는 브라우저 푸시 연결만 빠르게 마무리할 수 있게 정리했습니다.</p>
+  <div class="preview-banner soft" style="margin-top:10px;">{% if from_admin %}현재는 관리자 계정으로 접속 중입니다. 이 브라우저를 관리자용 푸시 수신 기기로 연결할 수 있습니다.{% else %}회원가입 직후라면 이 페이지가 자동으로 열립니다. 여기서 브라우저 알림 권한만 허용하면 이후에는 자동 발송과 수동 발송을 바로 받을 수 있습니다.{% endif %}</div>
 </section>
 
 <div style="position:sticky;top:76px;z-index:40;margin-bottom:14px;">
@@ -12,7 +13,7 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a class="btn mini" href="#install">앱처럼 설치</a>
       <a class="btn mini primary" href="#notify">푸시알림 설정</a>
-      <a class="btn mini ghost" href="/fortune">운세로 돌아가기</a>
+      <a class="btn mini ghost" href="{{ return_path or '/fortune' }}">{% if from_admin %}관리자 화면으로 돌아가기{% else %}이전 화면으로 돌아가기{% endif %}</a>
     </div>
   </div>
 </div>
@@ -38,7 +39,7 @@
   <div class="info-grid two">
     <div class="card small-card">
       <h4>2. 알림 연결</h4>
-      <p id="pushStatusText">버튼을 누르면 브라우저 알림 권한 확인과 서버 연결을 진행합니다.</p>
+      <p id="pushStatusText">버튼을 누르면 브라우저 알림 권한 확인과 서버 연결을 진행합니다. 회원가입 직후 자동으로 들어왔다면 잠시 후 연결을 자동 시도합니다.</p>
       <button class="btn primary" id="pushEnableBtn" type="button">푸시알림 설정</button>
     </div>
     <div class="card small-card">
@@ -52,4 +53,19 @@
     </div>
   </div>
 </section>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var shouldAutoOpen = {{ "true" if push_auto_open else "false" }};
+  if (!shouldAutoOpen) return;
+  window.setTimeout(function(){
+    try {
+      if (window.__openPushSettings) {
+        window.__openPushSettings();
+      }
+    } catch (e) {
+      console.debug('push_auto_open_skip', e);
+    }
+  }, 900);
+});
+</script>
 {% endblock %}

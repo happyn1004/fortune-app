@@ -146,22 +146,18 @@
     {% if attendance_status and user and request.url.path != '/fortune' %}<div class="attendance-banner">연속 출석 {{ attendance_status.streak }}일 · {% if attendance_status.checked_today %}오늘 출석 완료{% else %}오늘 출석 체크로 리워드 받기{% endif %}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
-  {% if user and push_feature_enabled and not hide_push_bar and user.role == 'admin' %}
+  {% if user and push_feature_enabled and not hide_push_bar %}
   <div class="push-compact-bar" id="pushCompactBar">
     <div class="push-compact-copy">
       <strong>푸시 알림</strong>
-      <span>관리자 테스트 및 운영용 빠른 진입</span>
+      <span>매일 오전 {{ '%02d'|format(push_schedule_clock[0]) }}:{{ '%02d'|format(push_schedule_clock[1]) }} 자동 알림 + 필요할 때 수동 발송</span>
     </div>
     <div class="push-compact-actions">
-      <a class="push-install-btn" href="/push-setup#install" aria-label="앱처럼 설치 안내">앱처럼 설치 안내</a>
-      <a class="btn mini primary" href="/push-setup#notify">푸시알림 설정</a>
+      <a class="push-install-btn" href="/push-setup?auto=1#install" aria-label="앱처럼 설치 안내">앱처럼 설치 안내</a>
+      <a class="btn mini primary" href="/push-setup?auto=1#notify">푸시알림 설정</a>
     </div>
   </div>
-  {% elif user and auto_push_request %}
-  <div class="wrap" style="margin-top:10px;">
-    <div class="preview-banner soft">회원가입 알림 동의 기준으로 자동 연결을 시도하고 있습니다. 브라우저에서 알림 허용만 승인되면 이후에는 상단 고정 버튼 없이 자동 수신 중심으로 동작합니다.</div>
-  </div>
-  {% endif %}
+  {% elif user and not hide_push_bar %}<div class="push-actions beta-install-actions"><a class="push-install-btn" href="/push-setup?auto=1#install" aria-label="앱처럼 설치 안내">앱처럼 설치 안내</a><a class="btn mini primary" href="/push-setup?auto=1#notify">푸시알림 설정</a></div>{% endif %}
   {% if site_settings.promo_enabled == '1' and active_ads %}
   <section class="wrap footer-ad-wrap">
     <section class="card footer-ad-banner footer-ad-gallery-card">
@@ -704,14 +700,6 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   };
   window.__pushReadPendingPushSubscription = readPendingPushSubscription;
   window.__pushScheduleRetry = schedulePushRetry;
-  window.__autoPushRequested = {{ 'true' if auto_push_request else 'false' }};
-  if (window.__autoPushRequested) {
-    window.setTimeout(function(){
-      if (document.visibilityState === 'visible') {
-        window.__openPushSettings();
-      }
-    }, 900);
-  }
   if (btn) {
     btn.onclick = function(e){
       if (e && e.preventDefault) e.preventDefault();
