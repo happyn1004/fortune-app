@@ -1831,7 +1831,8 @@ def render_view(request: Request, template_name: str, context: dict):
         push_opt_in = int(current_user["push_opt_in"]) if "push_opt_in" in current_user.keys() and current_user["push_opt_in"] is not None else 1
         should_auto_push = request.query_params.get("auto_push") == "1" or (path in ["/fortune", "/customer"] and push_opt_in and not user_has_active_push_subscription(current_user["id"]))
         context["auto_push_request"] = bool(should_auto_push and push_service_enabled(context["site_settings"]))
-        if current_user.get("role") != "admin":
+        current_role = current_user["role"] if hasattr(current_user, "keys") and "role" in current_user.keys() else None
+        if current_role != "admin":
             context.setdefault("hide_push_bar", True)
     brand_name = context["site_settings"].get("brand_name", "운세조아")
     if path == "/":
@@ -4810,6 +4811,10 @@ def require_admin(request: Request):
         raise HTTPException(status_code=403, detail="최고 관리자만 접근할 수 있습니다")
     return user
 
+
+@app.get("/push/setup", response_class=HTMLResponse)
+def push_setup_page_alias(request: Request):
+    return RedirectResponse(url="/push-setup", status_code=307)
 
 @app.get("/push-setup", response_class=HTMLResponse)
 def push_setup_page(request: Request):
