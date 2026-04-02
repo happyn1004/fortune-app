@@ -17,10 +17,10 @@
 {% if study_sections %}
 <section class="card study-quick-nav-card">
   <div class="study-quick-nav-inner">
-    <div class="study-quick-nav-label">섹션 바로가기</div>
+    <div class="study-quick-nav-label">빠른 이동</div>
     <div class="study-quick-nav-buttons">
       {% for section in study_sections %}
-      <a href="#study-section-{{ section.id }}" class="study-quick-nav-btn">{{ loop.index }}. {{ section.title }}</a>
+      <a href="#study-section-{{ section.id }}" class="study-quick-nav-btn" data-section-target="study-section-{{ section.id }}"><span class="study-quick-nav-index">{{ loop.index }}</span><span class="study-quick-nav-text">{{ section.title }}</span></a>
       {% endfor %}
     </div>
   </div>
@@ -136,12 +136,16 @@
 .study-hero-copy{margin:0;max-width:860px;color:var(--muted);line-height:1.5;font-size:14px}
 .study-admin-panel{min-width:auto;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 .study-admin-hint{font-size:11px;color:var(--muted);text-align:right;line-height:1.4}
-.study-quick-nav-card{position:sticky;top:82px;z-index:26;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.95),rgba(16,13,25,.97))}
+.study-quick-nav-card{position:sticky;top:82px;z-index:26;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(14px);background:linear-gradient(180deg,rgba(26,20,40,.96),rgba(14,11,24,.98));box-shadow:0 12px 28px rgba(0,0,0,.16)}
 .study-quick-nav-inner{display:flex;align-items:center;gap:12px}
-.study-quick-nav-label{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--gold);white-space:nowrap}
+.study-quick-nav-label{flex:0 0 auto;font-size:12px;font-weight:900;color:var(--gold);white-space:nowrap;letter-spacing:.08em;text-transform:uppercase}
 .study-quick-nav-buttons{display:flex;gap:8px;flex-wrap:wrap}
-.study-quick-nav-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;text-decoration:none;font-size:12px;font-weight:700;line-height:1.2}
-.study-quick-nav-btn:hover{border-color:rgba(255,215,96,.35);color:#fff4cf;background:rgba(255,215,96,.1)}
+.study-quick-nav-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.10);color:#f8f6ef;text-decoration:none;font-size:12px;font-weight:800;line-height:1.2;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease,color .18s ease}
+.study-quick-nav-index{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:rgba(255,215,96,.12);border:1px solid rgba(255,215,96,.18);color:var(--gold);font-size:11px;font-weight:900;flex:0 0 auto}
+.study-quick-nav-text{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.study-quick-nav-btn:hover{transform:translateY(-1px);border-color:rgba(255,215,96,.35);color:#fff4cf;background:linear-gradient(180deg,rgba(255,215,96,.12),rgba(255,215,96,.08));box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.study-quick-nav-btn.is-active{border-color:rgba(255,215,96,.45);background:linear-gradient(180deg,rgba(255,215,96,.18),rgba(255,215,96,.10));color:#fff6d8;box-shadow:0 10px 24px rgba(0,0,0,.22)}
+.study-quick-nav-btn.is-active .study-quick-nav-index{background:linear-gradient(180deg,rgba(255,215,96,.25),rgba(255,215,96,.16));border-color:rgba(255,215,96,.35);color:#fff7de}
 .study-admin-toolbar-card{padding:12px 14px;margin-top:12px;border:1px solid rgba(255,255,255,.08);position:sticky;top:148px;z-index:25;backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(22,18,33,.94),rgba(16,13,25,.96))}
  .study-admin-toolbar-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.study-admin-toolbar-head h2{margin:0;font-size:18px}.study-admin-toolbar-head.compact{gap:10px}
 .study-admin-toolbar-head p{margin:0;color:var(--muted);line-height:1.5}.study-toolbar-titleline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.study-toolbar-inline-note{font-size:12px;color:var(--muted)}.study-toolbar-head-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -190,7 +194,7 @@
 .btn-sm{padding:8px 12px;font-size:12px}
 @media (max-width:1280px){.study-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:1024px){.study-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.study-hero{flex-direction:column;align-items:flex-start}.study-admin-panel{align-items:flex-start}.study-quick-nav-card{top:72px}.study-quick-nav-inner{flex-direction:column;align-items:flex-start}.study-admin-toolbar-card{top:136px}.study-admin-toolbar-grid{grid-template-columns:1fr}.study-admin-toolbar-head{align-items:flex-start;flex-direction:column}.study-toolbar-head-actions{width:100%;justify-content:flex-end}.study-section-card{scroll-margin-top:216px}}
-@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:24px}.study-quick-nav-card{top:64px;padding:8px 10px}.study-quick-nav-buttons{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;width:100%}.study-quick-nav-btn{flex:0 0 auto;padding:7px 10px}.study-admin-toolbar-card{top:126px;padding:10px 12px}.study-toast{top:78px;right:14px;left:14px;max-width:none}.study-toolbar-inline-note{display:none}.study-section-card{scroll-margin-top:206px}}
+@media (max-width:720px){.study-section-head{flex-direction:column}.study-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.study-hero h1{font-size:24px}.study-quick-nav-card{top:64px;padding:8px 10px}.study-quick-nav-buttons{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;width:100%;scrollbar-width:none}.study-quick-nav-buttons::-webkit-scrollbar{display:none}.study-quick-nav-btn{flex:0 0 auto;padding:7px 10px}.study-quick-nav-text{max-width:120px}.study-admin-toolbar-card{top:126px;padding:10px 12px}.study-toast{top:78px;right:14px;left:14px;max-width:none}.study-toolbar-inline-note{display:none}.study-section-card{scroll-margin-top:206px}}
 @media (max-width:480px){.study-grid{grid-template-columns:1fr}.study-section-card{padding:18px;scroll-margin-top:198px}.study-hero{padding:16px 18px}.study-quick-nav-label{font-size:11px}.study-toolbar-actions{flex-direction:column;align-items:stretch}.study-toolbar-head-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}.study-toolbar-toggle{width:100%}}
 </style>
 
@@ -248,7 +252,15 @@
   document.getElementById('studyAddSectionBtn')?.addEventListener('click', () => open(sectionModal));
   toolbarToggleBtn?.addEventListener('click', () => setToolbarCollapsed(!toolbarBody || !toolbarBody.hidden ? true : false));
   document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => close(document.getElementById(btn.dataset.close))));
-  document.querySelectorAll('.study-quick-nav-btn').forEach(btn => {
+  const quickNavButtons = Array.from(document.querySelectorAll('.study-quick-nav-btn'));
+  const quickSections = Array.from(document.querySelectorAll('.study-section-card'));
+  const setActiveQuickNav = (sectionId) => {
+    quickNavButtons.forEach((btn) => {
+      const targetId = btn.dataset.sectionTarget || '';
+      btn.classList.toggle('is-active', targetId === `study-section-${sectionId}`);
+    });
+  };
+  quickNavButtons.forEach(btn => {
     btn.addEventListener('click', (event) => {
       const href = btn.getAttribute('href') || '';
       if (!href.startsWith('#')) return;
@@ -258,10 +270,33 @@
       target.scrollIntoView({behavior: 'smooth', block: 'start'});
       const sectionId = target.dataset.sectionId;
       if (sectionSelect && sectionId) sectionSelect.value = sectionId;
+      if (sectionId) setActiveQuickNav(sectionId);
       syncOrderLabel();
       history.replaceState(null, '', href);
     });
   });
+  if ('IntersectionObserver' in window && quickSections.length) {
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      const sectionId = visible.target.dataset.sectionId;
+      if (!sectionId) return;
+      setActiveQuickNav(sectionId);
+      if (sectionSelect && document.activeElement !== sectionSelect) {
+        sectionSelect.value = sectionId;
+        syncOrderLabel();
+      }
+    }, { rootMargin: '-24% 0px -55% 0px', threshold: [0.2, 0.45, 0.7] });
+    quickSections.forEach((section) => observer.observe(section));
+  }
+  const hashTarget = window.location.hash && document.querySelector(window.location.hash);
+  if (hashTarget?.dataset?.sectionId) {
+    setActiveQuickNav(hashTarget.dataset.sectionId);
+  } else if (quickSections[0]?.dataset?.sectionId) {
+    setActiveQuickNav(quickSections[0].dataset.sectionId);
+  }
   sectionSelect?.addEventListener('change', syncOrderLabel);
   syncOrderLabel();
   autoCollapseOnMobile();
