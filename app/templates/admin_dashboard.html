@@ -273,12 +273,12 @@
     <div class="admin-data-grid" style="margin-top:14px;">
       <div class="admin-data-box">
         <h4>자동 푸시 시간 설정</h4>
-        <form method="post" action="/admin/push-settings" class="member-manage-form compact-row">
+        <form id="adminPushSettingsForm" method="post" action="/admin/push-settings" class="member-manage-form compact-row">
           <div class="member-compact-controls">
             <label style="display:flex;align-items:center;gap:6px;">시 <input type="number" name="push_auto_hour" min="0" max="23" value="{{ site_settings.push_auto_hour or '08' }}" style="width:86px"></label>
             <label style="display:flex;align-items:center;gap:6px;">분 <input type="number" name="push_auto_minute" min="0" max="59" value="{{ site_settings.push_auto_minute or '00' }}" style="width:86px"></label>
             <label class="theme-toggle-row" style="min-width:140px;"><input type="checkbox" name="push_enabled" value="1" {% if site_settings.push_enabled == '1' %}checked{% endif %}> 자동 푸시 사용</label>
-            <button class="btn mini primary" type="submit">시간 저장</button>
+            <button class="btn mini primary" type="button" onclick="return window.submitAdminPushForm('adminPushSettingsForm', event);">시간 저장</button>
           </div>
         </form>
         <p class="muted">오전에 자동 발송할 시각을 조정할 수 있습니다. 이 시간에 활성화된 아침 캠페인이 자동으로 발송됩니다.</p>
@@ -286,24 +286,24 @@
 
       <div class="admin-data-box">
         <h4>수동 푸시 즉시 발송</h4>
-        <form method="post" action="/admin/push" class="settings-form-grid">
+        <form id="adminManualPushForm" method="post" action="/admin/push" class="settings-form-grid">
           <label>제목<input type="text" name="title" value="지금 확인해야 할 오늘의 흐름" required></label>
           <label>이동 경로<input type="text" name="target_url" value="/fortune"></label>
           <label class="span-2">내용<textarea name="message" rows="4" required>지금 운세 흐름이 바뀌고 있습니다. 고객 페이지에서 오늘의 핵심 리딩을 확인해보세요.</textarea></label>
           <label>대상<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
-          <div class="actions"><button class="btn primary" type="submit">지금 발송</button></div>
+          <div class="actions"><button class="btn primary" type="button" onclick="return window.submitAdminPushForm('adminManualPushForm', event);">지금 발송</button></div>
         </form>
       </div>
 
       <div class="admin-data-box">
         <h4>자동/수동 템플릿 만들기</h4>
-        <form method="post" action="/admin/push-campaigns" class="settings-form-grid">
+        <form id="adminPushCampaignForm" method="post" action="/admin/push-campaigns" class="settings-form-grid">
           <label>템플릿 제목<input type="text" name="title" value="아침 운세 체크" required></label>
           <label>이동 경로<input type="text" name="target_url" value="/fortune"></label>
           <label class="span-2">메시지<textarea name="message" rows="4" required>오늘의 흐름이 이미 움직이고 있습니다. 30초만 투자해 오늘 운세를 먼저 확인하세요.</textarea></label>
           <label>대상<select name="audience_plan"><option value="ALL">전체</option>{% for level in plan_levels %}<option value="{{ level }}">{{ level }}</option>{% endfor %}</select></label>
           <label>유형<select name="schedule_type"><option value="MORNING">매일 오전 자동</option><option value="MANUAL">수동 발송 템플릿</option></select></label>
-          <div class="actions"><button class="btn primary" type="submit">템플릿 저장</button></div>
+          <div class="actions"><button class="btn primary" type="button" onclick="return window.submitAdminPushForm('adminPushCampaignForm', event);">템플릿 저장</button></div>
         </form>
       </div>
     </div>
@@ -321,9 +321,9 @@
             <td data-label="설명">{{ row.status_meta.description }}<div class="muted">{{ row.target_url or '/fortune' }}</div></td>
             <td data-label="조치">
               <div class="member-action-stack">
-                <form method="post" action="/admin/push-campaigns/{{ row.id }}/send-now"><button class="btn mini primary" type="submit">즉시 발송</button></form>
-                {% if row.schedule_type == 'MORNING' %}<form method="post" action="/admin/push-campaigns/{{ row.id }}/toggle"><button class="btn mini" type="submit">{{ '중지' if row.is_active else '재개' }}</button></form>{% endif %}
-                <form method="post" action="/admin/push-campaigns/{{ row.id }}/delete" onsubmit="return confirm('이 템플릿을 삭제하시겠습니까?');"><button class="btn mini danger" type="submit">삭제</button></form>
+                <form id="push_send_form_{{ row.id }}" method="post" action="/admin/push-campaigns/{{ row.id }}/send-now"><button class="btn mini primary" type="button" onclick="return window.submitAdminPushForm('push_send_form_{{ row.id }}', event);">즉시 발송</button></form>
+                {% if row.schedule_type == 'MORNING' %}<form id="push_toggle_form_{{ row.id }}" method="post" action="/admin/push-campaigns/{{ row.id }}/toggle"><button class="btn mini" type="button" onclick="return window.submitAdminPushForm('push_toggle_form_{{ row.id }}', event);">{{ '중지' if row.is_active else '재개' }}</button></form>{% endif %}
+                <form id="push_delete_form_{{ row.id }}" method="post" action="/admin/push-campaigns/{{ row.id }}/delete" onsubmit="return confirm('이 템플릿을 삭제하시겠습니까?');"><button class="btn mini danger" type="button" onclick="return window.submitAdminPushForm('push_delete_form_{{ row.id }}', event, true);">삭제</button></form>
               </div>
             </td>
           </tr>
@@ -642,6 +642,23 @@
     }
   }, { passive: true });
   window.addEventListener('touchstart', function(){ adminTopbar.classList.remove('topbar-hidden'); }, { passive: true });
+
+  window.submitAdminPushForm = function(formId, event, needConfirm){
+    if (event && event.preventDefault) event.preventDefault();
+    var form = document.getElementById(formId);
+    if(!form) return false;
+    if (needConfirm && !confirm('이 작업을 진행하시겠습니까?')) return false;
+    try {
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        form.submit();
+      }
+    } catch (e) {
+      form.submit();
+    }
+    return false;
+  };
 })();
 </script>
 

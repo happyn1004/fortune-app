@@ -5612,7 +5612,7 @@ async def admin_create_ad(
         )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/update")

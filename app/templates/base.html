@@ -153,11 +153,11 @@
       <span id="pushStatusText">매일 오전 {{ '%02d'|format(push_schedule_clock[0]) }}:{{ '%02d'|format(push_schedule_clock[1]) }} 자동 알림 + 필요할 때 수동 발송</span>
     </div>
     <div class="push-compact-actions">
-      <button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button>
-      <button class="btn mini primary" id="pushEnableBtn" type="button">알림 설정</button>
+      <button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치" onclick="return window.__openInstallPrompt ? window.__openInstallPrompt(event) : false;">앱처럼 설치</button>
+      <button class="btn mini primary" id="pushEnableBtn" type="button" onclick="return window.__openPushSettings ? window.__openPushSettings(event) : false;">알림 설정</button>
     </div>
   </div>
-  {% elif user %}<div class="push-actions beta-install-actions"><button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button></div>{% endif %}
+  {% elif user %}<div class="push-actions beta-install-actions"><button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치" onclick="return window.__openInstallPrompt ? window.__openInstallPrompt(event) : false;">앱처럼 설치</button></div>{% endif %}
   {% if site_settings.promo_enabled == '1' and active_ads %}
   <section class="wrap footer-ad-wrap">
     <section class="card footer-ad-banner footer-ad-gallery-card">
@@ -591,12 +591,12 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     updatePushButton('working', '권한 확인 중...');
     setStatus('브라우저 알림 권한을 확인하고 허용해 주세요.', 'info');
 
-    let permission = await getEffectiveNotificationPermission();
+    let permission = (window.Notification && Notification.permission) ? Notification.permission : 'default';
     try {
       if (permission === 'default') {
         permission = await withTimeout(Notification.requestPermission(), 12000, 'permission_timeout');
-        permission = await getEffectiveNotificationPermission();
       }
+      permission = await getEffectiveNotificationPermission();
 
       if (permission === 'denied') {
         updatePushButton('denied');
@@ -650,24 +650,34 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       if (!expanded) setTimeout(function(){ panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 120);
     });
   });
-  if (installBtn) {
-    installBtn.addEventListener('click', async function(){
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        try { await deferredPrompt.userChoice; } catch(e) {}
-        deferredPrompt = null;
-        setStatus('앱 설치를 진행했습니다. 설치 후 홈 화면 아이콘으로 실행하면 더 앱처럼 이용할 수 있습니다.', 'ok');
-      } else {
-        setStatus('브라우저 메뉴에서 홈 화면에 추가 또는 앱 설치를 선택해 주세요.', 'info');
-        alert('브라우저 메뉴에서 홈 화면에 추가 또는 앱 설치를 선택해 주세요. 설치 후에는 주소창 없이 더 크게 볼 수 있습니다.');
-      }
-    });
+  async function openInstallPrompt(event){
+    if (event && event.preventDefault) event.preventDefault();
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch(e) {}
+      deferredPrompt = null;
+      setStatus('앱 설치를 진행했습니다. 설치 후 홈 화면 아이콘으로 실행하면 더 앱처럼 이용할 수 있습니다.', 'ok');
+      return false;
+    }
+    setStatus('브라우저 메뉴에서 홈 화면에 추가 또는 앱 설치를 선택해 주세요.', 'info');
+    alert('브라우저 메뉴에서 홈 화면에 추가 또는 앱 설치를 선택해 주세요. 설치 후에는 주소창 없이 더 크게 볼 수 있습니다.');
+    return false;
   }
-  window.__openPushSettings = enablePush;
+  if (installBtn) {
+    installBtn.addEventListener('click', openInstallPrompt);
+  }
+  window.__openInstallPrompt = openInstallPrompt;
+  window.__openPushSettings = async function(event){
+    if (event && event.preventDefault) event.preventDefault();
+    await enablePush();
+    return false;
+  };
+  window.__pushReadPendingPushSubscription = readPendingPushSubscription;
+  window.__pushScheduleRetry = schedulePushRetry;
   if (btn) {
     btn.addEventListener('click', function(e){
       e.preventDefault();
-      enablePush();
+      window.__openPushSettings(e);
     });
     getEffectiveNotificationPermission().then(function(permission){
       if (!supportsWebPush()) {
@@ -704,13 +714,13 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
 })();
   window.addEventListener('load', function(){
     try {
-      if (readPendingPushSubscription()) {
-        schedulePushRetry(2500);
+      if (window.__pushReadPendingPushSubscription && window.__pushReadPendingPushSubscription()) {
+        window.__pushScheduleRetry && window.__pushScheduleRetry(2500);
       }
     } catch (e) {}
   });
   document.addEventListener('visibilitychange', function(){
-    if (!document.hidden && readPendingPushSubscription()) schedulePushRetry(1200);
+    if (!document.hidden && window.__pushReadPendingPushSubscription && window.__pushReadPendingPushSubscription()) { window.__pushScheduleRetry && window.__pushScheduleRetry(1200); }
   });
 
   (function(){
