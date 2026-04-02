@@ -3629,50 +3629,6 @@ def mark_all_notifications_read(user):
     conn.close()
 
 
-def create_direct_user_notification(user_id: int, title: str, message: str, target_url: str = "/push-setup") -> int:
-    now_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = get_db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO push_notifications (title, message, target_url, audience_plan, is_active, created_at, auto_campaign_key) VALUES (?,?,?,?,?,?,?)",
-            (title[:80], message[:220], (target_url or '/push-setup')[:250], 'ALL', 0, now_ts, None),
-        )
-        notification_id = cur.lastrowid
-        conn.execute(
-            "INSERT OR IGNORE INTO user_notifications (user_id, notification_id, delivered_at) VALUES (?,?,?)",
-            (int(user_id), int(notification_id), now_ts),
-        )
-        conn.commit()
-        return int(notification_id)
-    finally:
-        conn.close()
-
-
-def user_has_active_push_subscription(user_id: int) -> bool:
-    try:
-        conn = get_db()
-        try:
-            row = conn.execute(
-                "SELECT 1 FROM push_subscriptions WHERE user_id=? AND is_active=1 LIMIT 1",
-                (int(user_id),),
-            ).fetchone()
-            if row:
-                return True
-        finally:
-            conn.close()
-    except Exception:
-        pass
-    try:
-        data = _load_push_subscriptions_store()
-        items = data.get('items') if isinstance(data, dict) else []
-        for item in items or []:
-            if int(item.get('user_id') or 0) == int(user_id) and int(item.get('is_active') or 0) == 1:
-                return True
-    except Exception:
-        pass
-    return False
-
-
 def record_attendance(user):
     if not user_can_use_member_features(user):
         return None
@@ -4577,15 +4533,6 @@ def signup(
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
     record_event("signup_complete", request, user_id, {"email": normalized_email})
-    try:
-        create_direct_user_notification(
-            int(user_id),
-            "회원가입이 완료되었습니다.",
-            "서비스 알림은 가입 즉시 사이트 안에서 먼저 받을 수 있습니다. 브라우저 푸시는 첫 로그인 후 자동 연결 페이지에서 마무리해 주세요.",
-            "/push-setup?auto=1",
-        )
-    except Exception as e:
-        print(f"[signup_direct_notification_failed] {e}")
     request.session.clear()
     return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
 
@@ -4614,12 +4561,6 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     record_login(user["id"])
     record_event("login_success", request, user["id"], {"plan": user["plan"]})
     redirect_target = next_path if next_path != "/customer" else redirect_for_customer_entry(user)
-    if not user_has_active_push_subscription(int(user["id"])):
-        safe_return = quote_plus(redirect_target or "/customer")
-        if user.get("role") in {"admin", "manager"}:
-            redirect_target = f"/push-setup?auto=1&return={safe_return}&admin=1"
-        else:
-            redirect_target = f"/push-setup?auto=1&return={safe_return}"
     return RedirectResponse(url=redirect_target, status_code=303)
 
 
@@ -4812,45 +4753,6 @@ async def study_move_link_api(link_id: int, request: Request):
         return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
     return JSONResponse({"ok": True, "changed": changed})
 
-
-
-
-@app.get("/push-setup", response_class=HTMLResponse)
-def push_setup_page(request: Request):
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login?next=/push-setup", status_code=303)
-    return_path = sanitize_next_path(request.query_params.get("return"), "/customer")
-    auto_open = request.query_params.get("auto") == "1"
-    from_admin = request.query_params.get("admin") == "1" or (user and user.get("role") in {"admin", "manager"} and return_path.startswith("/admin"))
-    return render_view(request, "push_setup.html", {
-        "user": user,
-        "hide_push_bar": True,
-        "meta_title": "푸시 알림 설정",
-        "meta_description": "앱처럼 설치와 푸시 알림 설정을 분리해서 진행하는 안내 페이지",
-        "return_path": return_path,
-        "push_auto_open": auto_open,
-        "from_admin": from_admin,
-        "service_notice_enabled": True,
-    })
-
-
-@app.get("/admin/push-center", response_class=HTMLResponse)
-def admin_push_center(request: Request, admin=Depends(require_staff)):
-    if admin["must_change_password"]:
-        return RedirectResponse(url="/admin/change-password", status_code=303)
-    conn = get_db()
-    campaigns = [dict(row) for row in conn.execute("SELECT * FROM push_campaigns ORDER BY id DESC").fetchall()]
-    conn.close()
-    for row in campaigns:
-        row["status_meta"] = build_campaign_status(row)
-    return render_view(request, "admin_push_center.html", {
-        "admin": admin,
-        "user": admin,
-        "plan_levels": PLAN_LEVELS,
-        "push_status": get_push_admin_status(),
-        "campaigns": campaigns,
-    })
 
 @app.get("/mind", response_class=HTMLResponse)
 def mind_routine_page(request: Request):
@@ -5710,7 +5612,7 @@ async def admin_create_ad(
         )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/update")
@@ -5770,7 +5672,7 @@ async def admin_update_ad(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/toggle")
@@ -5781,7 +5683,7 @@ def admin_toggle_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('UPDATE media_ads SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, ad_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/delete")
@@ -5794,7 +5696,7 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         media_url = row['media_url'] or ''
         remove_upload_mirrors(media_url)
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/push-settings")
@@ -5816,7 +5718,7 @@ def admin_update_push_settings(
         conn.execute("INSERT INTO site_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (key, value, now_ts))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
 
 
 @app.post("/admin/push")
@@ -5830,7 +5732,7 @@ def admin_create_push(
 ):
     audience_plan = audience_plan if audience_plan in ['ALL'] + PLAN_LEVELS else 'ALL'
     create_push_notification(title, message, target_url.strip() or '/fortune', audience_plan)
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.get("/api/push/public-key")
@@ -6121,7 +6023,7 @@ def admin_create_push_campaign(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/send-now")
@@ -6131,7 +6033,7 @@ def admin_send_push_campaign_now(campaign_id: int, request: Request, admin=Depen
     conn.close()
     if row:
         create_push_notification(row['title'], row['message'], row['target_url'], row['audience_plan'])
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/toggle")
@@ -6142,7 +6044,7 @@ def admin_toggle_push_campaign(campaign_id: int, request: Request, admin=Depends
         conn.execute('UPDATE push_campaigns SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, campaign_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/delete")
@@ -6151,7 +6053,7 @@ def admin_delete_push_campaign(campaign_id: int, request: Request, admin=Depends
     conn.execute('DELETE FROM push_campaigns WHERE id=?', (campaign_id,))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
 
 
 @app.post("/admin/inquiry/{inquiry_id}/status")

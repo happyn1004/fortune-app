@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card form-card narrow">
   <h2>고객 로그인</h2>
-  {% if success_message %}<div class="success">{{ success_message }} 로그인하면 알림 연결 페이지로 바로 이동합니다.</div>{% endif %}
+  {% if success_message %}<div class="success">{{ success_message }}</div>{% endif %}
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="post" class="form-grid auth-form-cleanup">
     <input type="hidden" name="next" value="{{ next_path or '/customer' }}">
