@@ -4880,9 +4880,9 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 
 
 /* v152 push/admin clickable safeguards */
-.push-compact-bar{pointer-events:none;}
+.push-compact-bar{pointer-events:auto;}
 .push-compact-actions,.push-compact-actions *,.push-install-btn,#pushEnableBtn{pointer-events:auto;}
 #pushEnableBtn,.push-install-btn,.admin-settings-card .btn,.admin-settings-card button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 #push-panel .admin-data-box{position:relative;z-index:1;}
-.admin-sticky-toolbar{pointer-events:none;}
+.admin-sticky-toolbar{pointer-events:auto;}
 .admin-sticky-toolbar .btn,.admin-sticky-toolbar a,.admin-sticky-left,.admin-sticky-actions{pointer-events:auto;}

@@ -153,11 +153,11 @@
       <span id="pushStatusText">매일 오전 {{ '%02d'|format(push_schedule_clock[0]) }}:{{ '%02d'|format(push_schedule_clock[1]) }} 자동 알림 + 필요할 때 수동 발송</span>
     </div>
     <div class="push-compact-actions">
-      <button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치" onclick="return window.__openInstallPrompt ? window.__openInstallPrompt(event) : false;">앱처럼 설치</button>
-      <button class="btn mini primary" id="pushEnableBtn" type="button" onclick="return window.__openPushSettings ? window.__openPushSettings(event) : false;">알림 설정</button>
+      <button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button>
+      <button class="btn mini primary" id="pushEnableBtn" type="button">알림 설정</button>
     </div>
   </div>
-  {% elif user %}<div class="push-actions beta-install-actions"><button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치" onclick="return window.__openInstallPrompt ? window.__openInstallPrompt(event) : false;">앱처럼 설치</button></div>{% endif %}
+  {% elif user %}<div class="push-actions beta-install-actions"><button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button></div>{% endif %}
   {% if site_settings.promo_enabled == '1' and active_ads %}
   <section class="wrap footer-ad-wrap">
     <section class="card footer-ad-banner footer-ad-gallery-card">
@@ -199,6 +199,31 @@
       <div class="footer-links"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/refund-policy">환불정책</a><a href="/support-info">고객센터정보</a></div>
     </div>
   </footer>
+
+<script>
+window.__openInstallPrompt = window.__openInstallPrompt || function(event){
+  if (event && event.preventDefault) event.preventDefault();
+  alert('잠시 후 다시 시도해 주세요. 계속 안 되면 크롬이나 사파리에서 다시 열어 주세요.');
+  return false;
+};
+window.__openPushSettings = window.__openPushSettings || function(event){
+  if (event && event.preventDefault) event.preventDefault();
+  alert('알림 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.');
+  return false;
+};
+document.addEventListener('click', function(event){
+  var installBtn = event.target.closest ? event.target.closest('#appInstallBtn') : null;
+  if (installBtn) {
+    event.preventDefault();
+    if (window.__openInstallPrompt) return window.__openInstallPrompt(event);
+  }
+  var pushBtn = event.target.closest ? event.target.closest('#pushEnableBtn') : null;
+  if (pushBtn) {
+    event.preventDefault();
+    if (window.__openPushSettings) return window.__openPushSettings(event);
+  }
+}, true);
+</script>
 <script>
 const PUSH_SW_URL = "/static/sw-push-v24.js?v={{ static_version if static_version is defined else 'v101-dedupe-readability-fix' }}";
 const PUSH_PENDING_STORAGE_KEY = 'pushPendingSubscriptionV1';
@@ -664,6 +689,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     return false;
   }
   if (installBtn) {
+    installBtn.onclick = openInstallPrompt;
     installBtn.addEventListener('click', openInstallPrompt);
   }
   window.__openInstallPrompt = openInstallPrompt;
@@ -675,6 +701,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
   window.__pushReadPendingPushSubscription = readPendingPushSubscription;
   window.__pushScheduleRetry = schedulePushRetry;
   if (btn) {
+    btn.onclick = function(e){
+      if (e && e.preventDefault) e.preventDefault();
+      return window.__openPushSettings(e);
+    };
     btn.addEventListener('click', function(e){
       e.preventDefault();
       window.__openPushSettings(e);
