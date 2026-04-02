@@ -4797,6 +4797,20 @@ async def study_move_link_api(link_id: int, request: Request):
 
 
 
+def require_staff(request: Request):
+    user = get_current_user(request)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="관리자/매니저만 접근할 수 있습니다")
+    return user
+
+
+def require_admin(request: Request):
+    user = get_current_user(request)
+    if not is_admin(user):
+        raise HTTPException(status_code=403, detail="최고 관리자만 접근할 수 있습니다")
+    return user
+
+
 @app.get("/push-setup", response_class=HTMLResponse)
 def push_setup_page(request: Request):
     user = get_current_user(request)
