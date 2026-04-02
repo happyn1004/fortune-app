@@ -54,6 +54,7 @@ PUSH_SUBSCRIBE_QUEUE_LOCK = threading.Lock()
 PUSH_SUBSCRIBE_WAKE_EVENT = threading.Event()
 PUSH_SUBSCRIBE_WORKER_STARTED = False
 PUSH_SUBSCRIPTIONS_STORE_FILE = None
+PUSH_CAMPAIGN_SCHEDULER_STARTED = False
 
 
 def get_kst_timezone():
@@ -80,6 +81,25 @@ def today_kst() -> date:
 
 def current_kst_date_str() -> str:
     return today_kst().isoformat()
+
+
+def safe_int(value, default: int) -> int:
+    try:
+        return int(str(value).strip())
+    except Exception:
+        return default
+
+
+def get_push_schedule_clock(settings: dict | None = None) -> tuple[int, int]:
+    settings = settings or get_site_settings()
+    hour = min(23, max(0, safe_int(settings.get("push_auto_hour", "08"), 8)))
+    minute = min(59, max(0, safe_int(settings.get("push_auto_minute", "00"), 0)))
+    return hour, minute
+
+
+def push_service_enabled(settings: dict | None = None) -> bool:
+    settings = settings or get_site_settings()
+    return str(settings.get("push_enabled", "1")) == "1" and webpush_is_ready()
 
 
 def _first_writable_dir(candidates: list[Path]) -> Path | None:
@@ -1066,6 +1086,9 @@ DEFAULT_SITE_SETTINGS = {
     "support_notice": "서비스 이용 문의, 결제 문의, 환불 요청은 홈페이지 문의 페이지 또는 아래 고객센터 정보를 통해 접수할 수 있습니다.",
     "support_bank_notice": "입금 후 주문번호와 입금자명을 전달하면 더 빠르게 확인할 수 있습니다.",
     "auto_push_message": "매일 아침 오늘의 운세와 행운 로또 번호를 확인해보세요.",
+    "push_auto_hour": "08",
+    "push_auto_minute": "00",
+    "push_enabled": "1",
     "hero_trust_text": "오늘의 흐름, 재물운, 관계운, 행운 로또 번호까지 한 번에 확인",
     "pwa_prompt_text": "홈 화면에 추가해 앱처럼 빠르게 실행할 수 있습니다.",
     "payment_notice": "실결제 전환 시 웹은 토스/카카오페이, 앱은 앱스토어/플레이스토어 인앱결제 흐름으로 확장할 수 있도록 설계했습니다.",
@@ -1713,22 +1736,40 @@ def get_crm_snapshot():
 
 
 def run_auto_push_campaigns():
+    settings = get_site_settings()
+    if str(settings.get("push_enabled", "1")) != "1" or not webpush_is_ready():
+        return
     conn = get_db()
-    now = datetime.now()
-    hour = now.hour
-    minute = now.minute
+    now = now_kst()
+    hour, minute = get_push_schedule_clock(settings)
     campaigns = conn.execute("SELECT * FROM push_campaigns WHERE is_active=1 AND schedule_type='MORNING' ORDER BY id ASC").fetchall()
     for c in campaigns:
-        if hour == 7 and minute < 20:
-            key = now.strftime('%Y-%m-%d')
-        else:
+        if now.hour != hour or now.minute != minute:
             continue
+        key = now.strftime('%Y-%m-%d')
         exists = conn.execute("SELECT 1 FROM push_notifications WHERE auto_campaign_key=? LIMIT 1", (f"{c['id']}:{key}",)).fetchone()
         if exists:
             continue
         create_push_notification(c['title'], c['message'], c['target_url'], c['audience_plan'], auto_campaign_key=f"{c['id']}:{key}", is_active=1)
     conn.commit()
     conn.close()
+
+
+def _push_campaign_scheduler_loop():
+    while True:
+        try:
+            run_auto_push_campaigns()
+        except Exception as e:
+            print(f"[push_scheduler] {e}")
+        time.sleep(20)
+
+
+def start_push_campaign_scheduler():
+    global PUSH_CAMPAIGN_SCHEDULER_STARTED
+    if globals().get('PUSH_CAMPAIGN_SCHEDULER_STARTED'):
+        return
+    PUSH_CAMPAIGN_SCHEDULER_STARTED = True
+    threading.Thread(target=_push_campaign_scheduler_loop, daemon=True, name='push-campaign-scheduler').start()
 
 
 def render_view(request: Request, template_name: str, context: dict):
@@ -1738,6 +1779,8 @@ def render_view(request: Request, template_name: str, context: dict):
         context["subscription_status"] = get_subscription_status(context.get("user"))
     run_auto_push_campaigns()
     context["site_settings"] = get_site_settings()
+    context["push_feature_enabled"] = push_service_enabled(context["site_settings"])
+    context["push_schedule_clock"] = get_push_schedule_clock(context["site_settings"])
     context["bank_account"] = BANK_ACCOUNT
     context["payment_provider_meta"] = PAYMENT_PROVIDER_META
     promo_enabled = str(context["site_settings"].get("promo_enabled", "0")) == "1"
@@ -2733,6 +2776,7 @@ init_db()
 create_db_backup("startup")
 sync_db_to_mirrors("startup")
 start_push_subscription_worker()
+start_push_campaign_scheduler()
 
 
 ZODIAC_MAP = {
@@ -3481,13 +3525,38 @@ def get_recent_pushes(limit: int = 10):
     return rows
 
 
+def get_push_admin_status():
+    settings = get_site_settings()
+    hour, minute = get_push_schedule_clock(settings)
+    conn = get_db()
+    try:
+        active_subscribers = conn.execute("SELECT COUNT(*) FROM push_subscriptions WHERE is_active=1").fetchone()[0]
+        morning_campaigns = conn.execute("SELECT COUNT(*) FROM push_campaigns WHERE schedule_type='MORNING' AND is_active=1").fetchone()[0]
+        manual_templates = conn.execute("SELECT COUNT(*) FROM push_campaigns WHERE schedule_type='MANUAL'").fetchone()[0]
+        today_key = now_kst().strftime('%Y-%m-%d')
+        sent_today = conn.execute("SELECT COUNT(*) FROM push_notifications WHERE auto_campaign_key LIKE ?", (f'%:{today_key}',)).fetchone()[0]
+    finally:
+        conn.close()
+    return {
+        'service_ready': webpush_is_ready(),
+        'push_enabled': str(settings.get('push_enabled', '1')) == '1',
+        'schedule_text': f"오전 {hour:02d}:{minute:02d}",
+        'active_subscribers': active_subscribers,
+        'morning_campaigns': morning_campaigns,
+        'manual_templates': manual_templates,
+        'sent_today': sent_today,
+    }
+
+
 def build_campaign_status(row):
     schedule_type = (row["schedule_type"] or "MANUAL").upper()
     is_active = bool(row["is_active"])
+    hour, minute = get_push_schedule_clock()
+    clock_text = f"{hour:02d}:{minute:02d}"
     if schedule_type == "MORNING" and is_active:
-        return {"label": "진행중", "class_name": "status-active", "description": "매일 아침 자동 발송"}
+        return {"label": "진행중", "class_name": "status-active", "description": f"매일 오전 {clock_text} 자동 발송"}
     if schedule_type == "MORNING" and not is_active:
-        return {"label": "중지", "class_name": "status-paused", "description": "자동 발송 일시중지"}
+        return {"label": "중지", "class_name": "status-paused", "description": f"오전 {clock_text} 자동 발송 일시중지"}
     if is_active:
         return {"label": "진행중", "class_name": "status-active", "description": "즉시 발송용 템플릿 활성"}
     return {"label": "대기", "class_name": "status-draft", "description": "필요할 때 즉시 발송"}
@@ -5144,6 +5213,7 @@ def admin_dashboard(request: Request, admin=Depends(require_staff)):
         "ads": get_admin_ads(12),
         "ads_by_slot": get_ads_by_slot(3),
         "pushes": get_recent_pushes(12),
+        "push_status": get_push_admin_status(),
         "crm": get_crm_snapshot(),
         "campaigns": campaigns,
         "payment_provider_meta": PAYMENT_PROVIDER_META,
@@ -5360,6 +5430,9 @@ def admin_update_settings(
     theme_glow: str = Form(""),
     theme_name: str = Form(""),
     mobile_sticky_cta: str = Form("0"),
+    push_auto_hour: str = Form("08"),
+    push_auto_minute: str = Form("00"),
+    push_enabled: str = Form("0"),
     admin=Depends(require_admin),
 ):
     conn = get_db()
@@ -5422,6 +5495,9 @@ def admin_update_settings(
         "theme_glow": theme_glow.strip(),
         "theme_name": theme_name.strip(),
         "mobile_sticky_cta": "1" if mobile_sticky_cta.strip() in ("1", "true", "on", "yes") else "0",
+        "push_auto_hour": str(min(23, max(0, safe_int(push_auto_hour, 8)))).zfill(2),
+        "push_auto_minute": str(min(59, max(0, safe_int(push_auto_minute, 0)))).zfill(2),
+        "push_enabled": "1" if push_enabled.strip() in ("1", "true", "on", "yes") else "0",
     })
     payload = selective_sync_legal_texts(payload, current)
     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -5621,6 +5697,28 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         remove_upload_mirrors(media_url)
     conn.close()
     return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+
+
+@app.post("/admin/push-settings")
+def admin_update_push_settings(
+    request: Request,
+    push_auto_hour: str = Form("08"),
+    push_auto_minute: str = Form("00"),
+    push_enabled: str = Form("0"),
+    admin=Depends(require_admin),
+):
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
+    payload = {
+        "push_auto_hour": str(min(23, max(0, safe_int(push_auto_hour, 8)))).zfill(2),
+        "push_auto_minute": str(min(59, max(0, safe_int(push_auto_minute, 0)))).zfill(2),
+        "push_enabled": "1" if push_enabled.strip() in ("1", "true", "on", "yes") else "0",
+    }
+    for key, value in payload.items():
+        conn.execute("INSERT INTO site_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (key, value, now_ts))
+    conn.commit()
+    conn.close()
+    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
 
 
 @app.post("/admin/push")
