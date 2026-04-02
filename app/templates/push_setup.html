@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="margin-bottom:16px;">
+  <div class="badge">알림 센터</div>
+  <h1 style="margin:8px 0 10px;">앱처럼 설치와 푸시알림을 따로 진행</h1>
+  <p class="subtext">이제 고객 화면에서는 버튼을 분리했습니다. 아래에서 설치와 알림을 각각 따로 진행하면 됩니다.</p>
+</section>
+
+<div style="position:sticky;top:76px;z-index:40;margin-bottom:14px;">
+  <div class="card" style="padding:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+    <div style="font-weight:800;color:var(--gold);">빠른 이동</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn mini" href="#install">앱처럼 설치</a>
+      <a class="btn mini primary" href="#notify">푸시알림 설정</a>
+      <a class="btn mini ghost" href="/fortune">운세로 돌아가기</a>
+    </div>
+  </div>
+</div>
+
+<section id="install" class="card" style="margin-bottom:16px;scroll-margin-top:150px;">
+  <div class="table-head-row"><h3>앱처럼 설치</h3><p class="muted">먼저 설치를 하고, 그 다음 알림을 연결하면 더 안정적입니다.</p></div>
+  <div class="info-grid two">
+    <div class="card small-card">
+      <h4>1. 설치 버튼</h4>
+      <p>아래 버튼을 누르면 설치 가능할 때 브라우저 설치창이 열립니다.</p>
+      <button class="push-install-btn" id="appInstallBtn" type="button">앱처럼 설치</button>
+    </div>
+    <div class="card small-card">
+      <h4>설치가 바로 안 뜰 때</h4>
+      <p>크롬 메뉴의 <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong>를 눌러 주세요.</p>
+      <div class="preview-banner soft">설치 후 다시 이 페이지에서 푸시알림 설정을 누르면 됩니다.</div>
+    </div>
+  </div>
+</section>
+
+<section id="notify" class="card" style="scroll-margin-top:150px;">
+  <div class="table-head-row"><h3>푸시알림 설정</h3><p class="muted">이 버튼만 따로 눌러서 알림 권한과 연결을 진행합니다.</p></div>
+  <div class="info-grid two">
+    <div class="card small-card">
+      <h4>2. 알림 연결</h4>
+      <p id="pushStatusText">버튼을 누르면 브라우저 알림 권한 확인과 서버 연결을 진행합니다.</p>
+      <button class="btn primary" id="pushEnableBtn" type="button">푸시알림 설정</button>
+    </div>
+    <div class="card small-card">
+      <h4>안 될 때 확인</h4>
+      <ul style="margin:0;padding-left:18px;line-height:1.8;">
+        <li>정식 HTTPS 주소인지 확인</li>
+        <li>크롬 또는 사파리 최신 버전 사용</li>
+        <li>카카오톡/네이버 인앱브라우저 말고 외부 브라우저 사용</li>
+        <li>사이트 설정에서 알림 허용 상태 확인</li>
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}

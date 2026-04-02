@@ -18,7 +18,7 @@ except Exception:
     class ZoneInfoNotFoundError(Exception):
         pass
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 from html import unescape as html_unescape
 import json
 import hashlib
@@ -95,6 +95,32 @@ def get_push_schedule_clock(settings: dict | None = None) -> tuple[int, int]:
     hour = min(23, max(0, safe_int(settings.get("push_auto_hour", "08"), 8)))
     minute = min(59, max(0, safe_int(settings.get("push_auto_minute", "00"), 0)))
     return hour, minute
+
+
+
+
+def user_has_active_push_subscription(user_id: int | None) -> bool:
+    if not user_id:
+        return False
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM push_subscriptions WHERE user_id=? AND is_active=1 LIMIT 1",
+            (int(user_id),),
+        ).fetchone()
+        return bool(row)
+    finally:
+        conn.close()
+
+
+def append_query_param(url: str, key: str, value: str) -> str:
+    if not url:
+        return url
+    parsed = urlparse(url)
+    params = parse_qsl(parsed.query, keep_blank_values=True)
+    params = [(k, v) for k, v in params if k != key]
+    params.append((key, value))
+    return urlunparse(parsed._replace(query=urlencode(params)))
 
 
 def push_service_enabled(settings: dict | None = None) -> bool:
@@ -1798,8 +1824,16 @@ def render_view(request: Request, template_name: str, context: dict):
         context["attendance_status"] = None
         context["notification_count"] = 0
     context["request"] = request
-    brand_name = context["site_settings"].get("brand_name", "운세조아")
     path = str(request.url.path or "/")
+    current_user = context.get("user")
+    context["auto_push_request"] = False
+    if current_user and user_can_use_member_features(current_user):
+        push_opt_in = int(current_user["push_opt_in"]) if "push_opt_in" in current_user.keys() and current_user["push_opt_in"] is not None else 1
+        should_auto_push = request.query_params.get("auto_push") == "1" or (path in ["/fortune", "/customer"] and push_opt_in and not user_has_active_push_subscription(current_user["id"]))
+        context["auto_push_request"] = bool(should_auto_push and push_service_enabled(context["site_settings"]))
+        if current_user.get("role") != "admin":
+            context.setdefault("hide_push_bar", True)
+    brand_name = context["site_settings"].get("brand_name", "운세조아")
     if path == "/":
         context.setdefault("meta_title", "당신을 위한 오늘의 운세")
         context.setdefault("meta_description", "금전운 · 연애운 · 무료 로또번호까지 지금 바로 확인하세요.")
@@ -2128,7 +2162,8 @@ def init_db():
             last_login_at TEXT,
             fortune_views INTEGER NOT NULL DEFAULT 0,
             last_fortune_at TEXT,
-            phone TEXT
+            phone TEXT,
+            push_opt_in INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS inquiries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2304,6 +2339,7 @@ def init_db():
     ensure_column(conn, "users", "fortune_views", "fortune_views INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "users", "last_fortune_at", "last_fortune_at TEXT")
     ensure_column(conn, "users", "phone", "phone TEXT")
+    ensure_column(conn, "users", "push_opt_in", "push_opt_in INTEGER NOT NULL DEFAULT 1")
     ensure_column(conn, "users", "interests", "interests TEXT")
     ensure_column(conn, "users", "marital_status", "marital_status TEXT")
     ensure_column(conn, "users", "has_children", "has_children TEXT")
@@ -4502,14 +4538,16 @@ def signup(
     password: str = Form(...),
     password_confirm: str = Form(...),
     phone: str = Form(""),
+    push_opt_in: str = Form("1"),
 ):
     cleaned_name = normalize_text_input(name)
     normalized_email = normalize_email(email)
     normalized_password = normalize_password_input(password)
     normalized_password_confirm = normalize_password_input(password_confirm)
     cleaned_phone = normalize_text_input(phone)
+    push_opt_in_value = 1 if str(push_opt_in).strip() in ("1", "true", "on", "yes") else 0
 
-    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone}
+    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone, "form_push_opt_in": push_opt_in_value}
     if not cleaned_name:
         return render_view(request, "signup.html", {**base_context, "error": "이름을 입력해 주세요."})
     if not normalized_email:
@@ -4522,8 +4560,8 @@ def signup(
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
-            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone),
+            "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone,push_opt_in) VALUES (?,?,?,?,?,?,?,?)",
+            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone, push_opt_in_value),
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
@@ -4532,7 +4570,7 @@ def signup(
         conn.close()
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
-    record_event("signup_complete", request, user_id, {"email": normalized_email})
+    record_event("signup_complete", request, user_id, {"email": normalized_email, "push_opt_in": push_opt_in_value})
     request.session.clear()
     return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
 
@@ -4561,6 +4599,9 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     record_login(user["id"])
     record_event("login_success", request, user["id"], {"plan": user["plan"]})
     redirect_target = next_path if next_path != "/customer" else redirect_for_customer_entry(user)
+    push_opt_in = int(user["push_opt_in"]) if "push_opt_in" in user.keys() and user["push_opt_in"] is not None else 1
+    if push_opt_in and not user_has_active_push_subscription(user["id"]):
+        redirect_target = append_query_param(redirect_target, "auto_push", "1")
     return RedirectResponse(url=redirect_target, status_code=303)
 
 
@@ -4753,6 +4794,38 @@ async def study_move_link_api(link_id: int, request: Request):
         return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
     return JSONResponse({"ok": True, "changed": changed})
 
+
+
+
+@app.get("/push-setup", response_class=HTMLResponse)
+def push_setup_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login?next=/push-setup", status_code=303)
+    return render_view(request, "push_setup.html", {
+        "user": user,
+        "hide_push_bar": True,
+        "meta_title": "푸시 알림 설정",
+        "meta_description": "앱처럼 설치와 푸시 알림 설정을 분리해서 진행하는 안내 페이지",
+    })
+
+
+@app.get("/admin/push-center", response_class=HTMLResponse)
+def admin_push_center(request: Request, admin=Depends(require_staff)):
+    if admin["must_change_password"]:
+        return RedirectResponse(url="/admin/change-password", status_code=303)
+    conn = get_db()
+    campaigns = [dict(row) for row in conn.execute("SELECT * FROM push_campaigns ORDER BY id DESC").fetchall()]
+    conn.close()
+    for row in campaigns:
+        row["status_meta"] = build_campaign_status(row)
+    return render_view(request, "admin_push_center.html", {
+        "admin": admin,
+        "user": admin,
+        "plan_levels": PLAN_LEVELS,
+        "push_status": get_push_admin_status(),
+        "campaigns": campaigns,
+    })
 
 @app.get("/mind", response_class=HTMLResponse)
 def mind_routine_page(request: Request):
@@ -5612,7 +5685,7 @@ async def admin_create_ad(
         )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/update")
@@ -5672,7 +5745,7 @@ async def admin_update_ad(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/toggle")
@@ -5683,7 +5756,7 @@ def admin_toggle_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('UPDATE media_ads SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, ad_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/delete")
@@ -5696,7 +5769,7 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         media_url = row['media_url'] or ''
         remove_upload_mirrors(media_url)
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-settings")
@@ -5718,7 +5791,7 @@ def admin_update_push_settings(
         conn.execute("INSERT INTO site_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (key, value, now_ts))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push")
@@ -5732,7 +5805,7 @@ def admin_create_push(
 ):
     audience_plan = audience_plan if audience_plan in ['ALL'] + PLAN_LEVELS else 'ALL'
     create_push_notification(title, message, target_url.strip() or '/fortune', audience_plan)
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.get("/api/push/public-key")
@@ -6023,7 +6096,7 @@ def admin_create_push_campaign(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/send-now")
@@ -6033,7 +6106,7 @@ def admin_send_push_campaign_now(campaign_id: int, request: Request, admin=Depen
     conn.close()
     if row:
         create_push_notification(row['title'], row['message'], row['target_url'], row['audience_plan'])
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/toggle")
@@ -6044,7 +6117,7 @@ def admin_toggle_push_campaign(campaign_id: int, request: Request, admin=Depends
         conn.execute('UPDATE push_campaigns SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, campaign_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/delete")
@@ -6053,7 +6126,7 @@ def admin_delete_push_campaign(campaign_id: int, request: Request, admin=Depends
     conn.execute('DELETE FROM push_campaigns WHERE id=?', (campaign_id,))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/inquiry/{inquiry_id}/status")
