@@ -9,6 +9,7 @@
       <a href="/admin">대시보드</a>
       <a href="/automation-studio">자동화</a>
       <a href="#promo-panel">광고/프로모션</a>
+      <a href="#push-panel">푸시</a>
       <a href="#inquiry-panel">문의</a>
       <a class="admin-link-chip" href="/logout">로그아웃</a>
     </nav>
@@ -16,6 +17,7 @@
   <nav class="mobile-top-tabs mobile-only" aria-label="관리자 메뉴">
     <a href="/admin" data-path="/admin"><span class="icon">📊</span><span>대시</span></a>
     <a href="#promo-panel"><span class="icon">📣</span><span>광고</span></a>
+    <a href="#push-panel"><span class="icon">🔔</span><span>푸시</span></a>
     <a href="/automation-studio" data-path="/automation-studio"><span class="icon">⚙️</span><span>자동화</span></a>
     <a href="#inquiry-panel"><span class="icon">💬</span><span>문의</span></a>
     <a href="/"><span class="icon">🏠</span><span>고객</span></a>
@@ -33,6 +35,7 @@
       <a class="btn mini" href="#staff-panel">운영자 계정</a>
       <a class="btn mini" href="#member-panel">회원 목록</a>
       <a class="btn mini" href="#promo-panel">광고/프로모션</a>
+      <a class="btn mini" href="#push-panel">푸시</a>
       <a class="btn mini" href="#payment-panel">결제</a>
       <a class="btn mini" href="#inquiry-panel">문의</a>
       <a class="btn mini" href="/">고객 화면 보기</a>
@@ -75,6 +78,24 @@
     </div>
   </section>
   {% endif %}
+
+
+  <section class="card filter-card admin-settings-card" id="push-overview-card">
+    <div class="table-head-row"><h3>푸시 알림 운영</h3><p class="muted">이제 관리자 페이지 상단에서 바로 확인하고 이동할 수 있습니다.</p></div>
+    <div class="preview-banner soft" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span class="status-pill {{ 'status-active' if push_status.service_ready else 'status-draft' }}">{{ '엔진 준비완료' if push_status.service_ready else '엔진 설치필요' }}</span>
+        <span class="status-pill {{ 'status-active' if push_status.push_enabled else 'status-draft' }}">{{ '자동발송 사용중' if push_status.push_enabled else '자동발송 중지' }}</span>
+        <span class="status-pill status-active">구독 {{ push_status.active_subscribers }}명</span>
+        <span class="status-pill status-active">오늘 자동 {{ push_status.sent_today }}건</span>
+        <span class="muted">{{ push_status.schedule_text }}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn mini primary" href="#push-panel">푸시 설정 바로가기</a>
+        <a class="btn mini" href="#push-campaign-table">템플릿 목록</a>
+      </div>
+    </div>
+  </section>
 
   <section class="admin-overview-grid crm-grid-expanded">
     <div class="card admin-stat-stack">
@@ -287,7 +308,7 @@
       </div>
     </div>
 
-    <div class="table-wrap" style="margin-top:14px;">
+    <div class="table-wrap" id="push-campaign-table" style="margin-top:14px;">
       <table class="mobile-card-table">
         <thead><tr><th>상태</th><th>제목</th><th>유형</th><th>대상</th><th>설명</th><th>조치</th></tr></thead>
         <tbody>
