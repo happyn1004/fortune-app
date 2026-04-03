@@ -65,6 +65,8 @@
     #pushStatusText[data-tone="ok"]{color:#9ef0b1}
     #pushStatusText[data-tone="warn"]{color:#ffd36d}
     #pushStatusText[data-tone="info"]{color:#c7c0ff}
+    .pulse-glow{animation:pushPulse 1.1s ease-in-out 2; box-shadow:0 0 0 0 rgba(255,138,54,.45)}
+    @keyframes pushPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,138,54,.45)}50%{transform:scale(1.03);box-shadow:0 0 0 10px rgba(255,138,54,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,138,54,0)}}
     @media (max-width: 720px){
       .push-compact-bar{left:10px;right:10px;bottom:10px;display:grid;grid-template-columns:1fr;gap:8px;padding:10px 12px}
       .push-compact-actions{justify-content:space-between}
@@ -146,18 +148,18 @@
     {% if attendance_status and user and request.url.path != '/fortune' %}<div class="attendance-banner">연속 출석 {{ attendance_status.streak }}일 · {% if attendance_status.checked_today %}오늘 출석 완료{% else %}오늘 출석 체크로 리워드 받기{% endif %}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
-  {% if user and push_feature_enabled %}
+  {% if user and push_feature_enabled and not hide_push_bar %}
   <div class="push-compact-bar" id="pushCompactBar">
     <div class="push-compact-copy">
-      <strong>푸시 알림</strong>
-      <span id="pushStatusText">매일 오전 {{ '%02d'|format(push_schedule_clock[0]) }}:{{ '%02d'|format(push_schedule_clock[1]) }} 자동 알림 + 필요할 때 수동 발송</span>
+      <strong>회원 알림 자동 활성화</strong>
+      <span>회원가입 즉시 사이트 내 알림함은 자동 등록됩니다. 기기 푸시는 매일 오전 {{ '%02d'|format(push_schedule_clock[0]) }}:{{ '%02d'|format(push_schedule_clock[1]) }} 알림을 위해 한 번만 연결하면 됩니다.</span>
     </div>
     <div class="push-compact-actions">
-      <button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button>
-      <button class="btn mini primary" id="pushEnableBtn" type="button">알림 설정</button>
+      <a class="push-install-btn" href="/push-setup#install" aria-label="앱처럼 설치 안내">앱처럼 설치 안내</a>
+      <a class="btn mini primary" href="/push-setup#notify">기기 푸시 연결</a>
     </div>
   </div>
-  {% elif user %}<div class="push-actions beta-install-actions"><button class="push-install-btn" id="appInstallBtn" type="button" aria-label="앱처럼 설치">앱처럼 설치</button></div>{% endif %}
+  {% elif user and not hide_push_bar %}<div class="push-actions beta-install-actions"><a class="push-install-btn" href="/push-setup#install" aria-label="앱처럼 설치 안내">앱처럼 설치 안내</a><a class="btn mini primary" href="/push-setup#notify">기기 푸시 연결</a></div>{% endif %}
   {% if site_settings.promo_enabled == '1' and active_ads %}
   <section class="wrap footer-ad-wrap">
     <section class="card footer-ad-banner footer-ad-gallery-card">
@@ -233,6 +235,7 @@ function buildPushApiUrl(path) {
   return `${PUSH_API_BASE}${path}`;
 }
 const PUSH_FEATURE_ENABLED = {{ "true" if push_feature_enabled else "false" }};
+const PUSH_AUTO_CONNECT = {{ "true" if request.query_params.get("autopush") == "1" else "false" }};
 if (PUSH_FEATURE_ENABLED && "serviceWorker" in navigator) {
   window.addEventListener("load", async function(){
     try {
@@ -392,10 +395,10 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
     btn.disabled = state === 'working';
     if (state === 'ready') btn.textContent = '알림 설정 완료';
     else if (state === 'working') btn.textContent = message || '확인 중...';
-    else if (state === 'unsupported') btn.textContent = message || '알림 설정';
+    else if (state === 'unsupported') btn.textContent = message || '기기 푸시 연결';
     else if (state === 'ios-install') btn.textContent = '설치 후 알림 설정';
     else if (state === 'denied') btn.textContent = '알림 다시 설정';
-    else btn.textContent = message || '알림 설정';
+    else btn.textContent = message || '기기 푸시 연결';
   }
   function showPermissionGuide(permission) {
     if (permission === 'denied') {
@@ -630,7 +633,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
       }
 
       if (permission !== 'granted') {
-        updatePushButton('', '알림 설정');
+        updatePushButton('', '기기 푸시 연결');
         showPermissionGuide(permission);
         return;
       }
@@ -649,11 +652,11 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         alert('권한 창 응답이 오래 걸리고 있습니다. 인앱브라우저가 아닌 크롬/사파리에서 다시 시도해 주세요.');
       } else if (code === 'subscribe_timeout' || code === 'db_busy' || code === 'subscribe_queue_pending') {
         schedulePushRetry(2500);
-        updatePushButton('', '알림 다시 설정');
+        updatePushButton('', '기기 푸시 다시 연결');
         setStatus('알림 권한은 허용되었지만 서버 확인이 지연되고 있습니다. 잠시 후 자동 재시도되며, 계속 안 오면 브라우저를 완전히 닫았다가 다시 시도해 주세요.', 'warn');
         alert('알림 권한은 허용되었지만 서버 확인이 지연되고 있습니다. 10초 정도 기다린 뒤에도 테스트 푸시가 오지 않으면 브라우저를 완전히 닫았다가 다시 접속해 주세요.');
       } else if (code === 'subscription_not_found' || code === 'send_failed' || code === 'test_push_failed' || code === 'webpush_not_ready' || code === 'subscription_invalid') {
-        updatePushButton('', '알림 다시 설정');
+        updatePushButton('', '기기 푸시 다시 연결');
         setStatus('테스트 알림 발송에 실패했습니다. 서버 푸시 연결을 다시 확인한 뒤 다시 시도해 주세요.', 'warn');
         alert('테스트 알림 발송에 실패했습니다. 서버 푸시 연결을 다시 확인한 뒤 다시 시도해 주세요.');
       } else {
@@ -725,7 +728,7 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         setStatus('알림이 이미 허용되어 있습니다. 홈 화면에 설치하면 더 앱처럼 사용할 수 있습니다.', 'ok');
         setTimeout(function(){
           syncPushSubscription({ force: false }).catch(function(){
-            updatePushButton('', '알림 다시 설정');
+            updatePushButton('', '기기 푸시 다시 연결');
             setStatus('알림 권한은 허용되었습니다. 서버 연결을 자동으로 다시 확인합니다.', 'info');
           });
         }, 1200);
@@ -733,14 +736,48 @@ window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); 
         updatePushButton('denied');
         setStatus('브라우저가 현재 알림 차단 상태로 인식하고 있습니다. 사이트 설정에서 다시 확인해 주세요.', 'warn');
       } else {
-        updatePushButton('', '알림 설정');
+        updatePushButton('', '기기 푸시 연결');
         setStatus('알림을 켜면 오늘의 중요한 흐름을 바로 받아볼 수 있습니다.', 'info');
       }
     }).catch(function(){
-      updatePushButton('', '알림 설정');
-      setStatus('알림을 켜면 오늘의 중요한 흐름을 바로 받아볼 수 있습니다.', 'info');
+      updatePushButton('', '기기 푸시 연결');
+      setStatus('기기 푸시를 켜면 오늘의 중요한 흐름을 바로 받아볼 수 있습니다.', 'info');
     });
   }
+
+  async function tryAutoConnectFromSignup() {
+    if (!PUSH_AUTO_CONNECT || !btn || !supportsWebPush()) return;
+    try {
+      if (window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('autopush');
+        window.history.replaceState({}, document.title, url.toString());
+      }
+    } catch (e) {}
+    const permission = await getEffectiveNotificationPermission().catch(function(){ return Notification.permission || 'default'; });
+    if (permission === 'granted') {
+      updatePushButton('working', '자동 연결 중...');
+      setStatus('회원가입 후 자동 연결을 진행하고 있습니다. 잠시만 기다려 주세요.', 'info');
+      try {
+        await withTimeout(syncPushSubscription({ force: true, recreate: false }), 45000, 'subscribe_timeout');
+        updatePushButton('ready');
+        setStatus('회원가입 후 기기 푸시까지 자동 연결되었습니다. 이제 사이트 알림함과 기기 알림을 함께 받을 수 있습니다.', 'ok');
+      } catch (e) {
+        updatePushButton('', '기기 푸시 연결');
+        setStatus('사이트 내 알림함은 이미 자동 활성화되었습니다. 기기 푸시는 아래 버튼을 한 번 눌러 마무리해 주세요.', 'warn');
+      }
+      return;
+    }
+    updatePushButton('', '기기 푸시 연결');
+    setStatus('회원가입과 동시에 사이트 내 알림함은 자동 활성화되었습니다. 브라우저 정책상 기기 푸시는 한 번 허용이 필요할 수 있습니다.', 'info');
+    setTimeout(function(){
+      if (btn && !btn.disabled && Notification.permission === 'default') {
+        btn.classList.add('pulse-glow');
+        setTimeout(function(){ btn.classList.remove('pulse-glow'); }, 2800);
+      }
+    }, 800);
+  }
+  tryAutoConnectFromSignup();
 })();
   window.addEventListener('load', function(){
     try {

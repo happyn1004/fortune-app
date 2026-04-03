@@ -11,6 +11,8 @@
     <label>비밀번호<input type="password" name="password" id="signupPassword" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
     <label>비밀번호 확인<input type="password" name="password_confirm" id="signupPasswordConfirm" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
     <label class="checkbox-row"><input type="checkbox" id="togglePasswordView"> 비밀번호 보이기</label>
+    <label class="checkbox-row consent-row"><input type="checkbox" id="signupPushConsent" required checked> 회원가입과 동시에 사이트 내 알림함이 자동 활성화되며, 브라우저가 허용하면 기기 푸시도 자동 연결을 시도하는 것에 동의합니다.</label>
+    <div class="muted">회원가입만 하면 사이트 안의 알림함은 바로 활성화됩니다. 기기 푸시는 브라우저 정책상 완전 강제는 불가능하지만, 로그인 후 자동으로 연결을 시도하도록 바꿨습니다.</div>
     <div class="muted">모바일에서는 자동완성이나 대문자 자동입력 때문에 비밀번호가 다르게 저장될 수 있습니다. 비밀번호 확인 칸까지 같아야 가입됩니다.</div>
     <button class="btn primary" type="submit">가입 완료 후 로그인하기</button>
   </form>

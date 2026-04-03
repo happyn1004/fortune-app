@@ -31,7 +31,7 @@ import tempfile
 import zipfile
 import base64
 import urllib.request
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode, urlsplit, urlunsplit, parse_qsl
 import urllib.error
 import unicodedata
 import time
@@ -2946,6 +2946,21 @@ def redirect_for_staff_role(user):
     return "/profile"
 
 
+
+
+def add_query_params(url: str, params: dict[str, str | int | None]) -> str:
+    try:
+        parts = urlsplit(url or '/')
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        for key, value in (params or {}).items():
+            if value is None:
+                query.pop(str(key), None)
+            else:
+                query[str(key)] = str(value)
+        new_query = urlencode(query)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path or '/', new_query, parts.fragment))
+    except Exception:
+        return url
 def sanitize_next_path(next_path: str | None, default: str = "/fortune") -> str:
     value = (next_path or "").strip()
     if not value.startswith("/") or value.startswith("//"):
@@ -4534,7 +4549,7 @@ def signup(
     conn.close()
     record_event("signup_complete", request, user_id, {"email": normalized_email})
     request.session.clear()
-    return RedirectResponse(url=f"/login?signup=1&email={quote_plus(normalized_email)}", status_code=303)
+    return RedirectResponse(url=add_query_params("/login", {"signup": 1, "email": normalized_email, "autopush": 1}), status_code=303)
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -4542,18 +4557,19 @@ def login_page(request: Request):
     signup_done = request.query_params.get("signup") == "1"
     signup_email = normalize_email(request.query_params.get("email") or "")
     next_path = sanitize_next_path(request.query_params.get("next"), "/customer")
-    success_message = "가입이 완료되었습니다. 방금 만든 비밀번호로 로그인해 주세요." if signup_done else None
-    return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email, "next_path": next_path})
+    auto_push = request.query_params.get("autopush") == "1"
+    success_message = "가입이 완료되었습니다. 방금 만든 비밀번호로 로그인해 주세요. 회원가입과 동시에 사이트 내 알림함은 자동 활성화되며, 로그인 후 기기 푸시도 자동 연결을 시도합니다." if signup_done else None
+    return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email, "next_path": next_path, "auto_push": auto_push})
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login(request: Request, email: str = Form(...), password: str = Form(...), next: str = Form("/customer")):
+def login(request: Request, email: str = Form(...), password: str = Form(...), next: str = Form("/customer"), auto_push: str = Form("0")):
     normalized_email = normalize_email(email)
     next_path = sanitize_next_path(next, "/customer")
     user = authenticate_user(normalized_email, password, {"customer"})
     if not user:
         record_event("login_failure", request, None, {"email": normalized_email, "password_length": len((password or '').strip())})
-        return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None, "prefill_email": normalized_email, "next_path": next_path})
+        return render_view(request, "login.html", {"error": "이메일 또는 비밀번호가 올바르지 않습니다.", "user": None, "prefill_email": normalized_email, "next_path": next_path, "auto_push": str(auto_push).strip() in {"1", "true", "on", "yes"}})
     request.session.clear()
     request.session["user_id"] = user["id"]
     request.session["login_role"] = user["role"]
@@ -4561,6 +4577,9 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     record_login(user["id"])
     record_event("login_success", request, user["id"], {"plan": user["plan"]})
     redirect_target = next_path if next_path != "/customer" else redirect_for_customer_entry(user)
+    should_auto_push = str(auto_push).strip() in {"1", "true", "on", "yes"}
+    if should_auto_push and user.get("role") == "customer":
+        redirect_target = add_query_params(redirect_target, {"autopush": 1})
     return RedirectResponse(url=redirect_target, status_code=303)
 
 
@@ -4753,6 +4772,54 @@ async def study_move_link_api(link_id: int, request: Request):
         return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
     return JSONResponse({"ok": True, "changed": changed})
 
+
+
+
+@app.get("/push-setup", response_class=HTMLResponse)
+def push_setup_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login?next=/push-setup", status_code=303)
+    return render_view(request, "push_setup.html", {
+        "user": user,
+        "hide_push_bar": True,
+        "meta_title": "푸시 알림 설정",
+        "meta_description": "앱처럼 설치와 푸시 알림 설정을 분리해서 진행하는 안내 페이지",
+    })
+
+
+
+
+def require_staff(request: Request):
+    user = get_current_user(request)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="관리자/매니저만 접근할 수 있습니다")
+    return user
+
+
+def require_admin(request: Request):
+    user = get_current_user(request)
+    if not is_admin(user):
+        raise HTTPException(status_code=403, detail="최고 관리자만 접근할 수 있습니다")
+    return user
+
+
+@app.get("/admin/push-center", response_class=HTMLResponse)
+def admin_push_center(request: Request, admin=Depends(require_staff)):
+    if admin["must_change_password"]:
+        return RedirectResponse(url="/admin/change-password", status_code=303)
+    conn = get_db()
+    campaigns = [dict(row) for row in conn.execute("SELECT * FROM push_campaigns ORDER BY id DESC").fetchall()]
+    conn.close()
+    for row in campaigns:
+        row["status_meta"] = build_campaign_status(row)
+    return render_view(request, "admin_push_center.html", {
+        "admin": admin,
+        "user": admin,
+        "plan_levels": PLAN_LEVELS,
+        "push_status": get_push_admin_status(),
+        "campaigns": campaigns,
+    })
 
 @app.get("/mind", response_class=HTMLResponse)
 def mind_routine_page(request: Request):
@@ -5612,7 +5679,7 @@ async def admin_create_ad(
         )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/update")
@@ -5672,7 +5739,7 @@ async def admin_update_ad(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/toggle")
@@ -5683,7 +5750,7 @@ def admin_toggle_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         conn.execute('UPDATE media_ads SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, ad_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/ads/{ad_id}/delete")
@@ -5696,7 +5763,7 @@ def admin_delete_ad(ad_id: int, request: Request, admin=Depends(require_admin)):
         media_url = row['media_url'] or ''
         remove_upload_mirrors(media_url)
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-settings")
@@ -5718,7 +5785,7 @@ def admin_update_push_settings(
         conn.execute("INSERT INTO site_settings (key, value, updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at", (key, value, now_ts))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#push-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push")
@@ -5732,7 +5799,7 @@ def admin_create_push(
 ):
     audience_plan = audience_plan if audience_plan in ['ALL'] + PLAN_LEVELS else 'ALL'
     create_push_notification(title, message, target_url.strip() or '/fortune', audience_plan)
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.get("/api/push/public-key")
@@ -6023,7 +6090,7 @@ def admin_create_push_campaign(
     )
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/send-now")
@@ -6033,7 +6100,7 @@ def admin_send_push_campaign_now(campaign_id: int, request: Request, admin=Depen
     conn.close()
     if row:
         create_push_notification(row['title'], row['message'], row['target_url'], row['audience_plan'])
-    return RedirectResponse(url='/admin?settings_updated=1', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/toggle")
@@ -6044,7 +6111,7 @@ def admin_toggle_push_campaign(campaign_id: int, request: Request, admin=Depends
         conn.execute('UPDATE push_campaigns SET is_active=? WHERE id=?', (0 if row['is_active'] else 1, campaign_id))
         conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/push-campaigns/{campaign_id}/delete")
@@ -6053,7 +6120,7 @@ def admin_delete_push_campaign(campaign_id: int, request: Request, admin=Depends
     conn.execute('DELETE FROM push_campaigns WHERE id=?', (campaign_id,))
     conn.commit()
     conn.close()
-    return RedirectResponse(url='/admin?settings_updated=1#promo-panel', status_code=303)
+    return RedirectResponse(url='/admin/push-center?settings_updated=1', status_code=303)
 
 
 @app.post("/admin/inquiry/{inquiry_id}/status")
