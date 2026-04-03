@@ -4506,12 +4506,7 @@ def home(request: Request):
 
 @app.get("/signup", response_class=HTMLResponse)
 def signup_page(request: Request):
-    return render_view(request, "signup.html", {
-        "error": None,
-        "user": None,
-        "form_marital_status": "싱글",
-        "form_has_children": "없음",
-    })
+    return render_view(request, "signup.html", {"error": None, "user": None})
 
 
 @app.post("/signup", response_class=HTMLResponse)
@@ -4540,24 +4535,24 @@ def signup(
     cleaned_phone = normalize_text_input(phone)
     cleaned_gender = normalize_text_input(gender)
     cleaned_interests = normalize_text_input(interests)
-    cleaned_birth_hour = re.sub(r"\D", "", str(birth_hour or "").strip())[:2]
-    cleaned_birth_minute = re.sub(r"\D", "", str(birth_minute or "").strip())[:2]
     marital_status = marital_status if marital_status in {"기혼", "연애", "싱글"} else "싱글"
     has_children = has_children if has_children in {"있음", "없음"} else "없음"
 
     if birth_year and birth_month and birth_day:
-        birth_date = f"{str(birth_year).zfill(4)}-{str(birth_month).zfill(2)}-{str(birth_day).zfill(2)}"
+        birth_date = f"{birth_year.zfill(4)}-{birth_month.zfill(2)}-{birth_day.zfill(2)}"
+
+    parsed_birth = parse_date_value(birth_date)
 
     base_context = {
         "user": None,
         "form_name": cleaned_name,
         "form_email": normalized_email,
         "form_phone": cleaned_phone,
-        "form_birth_year": re.sub(r"\D", "", str(birth_year or ""))[:4],
-        "form_birth_month": re.sub(r"\D", "", str(birth_month or ""))[:2],
-        "form_birth_day": re.sub(r"\D", "", str(birth_day or ""))[:2],
-        "form_birth_hour": cleaned_birth_hour,
-        "form_birth_minute": cleaned_birth_minute,
+        "form_birth_year": (birth_year or "").strip(),
+        "form_birth_month": (birth_month or "").strip(),
+        "form_birth_day": (birth_day or "").strip(),
+        "form_birth_hour": (birth_hour or "").strip(),
+        "form_birth_minute": (birth_minute or "").strip(),
         "form_gender": cleaned_gender,
         "form_interests": cleaned_interests,
         "form_marital_status": marital_status,
@@ -4567,26 +4562,21 @@ def signup(
         return render_view(request, "signup.html", {**base_context, "error": "이름을 입력해 주세요."})
     if not normalized_email:
         return render_view(request, "signup.html", {**base_context, "error": "이메일을 입력해 주세요."})
-    if not cleaned_phone:
-        return render_view(request, "signup.html", {**base_context, "error": "연락처를 입력해 주세요."})
     if len(normalized_password) < 4:
         return render_view(request, "signup.html", {**base_context, "error": "비밀번호는 4자 이상으로 입력해 주세요."})
     if normalized_password != normalized_password_confirm:
         return render_view(request, "signup.html", {**base_context, "error": "비밀번호와 비밀번호 확인이 일치하지 않습니다."})
+    if not parsed_birth:
+        return render_view(request, "signup.html", {**base_context, "error": "생년월일을 정확히 입력해 주세요."})
     if cleaned_gender not in {"남성", "여성"}:
         return render_view(request, "signup.html", {**base_context, "error": "성별을 선택해 주세요."})
 
-    parsed_birth = parse_date_value(birth_date)
-    if not parsed_birth:
-        return render_view(request, "signup.html", {**base_context, "error": "생년월일을 정확히 입력해 주세요."})
-
     birth_date = parsed_birth.strftime("%Y-%m-%d")
     zodiac = ZODIAC_MAP[parsed_birth.year % 12]
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_db()
     try:
-        conn.execute(
+        cursor = conn.execute(
             """
             INSERT INTO users (
                 name,email,password_hash,role,plan,created_at,phone,
@@ -4599,11 +4589,11 @@ def signup(
                 hash_password(normalized_password),
                 "customer",
                 "Free",
-                created_at,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 cleaned_phone,
                 birth_date,
-                cleaned_birth_hour,
-                cleaned_birth_minute,
+                (birth_hour or "").strip(),
+                (birth_minute or "").strip(),
                 cleaned_gender,
                 zodiac,
                 cleaned_interests,
@@ -4613,19 +4603,18 @@ def signup(
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
-        user_id = conn.execute("SELECT id FROM users WHERE email=?", (normalized_email,)).fetchone()[0]
+        user_id = cursor.lastrowid
     except sqlite3.IntegrityError:
         conn.close()
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
-
-    record_event("signup_complete", request, user_id, {"email": normalized_email, "profile_inline": True})
-    record_login(user_id)
-    record_event("login_success", request, user_id, {"plan": "Free", "auto_login": True, "signup_inline": True})
+    record_event("signup_complete", request, user_id, {"email": normalized_email, "integrated_profile": True})
     request.session.clear()
     request.session["user_id"] = user_id
     request.session["login_role"] = "customer"
-    request.session["logged_in_at"] = created_at
+    request.session["logged_in_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    record_login(user_id)
+    record_event("login_success", request, user_id, {"plan": "Free", "auto_login_after_signup": True})
     return RedirectResponse(url=add_query_params("/fortune", {"autopush": 1, "welcome": 1}), status_code=303)
 
 
@@ -4635,7 +4624,7 @@ def login_page(request: Request):
     signup_email = normalize_email(request.query_params.get("email") or "")
     next_path = sanitize_next_path(request.query_params.get("next"), "/customer")
     auto_push = request.query_params.get("autopush") == "1"
-    success_message = "가입이 완료되었습니다. 방금 만든 비밀번호로 로그인해 주세요. 회원가입과 동시에 사이트 내 알림함은 자동 활성화되며, 로그인 후 기기 푸시도 자동 연결을 시도합니다." if signup_done else None
+    success_message = "가입이 완료되었습니다." if signup_done else None
     return render_view(request, "login.html", {"error": None, "user": None, "success_message": success_message, "prefill_email": signup_email, "next_path": next_path, "auto_push": auto_push})
 
 

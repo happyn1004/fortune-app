@@ -1,132 +1,63 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card form-card signup-upgrade-card">
-  <div class="section-head compact">
-    <h2>회원가입 + 사주 프로필 한 번에 완료</h2>
-    <p>한 번만 입력하면 바로 오늘의 운세까지 이어집니다. 예전처럼 가입 후 다시 프로필을 입력하지 않아도 됩니다.</p>
-  </div>
+<div class="card form-card">
+  <h2>회원가입</h2>
+  <p class="muted">정확한 운세 분석을 위해 기본 정보를 입력해주세요.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" class="form-grid two-col auth-form-cleanup integrated-signup-form" id="signupForm">
 
-  {% if error %}<div class="error" style="margin-bottom:16px;">{{ error }}</div>{% endif %}
+    <label>이름<input type="text" name="name" required value="{{ form_name or '' }}"></label>
+    <label>이메일<input type="email" name="email" required value="{{ form_email or '' }}" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
+    <label>연락처(핸드폰번호)<input type="text" name="phone" inputmode="tel" placeholder="010-1234-5678" value="{{ form_phone or '' }}" required></label>
+    <label>성별
+      <select name="gender" required>
+        <option value="" {% if not form_gender %}selected{% endif %}>선택해 주세요</option>
+        <option value="남성" {% if form_gender=='남성' %}selected{% endif %}>남성</option>
+        <option value="여성" {% if form_gender=='여성' %}selected{% endif %}>여성</option>
+      </select>
+    </label>
 
-  <div class="signup-inline-tip">
-    <strong>한 번만 입력하면 평생 자동 분석 기반이 만들어집니다</strong>
-    <span>모바일에서도 단계별로 천천히 입력하고, 마지막에 한 번만 가입하면 바로 운세 화면으로 이동합니다.</span>
-  </div>
-
-  <div class="signup-stepper" id="signupStepper" aria-label="회원가입 단계">
-    <div class="signup-step is-active" data-step-indicator="1">
-      <span class="step-no">1</span>
-      <span class="step-label">계정 정보</span>
-    </div>
-    <div class="signup-step" data-step-indicator="2">
-      <span class="step-no">2</span>
-      <span class="step-label">사주 프로필</span>
-    </div>
-  </div>
-
-  <form method="post" class="form-grid auth-form-cleanup signup-combined-form" id="signupForm">
-    <section class="signup-panel is-active" data-step-panel="1">
-      <div class="signup-panel-head">
-        <h3>1단계 · 계정 정보</h3>
-        <p>로그인에 사용할 기본 정보를 입력해 주세요.</p>
+    <label class="span-2">생년월일
+      <div class="birth-inline-grid">
+        <input type="text" id="birth_year" name="birth_year" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="YYYY" value="{{ form_birth_year or '' }}" required>
+        <span class="birth-sep">년</span>
+        <input type="text" id="birth_month" name="birth_month" inputmode="numeric" maxlength="2" pattern="\d{1,2}" placeholder="MM" value="{{ form_birth_month or '' }}" required>
+        <span class="birth-sep">월</span>
+        <input type="text" id="birth_day" name="birth_day" inputmode="numeric" maxlength="2" pattern="\d{1,2}" placeholder="DD" value="{{ form_birth_day or '' }}" required>
+        <span class="birth-sep">일</span>
       </div>
+      <input type="hidden" name="birth_date" id="birth_date_hidden" value="">
+    </label>
 
-      <label>이름<input type="text" name="name" required value="{{ form_name or '' }}" autocomplete="name"></label>
-      <label>이메일<input type="email" name="email" required value="{{ form_email or '' }}" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" inputmode="email"></label>
-      <label>연락처(핸드폰번호)<input type="text" name="phone" inputmode="tel" placeholder="010-1234-5678" value="{{ form_phone or '' }}" required autocomplete="tel"></label>
-      <label>비밀번호<input type="password" name="password" id="signupPassword" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
-      <label>비밀번호 확인<input type="password" name="password_confirm" id="signupPasswordConfirm" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
-      <label class="checkbox-row"><input type="checkbox" id="togglePasswordView"> 비밀번호 보이기</label>
+    <label>출생 시<input type="number" name="birth_hour" min="0" max="23" placeholder="08" value="{{ form_birth_hour or '' }}"></label>
+    <label>출생 분<input type="number" name="birth_minute" min="0" max="59" placeholder="30" value="{{ form_birth_minute or '' }}"></label>
 
-      <div class="signup-panel-actions solo-next">
-        <button class="btn primary" type="button" id="signupStepNext">다음 단계로</button>
-      </div>
-    </section>
+    <label>결혼 유무
+      <select name="marital_status">
+        <option value="싱글" {% if (form_marital_status or '싱글') == '싱글' %}selected{% endif %}>싱글</option>
+        <option value="연애" {% if form_marital_status == '연애' %}selected{% endif %}>연애</option>
+        <option value="기혼" {% if form_marital_status == '기혼' %}selected{% endif %}>기혼</option>
+      </select>
+    </label>
+    <label>자녀 유무
+      <select name="has_children">
+        <option value="없음" {% if (form_has_children or '없음') == '없음' %}selected{% endif %}>없음</option>
+        <option value="있음" {% if form_has_children == '있음' %}selected{% endif %}>있음</option>
+      </select>
+    </label>
 
-    <section class="signup-panel" data-step-panel="2">
-      <div class="signup-panel-head">
-        <h3>2단계 · 사주 프로필</h3>
-        <p>처음 한 번만 입력하면 이후에는 자동으로 이어집니다. 출생 시간을 모르시면 비워두셔도 됩니다.</p>
-      </div>
+    <label class="span-2">관심사/보고 싶은 분야<input type="text" name="interests" placeholder="예: 사업, 투자, 건강, 연애" value="{{ form_interests or '' }}"></label>
 
-      <label class="span-2">생년월일
-        <div class="birth-inline-grid">
-          <input type="text" id="birth_year" name="birth_year" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="YYYY" value="{{ form_birth_year or '' }}" required>
-          <span class="birth-sep">년</span>
-          <input type="text" id="birth_month" name="birth_month" inputmode="numeric" maxlength="2" pattern="\d{1,2}" placeholder="MM" value="{{ form_birth_month or '' }}" required>
-          <span class="birth-sep">월</span>
-          <input type="text" id="birth_day" name="birth_day" inputmode="numeric" maxlength="2" pattern="\d{1,2}" placeholder="DD" value="{{ form_birth_day or '' }}" required>
-          <span class="birth-sep">일</span>
-        </div>
-        <input type="hidden" name="birth_date" id="birth_date_hidden" value="">
-      </label>
+    <label>비밀번호<input type="password" name="password" id="signupPassword" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+    <label>비밀번호 확인<input type="password" name="password_confirm" id="signupPasswordConfirm" required autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
 
-      <label>성별
-        <select name="gender" required>
-          <option value="" {% if not form_gender %}selected{% endif %}>선택해 주세요</option>
-          <option value="남성" {% if form_gender=='남성' %}selected{% endif %}>남성</option>
-          <option value="여성" {% if form_gender=='여성' %}selected{% endif %}>여성</option>
-        </select>
-      </label>
-
-      <label>출생 시<input type="number" name="birth_hour" min="0" max="23" placeholder="08" value="{{ form_birth_hour or '' }}"></label>
-      <label>출생 분<input type="number" name="birth_minute" min="0" max="59" placeholder="30" value="{{ form_birth_minute or '' }}"></label>
-
-      <label>결혼 유무
-        <select name="marital_status">
-          <option value="싱글" {% if (form_marital_status or '싱글') == '싱글' %}selected{% endif %}>싱글</option>
-          <option value="연애" {% if form_marital_status == '연애' %}selected{% endif %}>연애</option>
-          <option value="기혼" {% if form_marital_status == '기혼' %}selected{% endif %}>기혼</option>
-        </select>
-      </label>
-
-      <label>자녀 유무
-        <select name="has_children">
-          <option value="없음" {% if (form_has_children or '없음') == '없음' %}selected{% endif %}>없음</option>
-          <option value="있음" {% if form_has_children == '있음' %}selected{% endif %}>있음</option>
-        </select>
-      </label>
-
-      <label class="span-2">관심사/보고 싶은 분야<input type="text" name="interests" placeholder="예: 사업, 투자, 건강, 연애" value="{{ form_interests or '' }}"></label>
-
-      <label class="checkbox-row consent-row span-2"><input type="checkbox" id="signupPushConsent" required checked> 회원가입과 동시에 사이트 내 알림함이 자동 활성화되며, 브라우저가 허용하면 기기 푸시도 자동 연결을 시도하는 것에 동의합니다.</label>
-      <div class="muted span-2">회원가입이 완료되면 자동 로그인 후 바로 운세 화면으로 이동합니다. 기기 푸시는 브라우저 정책상 완전 강제는 불가능하지만, 로그인 없이도 가입 직후 자동 연결을 시도하도록 바꿨습니다.</div>
-      <div class="muted span-2">모바일에서는 자동완성이나 대문자 자동입력 때문에 비밀번호가 다르게 저장될 수 있습니다. 비밀번호 확인 칸까지 같아야 가입됩니다.</div>
-
-      <div class="signup-panel-actions">
-        <button class="btn ghost" type="button" id="signupStepPrev">이전</button>
-        <button class="btn primary" type="submit">가입하고 바로 운세 보기</button>
-      </div>
-    </section>
+    <label class="checkbox-row span-2"><input type="checkbox" id="togglePasswordView"> 비밀번호 보이기</label>
+    <label class="checkbox-row consent-row span-2"><input type="checkbox" id="signupPushConsent" required checked> 회원가입과 동시에 사이트 내 알림함이 자동 활성화되며, 브라우저가 허용하면 기기 푸시도 자동 연결을 시도하는 것에 동의합니다.</label>
+    <div class="muted span-2">입력이 끝나면 바로 오늘의 운세를 확인할 수 있습니다.</div>
+    <div class="muted span-2">출생 시간을 모르시면 비워두셔도 됩니다. 생년월일과 성별은 정확하게 입력해 주세요.</div>
+    <button class="btn primary span-2" type="submit">오늘의 운세 확인하기</button>
   </form>
 </div>
-
-<style>
-.signup-upgrade-card{max-width:860px;margin:0 auto}
-.signup-inline-tip{display:grid;gap:6px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.05);margin:0 0 18px}
-.signup-inline-tip strong{font-size:1rem}
-.signup-inline-tip span{color:rgba(255,255,255,.78);font-size:.95rem;line-height:1.6}
-.signup-stepper{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px}
-.signup-step{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);opacity:.72;transition:.2s ease}
-.signup-step.is-active,.signup-step.is-done{opacity:1;border-color:rgba(255,214,94,.55);background:linear-gradient(135deg,rgba(255,214,94,.18),rgba(255,255,255,.06))}
-.signup-step .step-no{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,214,94,.18);font-weight:800;color:#ffd65e}
-.signup-step .step-label{font-weight:700}
-.signup-combined-form{gap:18px}
-.signup-panel{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.signup-panel.is-active{display:grid}
-.signup-panel-head{grid-column:1/-1;display:grid;gap:6px}
-.signup-panel-head h3{margin:0;font-size:1.08rem}
-.signup-panel-head p{margin:0;color:rgba(255,255,255,.78);line-height:1.6}
-.signup-panel-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;align-items:center}
-.signup-panel-actions.solo-next{justify-content:flex-end}
-.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.18);color:#fff}
-@media (max-width: 760px){
-  .signup-stepper{grid-template-columns:1fr}
-  .signup-panel{grid-template-columns:1fr}
-  .signup-panel-actions{flex-direction:column}
-  .signup-panel-actions .btn{width:100%}
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -134,60 +65,42 @@ document.addEventListener('DOMContentLoaded', function () {
   const password = document.getElementById('signupPassword');
   const confirm = document.getElementById('signupPasswordConfirm');
   const toggle = document.getElementById('togglePasswordView');
-  const stepNext = document.getElementById('signupStepNext');
-  const stepPrev = document.getElementById('signupStepPrev');
-  const panels = Array.from(document.querySelectorAll('[data-step-panel]'));
-  const indicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
   const year = document.getElementById('birth_year');
   const month = document.getElementById('birth_month');
   const day = document.getElementById('birth_day');
   const hidden = document.getElementById('birth_date_hidden');
-  let currentStep = 1;
 
-  function updateStep(step) {
-    currentStep = step;
-    panels.forEach(function(panel){
-      panel.classList.toggle('is-active', Number(panel.dataset.stepPanel) === step);
-    });
-    indicators.forEach(function(item){
-      const itemStep = Number(item.dataset.stepIndicator);
-      item.classList.toggle('is-active', itemStep === step);
-      item.classList.toggle('is-done', itemStep < step);
-    });
-    const activePanel = document.querySelector('[data-step-panel="' + step + '"]');
-    const focusTarget = activePanel && activePanel.querySelector('input, select, textarea, button');
-    if (focusTarget && window.innerWidth <= 860) {
-      setTimeout(function(){ focusTarget.focus(); }, 80);
-    }
-  }
+  const syncDate = () => {
+    const y = (year?.value || '').padStart(4, '0');
+    const m = (month?.value || '').padStart(2, '0');
+    const d = (day?.value || '').padStart(2, '0');
+    hidden.value = year?.value && month?.value && day?.value ? `${y}-${m}-${d}` : '';
+  };
 
-  function validateStepOne() {
-    const requiredFields = [
-      form.querySelector('input[name="name"]'),
-      form.querySelector('input[name="email"]'),
-      form.querySelector('input[name="phone"]'),
-      password,
-      confirm,
-    ];
-    for (const field of requiredFields) {
-      if (!field || !String(field.value || '').trim()) {
-        alert('1단계 정보를 먼저 입력해 주세요.');
-        if (field) field.focus();
-        return false;
+  const numericOnly = (input, maxLen, nextInput) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/\D/g, '').slice(0, maxLen);
+      if (nextInput && input.value.length === maxLen) nextInput.focus();
+      syncDate();
+    });
+    input.addEventListener('blur', syncDate);
+  };
+
+  numericOnly(year, 4, month);
+  numericOnly(month, 2, day);
+  numericOnly(day, 2, null);
+
+  [year, month, day].forEach((el, idx) => {
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !el.value) {
+        if (idx === 1 && year) year.focus();
+        if (idx === 2 && month) month.focus();
       }
-    }
-    if (password.value.replace(/[​﻿]/g, '').trim().length < 4) {
-      alert('비밀번호는 4자 이상으로 입력해 주세요.');
-      password.focus();
-      return false;
-    }
-    if (password.value.replace(/[​﻿]/g, '').trim() !== confirm.value.replace(/[​﻿]/g, '').trim()) {
-      alert('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
-      confirm.focus();
-      return false;
-    }
-    return true;
-  }
+    });
+  });
+  syncDate();
 
   if (toggle) {
     toggle.addEventListener('change', function () {
@@ -197,50 +110,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  if (stepNext) {
-    stepNext.addEventListener('click', function () {
-      if (!validateStepOne()) return;
-      updateStep(2);
-    });
-  }
-
-  if (stepPrev) {
-    stepPrev.addEventListener('click', function () {
-      updateStep(1);
-    });
-  }
-
-  const numericOnly = (input, maxLen) => {
-    if (!input) return;
-    input.addEventListener('input', () => {
-      input.value = input.value.replace(/\D/g, '').slice(0, maxLen);
-      if (input === year && input.value.length === 4 && month) month.focus();
-      if (input === month && input.value.length === 2 && day) day.focus();
-      syncDate();
-    });
-  };
-  const syncDate = () => {
-    if (!year || !month || !day || !hidden) return;
-    const y = year.value.padStart(4, '0');
-    const m = month.value.padStart(2, '0');
-    const d = day.value.padStart(2, '0');
-    hidden.value = year.value && month.value && day.value ? `${y}-${m}-${d}` : '';
-  };
-  [year, month, day].forEach((el, idx) => {
-    if (!el) return;
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace' && !el.value) {
-        if (idx === 1 && year) year.focus();
-        if (idx === 2 && month) month.focus();
-      }
-    });
-    el.addEventListener('blur', syncDate);
-  });
-  numericOnly(year, 4);
-  numericOnly(month, 2);
-  numericOnly(day, 2);
-  syncDate();
-
   if (form) {
     form.addEventListener('submit', function (e) {
       var email = form.querySelector('input[name="email"]');
@@ -249,31 +118,26 @@ document.addEventListener('DOMContentLoaded', function () {
         if (field) field.value = field.value.replace(/[​﻿]/g, '').trim();
       });
       syncDate();
-      if (!validateStepOne()) {
+      if (!password || !confirm) return;
+      if (password.value.length < 4) {
         e.preventDefault();
-        updateStep(1);
+        alert('비밀번호는 4자 이상으로 입력해 주세요.');
+        password.focus();
         return;
       }
-      if (!year.value || !month.value || !day.value) {
+      if (password.value !== confirm.value) {
         e.preventDefault();
-        updateStep(2);
-        alert('생년월일을 입력해 주세요.');
-        if (!year.value) year.focus();
-        else if (!month.value) month.focus();
-        else day.focus();
+        alert('비밀번호와 비밀번호 확인이 일치하지 않습니다. 다시 확인해 주세요.');
+        confirm.focus();
         return;
       }
-      const gender = form.querySelector('select[name="gender"]');
-      if (!gender || !gender.value) {
+      if (!hidden.value) {
         e.preventDefault();
-        updateStep(2);
-        alert('성별을 선택해 주세요.');
-        if (gender) gender.focus();
+        alert('생년월일을 정확히 입력해 주세요.');
+        year?.focus();
       }
     });
   }
-
-  updateStep({% if error and (form_birth_year or form_birth_month or form_birth_day or form_gender or form_interests) %}2{% else %}1{% endif %});
 });
 </script>
 {% endblock %}

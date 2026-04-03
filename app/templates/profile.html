@@ -3,8 +3,8 @@
 <div class="card form-card">
   {% if error %}<div class="error" style="margin-bottom:16px;">{{ error }}</div>{% endif %}
   <div class="section-head compact">
-    <h2>사주 프로필 입력</h2>
-    <p>처음 한 번만 입력하면 다음 로그인부터는 다시 입력하지 않아도 됩니다. 출생 시간을 모르시면 비워두셔도 됩니다.</p>
+    <h2>사주 프로필 수정</h2>
+    <p>회원가입 때 입력한 정보를 수정하는 화면입니다. 출생 시간을 모르시면 비워두셔도 됩니다.</p>
     {% if user.plan_expires_at %}<p class="muted">이용권 만료일: {{ user.plan_expires_at }} · 현재 등급 <span class="grade-badge grade-{{ user.plan|lower }}">{{ user.plan }}</span></p>{% endif %}
   </div>
   <form method="post" class="form-grid two-col profile-form-grid">
