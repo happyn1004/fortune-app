@@ -4939,3 +4939,30 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   .voice-speed-chip{padding:8px 10px;font-size:.88rem}
 }
 
+
+
+/* compact share strip */
+.share-promo-wrap-compact{margin-top:12px;margin-bottom:12px}
+.share-promo-card-compact{padding:14px 16px;gap:14px;border-radius:18px;align-items:center}
+.share-promo-copy-compact{flex:1 1 auto;min-width:0;gap:4px}
+.share-promo-copy-compact .share-promo-kicker{padding:4px 8px;font-size:11px}
+.share-promo-copy-compact strong{font-size:18px;line-height:1.35}
+.share-promo-actions-compact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:8px;min-width:340px;flex:0 1 340px}
+.share-promo-actions-compact .share-action-btn{min-width:0;width:100%;padding:10px 12px;white-space:nowrap}
+.share-promo-actions-compact .share-promo-status{grid-column:1 / -1;min-height:16px;padding-top:2px;font-size:12px;text-align:right}
+@media (max-width: 768px){
+  .share-promo-wrap-compact{margin-top:10px;margin-bottom:10px}
+  .share-promo-card-compact{padding:10px 12px;gap:10px;border-radius:16px;flex-direction:column;align-items:stretch}
+  .share-promo-copy-compact{gap:3px;width:100%}
+  .share-promo-copy-compact strong{font-size:14px;line-height:1.35}
+  .share-promo-copy-compact .share-promo-kicker{font-size:10px;padding:3px 7px}
+  .share-promo-actions-compact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;flex:1 1 100%;min-width:0;width:100%}
+  .share-promo-actions-compact .share-action-btn{min-width:0;width:100%;padding:8px 0;font-size:12px;border-radius:12px;letter-spacing:-.02em}
+  .share-promo-actions-compact .share-promo-status{grid-column:1 / -1;text-align:left;font-size:11px;min-height:14px}
+}
+@media (max-width: 480px){
+  .share-promo-card-compact{padding:9px 10px;gap:8px}
+  .share-promo-copy-compact strong{font-size:13px}
+  .share-promo-actions-compact{width:100%;min-width:0;gap:5px}
+  .share-promo-actions-compact .share-action-btn{padding:7px 0;font-size:11px}
+}

@@ -26,20 +26,15 @@
         <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '지금 바로 운세 보기' if user and user.role == 'customer' else '지금 바로 운세 확인하기' }}</a>
         <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
       </div>
-      <div class="hero-share-inline">
-        <span>지인에게 바로 전달하고 싶다면 아래 공유 버튼을 눌러보세요</span>
-      </div>
-      <div class="share-promo-wrap" data-share-title="오늘의 운세 + 무료 로또번호 | {{ site_settings.brand_name or '운세조아' }}" data-share-text="오늘의 운세 흐름과 무료 로또번호를 바로 확인해보세요." data-share-url="{{ request.url_for('home') }}">
-        <div class="card share-promo-card">
-          <div class="share-promo-copy">
-            <span class="share-promo-kicker">바로 공유</span>
-            <strong>카카오톡 · 문자 · SNS로 바로 전달하세요</strong>
-            <p>모바일에서는 공유창이 바로 열리고, PC에서는 링크 복사로 바로 전달할 수 있습니다.</p>
+      <div class="share-promo-wrap share-promo-wrap-compact" data-share-title="오늘의 운세 + 무료 로또번호 | {{ site_settings.brand_name or '운세조아' }}" data-share-text="오늘의 운세 흐름과 무료 로또번호를 바로 확인해보세요." data-share-url="{{ request.url_for('home') }}">
+        <div class="card share-promo-card share-promo-card-compact">
+          <div class="share-promo-copy share-promo-copy-compact">
+            <strong>오늘 운세가 마음에 들면 가볍게 나눠보세요</strong>
           </div>
-          <div class="share-promo-actions">
-            <button type="button" class="btn primary" onclick="appShare(this)">공유하기</button>
-            <button type="button" class="btn" onclick="copyShareLink(this)">링크 복사</button>
-            <a href="#" class="btn" onclick="return sendShareSms(this)">문자 보내기</a>
+          <div class="share-promo-actions share-promo-actions-compact">
+            <button type="button" class="btn primary share-action-btn" onclick="appShare(this)">공유하기</button>
+            <button type="button" class="btn share-action-btn" onclick="copyShareLink(this)">링크복사</button>
+            <a href="#" class="btn share-action-btn share-sms-btn" onclick="return sendShareSms(this)">문자보내기</a>
             <div class="share-promo-status" aria-live="polite"></div>
           </div>
         </div>
