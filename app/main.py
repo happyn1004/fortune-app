@@ -4506,7 +4506,12 @@ def home(request: Request):
 
 @app.get("/signup", response_class=HTMLResponse)
 def signup_page(request: Request):
-    return render_view(request, "signup.html", {"error": None, "user": None})
+    return render_view(request, "signup.html", {
+        "error": None,
+        "user": None,
+        "form_marital_status": "싱글",
+        "form_has_children": "없음",
+    })
 
 
 @app.post("/signup", response_class=HTMLResponse)
@@ -4517,28 +4522,94 @@ def signup(
     password: str = Form(...),
     password_confirm: str = Form(...),
     phone: str = Form(""),
+    birth_date: str = Form(""),
+    birth_year: str = Form(""),
+    birth_month: str = Form(""),
+    birth_day: str = Form(""),
+    birth_hour: str = Form(""),
+    birth_minute: str = Form(""),
+    gender: str = Form(""),
+    interests: str = Form(""),
+    marital_status: str = Form("싱글"),
+    has_children: str = Form("없음"),
 ):
     cleaned_name = normalize_text_input(name)
     normalized_email = normalize_email(email)
     normalized_password = normalize_password_input(password)
     normalized_password_confirm = normalize_password_input(password_confirm)
     cleaned_phone = normalize_text_input(phone)
+    cleaned_gender = normalize_text_input(gender)
+    cleaned_interests = normalize_text_input(interests)
+    cleaned_birth_hour = re.sub(r"\D", "", str(birth_hour or "").strip())[:2]
+    cleaned_birth_minute = re.sub(r"\D", "", str(birth_minute or "").strip())[:2]
+    marital_status = marital_status if marital_status in {"기혼", "연애", "싱글"} else "싱글"
+    has_children = has_children if has_children in {"있음", "없음"} else "없음"
 
-    base_context = {"user": None, "form_name": cleaned_name, "form_email": normalized_email, "form_phone": cleaned_phone}
+    if birth_year and birth_month and birth_day:
+        birth_date = f"{str(birth_year).zfill(4)}-{str(birth_month).zfill(2)}-{str(birth_day).zfill(2)}"
+
+    base_context = {
+        "user": None,
+        "form_name": cleaned_name,
+        "form_email": normalized_email,
+        "form_phone": cleaned_phone,
+        "form_birth_year": re.sub(r"\D", "", str(birth_year or ""))[:4],
+        "form_birth_month": re.sub(r"\D", "", str(birth_month or ""))[:2],
+        "form_birth_day": re.sub(r"\D", "", str(birth_day or ""))[:2],
+        "form_birth_hour": cleaned_birth_hour,
+        "form_birth_minute": cleaned_birth_minute,
+        "form_gender": cleaned_gender,
+        "form_interests": cleaned_interests,
+        "form_marital_status": marital_status,
+        "form_has_children": has_children,
+    }
     if not cleaned_name:
         return render_view(request, "signup.html", {**base_context, "error": "이름을 입력해 주세요."})
     if not normalized_email:
         return render_view(request, "signup.html", {**base_context, "error": "이메일을 입력해 주세요."})
+    if not cleaned_phone:
+        return render_view(request, "signup.html", {**base_context, "error": "연락처를 입력해 주세요."})
     if len(normalized_password) < 4:
         return render_view(request, "signup.html", {**base_context, "error": "비밀번호는 4자 이상으로 입력해 주세요."})
     if normalized_password != normalized_password_confirm:
         return render_view(request, "signup.html", {**base_context, "error": "비밀번호와 비밀번호 확인이 일치하지 않습니다."})
+    if cleaned_gender not in {"남성", "여성"}:
+        return render_view(request, "signup.html", {**base_context, "error": "성별을 선택해 주세요."})
+
+    parsed_birth = parse_date_value(birth_date)
+    if not parsed_birth:
+        return render_view(request, "signup.html", {**base_context, "error": "생년월일을 정확히 입력해 주세요."})
+
+    birth_date = parsed_birth.strftime("%Y-%m-%d")
+    zodiac = ZODIAC_MAP[parsed_birth.year % 12]
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO users (name,email,password_hash,role,plan,created_at,phone) VALUES (?,?,?,?,?,?,?)",
-            (cleaned_name, normalized_email, hash_password(normalized_password), "customer", "Free", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cleaned_phone),
+            """
+            INSERT INTO users (
+                name,email,password_hash,role,plan,created_at,phone,
+                birth_date,birth_hour,birth_minute,gender,zodiac,interests,marital_status,has_children
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                cleaned_name,
+                normalized_email,
+                hash_password(normalized_password),
+                "customer",
+                "Free",
+                created_at,
+                cleaned_phone,
+                birth_date,
+                cleaned_birth_hour,
+                cleaned_birth_minute,
+                cleaned_gender,
+                zodiac,
+                cleaned_interests,
+                marital_status,
+                has_children,
+            ),
         )
         conn.commit()
         create_db_backup_if_due("signup", 15)
@@ -4547,9 +4618,15 @@ def signup(
         conn.close()
         return render_view(request, "signup.html", {**base_context, "error": "이미 가입된 이메일입니다."})
     conn.close()
-    record_event("signup_complete", request, user_id, {"email": normalized_email})
+
+    record_event("signup_complete", request, user_id, {"email": normalized_email, "profile_inline": True})
+    record_login(user_id)
+    record_event("login_success", request, user_id, {"plan": "Free", "auto_login": True, "signup_inline": True})
     request.session.clear()
-    return RedirectResponse(url=add_query_params("/login", {"signup": 1, "email": normalized_email, "autopush": 1}), status_code=303)
+    request.session["user_id"] = user_id
+    request.session["login_role"] = "customer"
+    request.session["logged_in_at"] = created_at
+    return RedirectResponse(url=add_query_params("/fortune", {"autopush": 1, "welcome": 1}), status_code=303)
 
 
 @app.get("/login", response_class=HTMLResponse)
