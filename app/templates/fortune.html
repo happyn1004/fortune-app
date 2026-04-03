@@ -76,6 +76,46 @@
 
 
 
+<section class="fortune-voice-premium" id="fortuneVoiceCard">
+  <div class="fortune-voice-shell card">
+    <div class="fortune-voice-topline">
+      <span class="fortune-voice-kicker">VOICE READING</span>
+      <span class="fortune-voice-duration">약 1분</span>
+    </div>
+    <div class="fortune-voice-layout">
+      <div class="fortune-voice-main">
+        <div class="fortune-voice-title-row">
+          <div class="fortune-voice-orb" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div>
+            <h3>오늘의 운세 듣기</h3>
+            <p>핵심 흐름을 편하게 들으면서 오늘의 감을 먼저 잡아보세요.</p>
+          </div>
+        </div>
+        <div class="fortune-voice-controls">
+          <button type="button" class="btn primary fortune-voice-mainbtn" id="fortuneVoicePlayBtn">지금 듣기</button>
+          <button type="button" class="btn fortune-voice-subbtn" id="fortuneVoicePauseBtn" disabled>일시정지</button>
+          <button type="button" class="btn fortune-voice-subbtn" id="fortuneVoiceStopBtn" disabled>정지</button>
+        </div>
+      </div>
+      <div class="fortune-voice-side">
+        <div class="fortune-voice-speed" role="group" aria-label="음성 속도">
+          <span class="fortune-voice-speed-label">재생 속도</span>
+          <div class="fortune-voice-chipset">
+            <button type="button" class="voice-speed-chip active" data-rate="0.95">차분하게</button>
+            <button type="button" class="voice-speed-chip" data-rate="1.05">보통</button>
+            <button type="button" class="voice-speed-chip" data-rate="1.15">빠르게</button>
+          </div>
+        </div>
+        <div class="fortune-voice-status-wrap">
+          <div class="fortune-voice-status" id="fortuneVoiceStatus" aria-live="polite">버튼을 누르면 오늘의 핵심 운세를 들을 수 있습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="card lead-reading-card v103-core-reading-card">
   <div class="panel-head lead-reading-head">
     <div class="lead-head-copy">
@@ -364,4 +404,155 @@
   </div>
   <div class="actions plan-bottom-actions" style="margin-top:22px;"><a class="btn primary" href="/plans">플랜 보기</a><a class="btn" href="/contact">문의하기</a></div>
 </section>
+
+<script>
+  (function(){
+    const playBtn = document.getElementById('fortuneVoicePlayBtn');
+    const pauseBtn = document.getElementById('fortuneVoicePauseBtn');
+    const stopBtn = document.getElementById('fortuneVoiceStopBtn');
+    const statusEl = document.getElementById('fortuneVoiceStatus');
+    if (!playBtn || !pauseBtn || !stopBtn || !statusEl || !('speechSynthesis' in window)) {
+      if (statusEl && !('speechSynthesis' in window)) {
+        statusEl.textContent = '현재 브라우저에서는 음성 듣기를 지원하지 않습니다.';
+      }
+      return;
+    }
+
+    const payload = {
+      name: {{ user.name|tojson }},
+      zodiac: {{ fortune['띠']|tojson }},
+      headline: {{ fortune['오늘의한줄']|tojson }},
+      comment: {{ fortune['오늘의코멘트']|tojson }},
+      focus: {{ fortune['맞춤초점']|tojson }},
+      summary: {{ (fortune['티저요약'] if active_plan == 'Free' else fortune['요약'])|tojson }},
+      direction: {{ fortune['오늘의좋은방향']|tojson }},
+      luckyTime: {{ fortune['행운시간']|tojson }},
+      luckyColor: {{ fortune['행운색']|tojson }},
+      luckyItem: {{ fortune['행운아이템']|tojson }},
+      luckyName: {{ fortune['오늘의길인성씨']|tojson }}
+    };
+
+    let selectedRate = 0.95;
+    let activeUtterance = null;
+    let speaking = false;
+    let selectedVoice = null;
+
+    function buildScript(){
+      return [
+        `${payload.name}님의 오늘 운세입니다.`,
+        `${payload.zodiac}띠의 오늘 핵심 흐름은, ${payload.headline}`,
+        payload.summary,
+        `오늘의 코멘트입니다. ${payload.comment}`,
+        `오늘의 맞춤 초점은 ${payload.focus}`,
+        `좋은 방향은 ${payload.direction}, 행운 시간은 ${payload.luckyTime} 입니다.`,
+        `행운의 색은 ${payload.luckyColor}, 행운 아이템은 ${payload.luckyItem} 입니다.`,
+        `길인 성씨는 ${payload.luckyName} 입니다. 차분하게 한 걸음씩 움직여 보세요.`
+      ].join(' ');
+    }
+
+    function updateButtons(isSpeaking, isPaused){
+      speaking = isSpeaking;
+      playBtn.textContent = isPaused ? '이어서 듣기' : (isSpeaking ? '재생 중' : '음성으로 듣기');
+      playBtn.disabled = isSpeaking && !isPaused;
+      pauseBtn.disabled = !isSpeaking;
+      pauseBtn.textContent = isPaused ? '계속 듣기' : '일시정지';
+      stopBtn.disabled = !isSpeaking;
+    }
+
+    function pickVoice(){
+      const voices = window.speechSynthesis.getVoices() || [];
+      selectedVoice = voices.find(v => /ko[-_]?KR/i.test(v.lang))
+        || voices.find(v => /korean|한국/i.test(`${v.name} ${v.lang}`))
+        || voices[0]
+        || null;
+    }
+
+    function stopSpeech(message){
+      window.speechSynthesis.cancel();
+      activeUtterance = null;
+      updateButtons(false, false);
+      if (message) statusEl.textContent = message;
+    }
+
+    function speakFortune(){
+      stopSpeech();
+      pickVoice();
+      const utterance = new SpeechSynthesisUtterance(buildScript());
+      utterance.lang = selectedVoice?.lang || 'ko-KR';
+      utterance.voice = selectedVoice || null;
+      utterance.rate = selectedRate;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.onstart = function(){
+        activeUtterance = utterance;
+        statusEl.textContent = '오늘의 운세를 읽어드리고 있습니다.';
+        updateButtons(true, false);
+      };
+      utterance.onend = function(){
+        activeUtterance = null;
+        statusEl.textContent = '음성 재생이 끝났습니다. 다시 들으려면 버튼을 눌러주세요.';
+        updateButtons(false, false);
+      };
+      utterance.onerror = function(){
+        activeUtterance = null;
+        statusEl.textContent = '음성 재생 중 문제가 발생했습니다. 다시 시도해 주세요.';
+        updateButtons(false, false);
+      };
+      window.speechSynthesis.speak(utterance);
+    }
+
+    playBtn.addEventListener('click', function(){
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        statusEl.textContent = '이어서 재생 중입니다.';
+        updateButtons(true, false);
+        return;
+      }
+      speakFortune();
+    });
+
+    pauseBtn.addEventListener('click', function(){
+      if (!speaking) return;
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        statusEl.textContent = '이어서 재생 중입니다.';
+        updateButtons(true, false);
+      } else {
+        window.speechSynthesis.pause();
+        statusEl.textContent = '잠시 멈췄습니다.';
+        updateButtons(true, true);
+      }
+    });
+
+    stopBtn.addEventListener('click', function(){
+      stopSpeech('음성 재생을 멈췄습니다.');
+    });
+
+    document.querySelectorAll('.voice-speed-chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        document.querySelectorAll('.voice-speed-chip').forEach(btn => btn.classList.remove('active'));
+        chip.classList.add('active');
+        selectedRate = Number(chip.dataset.rate || '0.95');
+        if (speaking) {
+          speakFortune();
+        } else {
+          statusEl.textContent = '음성 속도가 변경되었습니다.';
+        }
+      });
+    });
+
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden && speaking && !window.speechSynthesis.paused) {
+        window.speechSynthesis.pause();
+        statusEl.textContent = '화면이 전환되어 잠시 멈췄습니다.';
+        updateButtons(true, true);
+      }
+    });
+
+    pickVoice();
+    if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+      window.speechSynthesis.onvoiceschanged = pickVoice;
+    }
+  })();
+</script>
 {% endblock %}

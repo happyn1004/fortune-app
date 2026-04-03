@@ -4886,3 +4886,56 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
 #push-panel .admin-data-box{position:relative;z-index:1;}
 .admin-sticky-toolbar{pointer-events:auto;}
 .admin-sticky-toolbar .btn,.admin-sticky-toolbar a,.admin-sticky-left,.admin-sticky-actions{pointer-events:auto;}
+
+
+.fortune-voice-premium{margin-top:18px}
+.fortune-voice-shell{position:relative;overflow:hidden;background:
+  radial-gradient(circle at top left,rgba(255,214,102,.18),transparent 30%),
+  radial-gradient(circle at bottom right,rgba(255,179,71,.14),transparent 26%),
+  linear-gradient(135deg,rgba(24,18,43,.96),rgba(15,14,29,.96));
+  border:1px solid rgba(255,214,102,.18);
+  box-shadow:0 18px 48px rgba(0,0,0,.22)}
+.fortune-voice-shell::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.03),transparent);pointer-events:none}
+.fortune-voice-topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+.fortune-voice-kicker{display:inline-flex;align-items:center;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,214,102,.26);background:rgba(255,214,102,.08);font-size:.74rem;letter-spacing:.14em;color:#ffd666;font-weight:900}
+.fortune-voice-duration{font-size:.85rem;font-weight:800;color:rgba(255,255,255,.72)}
+.fortune-voice-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.9fr);gap:22px;align-items:stretch}
+.fortune-voice-main,.fortune-voice-side{position:relative;z-index:1}
+.fortune-voice-main{display:flex;flex-direction:column;justify-content:space-between;gap:18px}
+.fortune-voice-title-row{display:flex;align-items:center;gap:16px}
+.fortune-voice-orb{width:62px;height:62px;border-radius:20px;display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:6px;padding:13px;background:linear-gradient(180deg,rgba(255,214,102,.18),rgba(255,214,102,.06));border:1px solid rgba(255,214,102,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.fortune-voice-orb span{display:block;border-radius:999px;background:linear-gradient(180deg,#ffe4a3,#f5b942)}
+.fortune-voice-orb span:nth-child(1){height:40%}
+.fortune-voice-orb span:nth-child(2){height:78%}
+.fortune-voice-orb span:nth-child(3){height:56%}
+.fortune-voice-title-row h3{margin:0 0 8px;font-size:1.34rem;letter-spacing:-.02em}
+.fortune-voice-title-row p{margin:0;color:rgba(255,255,255,.74);line-height:1.6}
+.fortune-voice-controls{display:flex;flex-wrap:wrap;gap:10px}
+.fortune-voice-mainbtn{min-width:148px;justify-content:center;box-shadow:0 10px 28px rgba(245,185,66,.18)}
+.fortune-voice-subbtn{min-width:110px;justify-content:center;background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+.fortune-voice-side{display:grid;grid-template-rows:auto 1fr;gap:14px;padding:18px;border-radius:24px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}
+.fortune-voice-speed{display:grid;gap:10px}
+.fortune-voice-speed-label{font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:800}
+.fortune-voice-chipset{display:flex;flex-wrap:wrap;gap:8px}
+.voice-speed-chip{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:#f6f1e7;padding:9px 12px;border-radius:999px;font-weight:800;cursor:pointer;transition:.2s ease}
+.voice-speed-chip.active{border-color:rgba(255,214,102,.58);background:rgba(255,214,102,.14);color:#ffd666;box-shadow:0 8px 20px rgba(245,185,66,.12)}
+.fortune-voice-status-wrap{display:flex;align-items:stretch}
+.fortune-voice-status{width:100%;padding:14px 16px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.88);font-size:.95rem;line-height:1.65;display:flex;align-items:center}
+@media (max-width:980px){
+  .fortune-voice-layout{grid-template-columns:1fr}
+  .fortune-voice-side{padding:16px}
+}
+@media (max-width:720px){
+  .fortune-voice-premium{margin-top:16px}
+  .fortune-voice-shell{padding:18px}
+  .fortune-voice-topline{margin-bottom:14px}
+  .fortune-voice-title-row{align-items:flex-start;gap:12px}
+  .fortune-voice-orb{width:52px;height:52px;border-radius:16px;padding:10px}
+  .fortune-voice-title-row h3{font-size:1.14rem}
+  .fortune-voice-controls{gap:8px}
+  .fortune-voice-mainbtn,.fortune-voice-subbtn{flex:1 1 calc(50% - 4px);min-width:0}
+  .fortune-voice-subbtn:last-child{flex-basis:100%}
+  .fortune-voice-chipset{gap:6px}
+  .voice-speed-chip{padding:8px 10px;font-size:.88rem}
+}
+
