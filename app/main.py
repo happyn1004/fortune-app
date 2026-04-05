@@ -1781,6 +1781,8 @@ def render_view(request: Request, template_name: str, context: dict):
     context["site_settings"] = get_site_settings()
     context["push_feature_enabled"] = push_service_enabled(context["site_settings"])
     context["push_schedule_clock"] = get_push_schedule_clock(context["site_settings"])
+    if "hide_push_bar" not in context:
+        context["hide_push_bar"] = not is_admin(context.get("user"))
     context["bank_account"] = BANK_ACCOUNT
     context["payment_provider_meta"] = PAYMENT_PROVIDER_META
     promo_enabled = str(context["site_settings"].get("promo_enabled", "0")) == "1"

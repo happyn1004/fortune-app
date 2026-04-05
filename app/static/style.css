@@ -5051,3 +5051,58 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   .fortune-impact-card{padding:13px 14px;border-radius:16px;}
   .fortune-impact-card strong{font-size:.95rem;line-height:1.58;}
 }
+
+
+/* v167 customer push hidden + warmer fortune score readability */
+.fortune-hero h1{
+  color:#fff3d6;
+  text-shadow:0 10px 30px rgba(255,159,69,.16);
+}
+.fortune-score-panel{
+  background:linear-gradient(180deg,rgba(33,24,12,.96),rgba(15,13,18,.98));
+  border:1px solid rgba(255,176,76,.22);
+  box-shadow:0 22px 44px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,220,145,.06);
+}
+.fortune-score-panel.tier-vip,
+.fortune-score-panel.tier-premium,
+.fortune-score-panel.tier-basic{
+  background:linear-gradient(180deg,rgba(33,24,12,.96),rgba(15,13,18,.98));
+  border:1px solid rgba(255,176,76,.22);
+}
+.fortune-score-ring{
+  background:radial-gradient(circle, rgba(255,196,104,.22) 0%, rgba(255,159,69,.34) 38%, rgba(42,25,8,.88) 68%, rgba(16,14,20,.98) 100%);
+  box-shadow:inset 0 0 64px rgba(255,221,154,.08), 0 20px 46px rgba(0,0,0,.28);
+  border:1px solid rgba(255,196,104,.18);
+}
+.score-mini-label{
+  color:#ffc878;
+  text-shadow:0 0 14px rgba(255,159,69,.18);
+}
+.fortune-score-number{
+  color:#ffd57c;
+  text-shadow:0 0 24px rgba(255,159,69,.18);
+}
+.fortune-score-text{
+  color:#fff1cc;
+}
+.v103-score-interpretation{
+  color:#ffd489;
+  text-shadow:0 8px 24px rgba(255,159,69,.12);
+}
+.v118-score-box,
+.v118-score-box-mystery{
+  background:linear-gradient(135deg,rgba(46,30,10,.82),rgba(17,14,20,.94));
+  border:1px solid rgba(255,176,76,.24);
+  box-shadow:0 18px 38px rgba(0,0,0,.24);
+}
+.v118-score-title{
+  color:#ffca79;
+}
+.v118-score-value,
+.v118-score-value-mystery{
+  color:#ffd57c;
+  text-shadow:0 0 24px rgba(255,159,69,.16);
+}
+.v118-score-desc{
+  color:#fff1d2;
+}
