@@ -17,13 +17,13 @@
       </div>
 
       
-<div class="v118-score-box">
+<div class="v118-score-box v118-score-box-mystery" id="landingMysteryScore" role="button" tabindex="0" aria-label="오늘의 운세 점수 확인 유도">
   <div class="v118-score-title">오늘의 운세 점수</div>
-  <div class="v118-score-value" id="fortuneScore">82</div>
-  <div class="v118-score-desc">지금 흐름이 매우 좋은 상태입니다</div>
+  <div class="v118-score-value v118-score-value-mystery" id="fortuneScore">??</div>
+  <div class="v118-score-desc">내 점수는 운세보기에서 바로 확인할 수 있습니다</div>
 </div>
 <div class="actions hero-primary-actions v95-hero-actions">
-        <a class="btn primary big-cta hero-lux-cta" href="/customer">{{ '지금 바로 운세 보기' if user and user.role == 'customer' else '지금 바로 운세 확인하기' }}</a>
+        <a class="btn primary big-cta hero-lux-cta" href="/customer" id="landingScoreCta">{{ '내 점수 바로 확인하기' if user and user.role == 'customer' else '내 점수 바로 확인하기' }}</a>
         <a class="btn hero-secondary-cta" href="/plans">플랜 보기</a>
       </div>
       <div class="share-promo-wrap share-promo-wrap-compact" data-share-title="오늘의 운세 + 무료 로또번호 | {{ site_settings.brand_name or '운세조아' }}" data-share-text="오늘의 운세 흐름과 무료 로또번호를 바로 확인해보세요." data-share-url="{{ request.url_for('home') }}">
@@ -135,6 +135,37 @@
       });
     })();
   </script>
+
+  <script>
+    (function () {
+      const scoreBox = document.getElementById('landingMysteryScore');
+      const scoreValue = document.getElementById('fortuneScore');
+      const scoreCta = document.getElementById('landingScoreCta');
+      if (!scoreBox || !scoreValue) return;
+      const pulse = () => {
+        scoreBox.classList.remove('is-activating');
+        void scoreBox.offsetWidth;
+        scoreBox.classList.add('is-activating');
+        scoreValue.textContent = '??';
+        setTimeout(() => scoreValue.textContent = '? ?', 180);
+        setTimeout(() => scoreValue.textContent = '??', 420);
+        setTimeout(() => scoreBox.classList.remove('is-activating'), 1200);
+      };
+      scoreBox.addEventListener('click', pulse);
+      scoreBox.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          pulse();
+        }
+      });
+      if (scoreCta) {
+        scoreCta.addEventListener('mouseenter', pulse);
+        scoreCta.addEventListener('touchstart', pulse, { passive: true });
+      }
+      setInterval(pulse, 4000);
+    })();
+  </script>
+
 </section>
 
 

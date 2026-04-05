@@ -4966,3 +4966,88 @@ h1, h2, h3, h4, p, dt, dd, span, a, strong, div, label, button { overflow-wrap: 
   .share-promo-actions-compact{width:100%;min-width:0;gap:5px}
   .share-promo-actions-compact .share-action-btn{padding:7px 0;font-size:11px}
 }
+
+
+/* v164 landing mystery score + impact hero */
+.v118-score-box-mystery{
+  position:relative;
+  overflow:hidden;
+  cursor:pointer;
+  background:linear-gradient(135deg,rgba(82,58,18,.58),rgba(33,25,14,.72));
+  border:1px solid rgba(255,216,107,.22);
+  box-shadow:0 16px 34px rgba(0,0,0,.22);
+}
+.v118-score-box-mystery::before{
+  content:'';
+  position:absolute;
+  inset:-40% auto -40% -20%;
+  width:42%;
+  transform:rotate(18deg);
+  background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,229,145,.16),rgba(255,255,255,0));
+  animation:v118MysterySweep 3.6s ease-in-out infinite;
+}
+.v118-score-value-mystery{
+  letter-spacing:.14em;
+  text-shadow:0 0 18px rgba(255,216,107,.2);
+}
+.v118-score-box-mystery.is-activating{
+  transform:translateY(-2px) scale(1.01);
+  border-color:rgba(255,216,107,.38);
+  box-shadow:0 22px 42px rgba(0,0,0,.28),0 0 0 1px rgba(255,216,107,.14) inset;
+}
+.v118-score-box-mystery.is-activating .v118-score-value-mystery{
+  animation:v118MysteryBlink .9s ease;
+}
+@keyframes v118MysterySweep{
+  0%{left:-26%;opacity:0}
+  20%{opacity:1}
+  60%{left:94%;opacity:.9}
+  100%{left:110%;opacity:0}
+}
+@keyframes v118MysteryBlink{
+  0%,100%{opacity:1;transform:scale(1)}
+  30%{opacity:.28;transform:scale(.96)}
+  60%{opacity:1;transform:scale(1.04)}
+}
+.fortune-impact-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:8px;
+}
+.fortune-impact-card{
+  display:grid;
+  gap:8px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.08);
+}
+.fortune-impact-card.primary{
+  background:linear-gradient(135deg,rgba(91,63,17,.68),rgba(55,39,12,.86));
+  border-color:rgba(255,216,77,.22);
+}
+.fortune-impact-card.accent{
+  background:linear-gradient(135deg,rgba(79,45,20,.58),rgba(34,29,25,.82));
+  border-color:rgba(255,200,120,.18);
+}
+.fortune-impact-card span{
+  font-size:.76rem;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#ffe39a;
+}
+.fortune-impact-card strong{
+  font-size:1rem;
+  line-height:1.65;
+  color:#fff7d7;
+  font-weight:900;
+}
+@media (max-width: 760px){
+  .v118-score-box-mystery{padding:16px 14px;}
+  .v118-score-value-mystery{font-size:2rem;}
+  .fortune-impact-strip{grid-template-columns:1fr;gap:8px;margin-top:4px;}
+  .fortune-impact-card{padding:13px 14px;border-radius:16px;}
+  .fortune-impact-card strong{font-size:.95rem;line-height:1.58;}
+}

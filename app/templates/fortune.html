@@ -54,6 +54,20 @@
     <h1>{{ user.name }}님의 오늘 운세</h1>
     <p class="fortune-one-line v103-score-interpretation">{{ fortune['오늘의한줄'] }}</p>
     <p class="fortune-summary">{{ fortune['티저요약'] if active_plan == "Free" else fortune['요약'] }}</p>
+    <div class="fortune-impact-strip">
+      <div class="fortune-impact-card primary">
+        <span>오늘 핵심</span>
+        <strong>{{ fortune['오늘의한줄'] }}</strong>
+      </div>
+      <div class="fortune-impact-card">
+        <span>좋은 방향</span>
+        <strong>{{ fortune['오늘의좋은방향'] }}</strong>
+      </div>
+      <div class="fortune-impact-card accent">
+        <span>행운시간</span>
+        <strong>{{ fortune['행운시간'] }}</strong>
+      </div>
+    </div>
     {% if user.role == 'admin' %}
     <div class="preview-switch left-margin">
       <span class="preview-label">관리자 전용 단계별 테스트</span>
